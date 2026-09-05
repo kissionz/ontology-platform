@@ -1,3 +1,4 @@
+import { relationJoinExpression, relationTraversals } from "../../domain/src/relations.js";
 import { randomUUID } from "node:crypto";
 import type {
   ExecuteSemanticQueryInput,
@@ -381,6 +382,8 @@ export class OntologyPlatform {
           (item) => item.id !== operation.id,
         );
     }
+    const changedObjects = new Set(operations.filter(op => op.op === "UPSERT_OBJECT").map(op => op.value.id));
+    next.relations = next.relations.map(relation => changedObjects.has(relation.sourceObjectId) || changedObjects.has(relation.targetObjectId) ? { ...relation, joinExpression: relationJoinExpression(next, relation) || relation.joinExpression } : relation);
     const kernel = runKernel(next);
     next = {
       ...next,
@@ -901,11 +904,14 @@ export class OntologyPlatform {
       );
       const ontologyContext = input.options?.includeOntologyContext || input.options?.includeAxioms || input.options?.includeInferenceEvidence
         ? this.resolveOntologyContext({ namespace: input.namespace, ontologyVersion: version, question: input.question ?? shape.measureIds.join(" "), purpose: "ANSWER", include: { axioms: true, inferences: true, evidence: true, values: true } }) : undefined;
+      const usedRelationIds = new Set(compiled.ir.relationIds);
+      const queryAxioms = [...new Map([...(ontologyContext?.axioms ?? []), ...snapshot.axiomAssertions.filter(a => usedRelationIds.has(a.subjectId))].map(a => [a.id, a])).values()];
+      const queryInferences = [...new Map([...(ontologyContext?.inferences ?? []), ...snapshot.inferredAssertions.filter(i => i.premiseAssertionIds.some(id => usedRelationIds.has(id)))].map(i => [i.id, i])).values()];
       const data = {
         status: "SUCCEEDED",
         ...(input.options?.includeOntologyContext ? { ontologyContext } : {}),
-        ...(input.options?.includeAxioms ? { axioms: ontologyContext?.axioms } : {}),
-        ...(input.options?.includeInferenceEvidence ? { inferenceEvidence: ontologyContext?.inferences } : {}),
+        ...(input.options?.includeAxioms ? { axioms: queryAxioms } : {}),
+        ...(input.options?.includeInferenceEvidence ? { inferenceEvidence: queryInferences } : {}),
         resolutionMode: input.queryMode,
         ontologyVersion: version,
         columns: result.columns,
@@ -1233,15 +1239,7 @@ function projectObjects(objects: OntologyObject[], projection: string) {
   }));
 }
 function relationPaths(relations: OntologySnapshotV3["relations"]) {
-  return relations.map((r) => ({
-    from: r.sourceObjectId,
-    to: r.targetObjectId,
-    relationIds: [r.id],
-    cardinality: r.cardinality,
-    safe:
-      ["ONE_TO_ONE", "MANY_TO_ONE"].includes(r.cardinality) &&
-      r.fanoutRisk !== "HIGH",
-  }));
+  return relations.flatMap(r => relationTraversals(r).map(edge => ({ ...edge, relationIds: [r.id], type: r.type, required: r.required, ...(r.composition ? { composition: r.composition } : {}) })));
 }
 function numericSummary(objects: OntologyObject[]) {
   return objects.flatMap((o) =>

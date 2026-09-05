@@ -1350,6 +1350,8 @@ function validateAggregationSafety(
       joined.has(relation.sourceObjectId) && !joined.has(relation.targetObjectId);
     const fromTarget =
       joined.has(relation.targetObjectId) && !joined.has(relation.sourceObjectId);
+    if (relation.type === "DERIVED") throw new Error(`派生关系 ${relation.name} 仅用于血缘说明，不能用于物理连接`);
+    if (relation.type === "COMPOSITION" && relation.composition?.aggregationPolicy === "EXISTS_ONLY") throw new Error(`组成关系 ${relation.name} 仅允许用于 EXISTS 筛选，不能展开对象或指标`);
     const expands =
       relation.cardinality === "MANY_TO_MANY" ||
       (fromSource && relation.cardinality === "ONE_TO_MANY") ||

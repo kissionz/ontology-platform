@@ -539,3 +539,8 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .model-definition > .new-object-form { min-height:0; flex:1; height:auto; overflow:auto; }
 @media (max-width:1320px) { .ontology-columns { grid-template-columns:200px minmax(0,1fr) 235px; gap:14px; } .ontology-stats { gap:12px; } .ontology-stats .stat { padding:12px; } .ontology-stats .stat-icon { width:32px; height:32px; } .model-editor-body { padding:18px; } .model-tabs { gap:12px; } .model-editor-toolbar { padding:0 14px; } }
 .mapping-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }
+
+.relation-settings { min-width: 0; margin: 20px 0 0; padding: 18px 0 0; border: 0; border-top: 1px solid var(--border, #e2e8f0); }
+.relation-settings legend { font-size: 14px; font-weight: 600; padding-right: 12px; }
+.relation-issues { margin: 0; padding: 12px 12px 12px 28px; font-size: 12px; line-height: 1.6; color: #9c3427; background: #fff4ed; border-radius: 6px; }
+.relation-workbench .source-actions h3 { margin: 0 auto 0 0; }

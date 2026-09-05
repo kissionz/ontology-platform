@@ -32,7 +32,7 @@ describe("Phase 7 non-functional targets", () => {
       targetObjectId: "o_999",
       type: "REFERENCE",
       cardinality: "MANY_TO_ONE",
-      joinExpression: `t_0.id = t_999.id`,
+      joinExpression: `object_0.0_id = object_999.999_id`,
       sourcePropertyId: "p_0_id",
       targetPropertyId: "p_999_id",
       direction: "SOURCE_TO_TARGET",
@@ -45,7 +45,7 @@ describe("Phase 7 non-functional targets", () => {
     const result = runKernel({ version: 1, objects, relations, metrics: [], dimensionHierarchies: [] });
     const elapsed = performance.now() - started;
     expect(result.valid).toBe(true);
-    expect(result.axioms.length).toBe(18_000);
+    expect(result.axioms.length).toBe(28_000);
     expect(elapsed).toBeLessThanOrEqual(5_000);
   }, 10_000);
 

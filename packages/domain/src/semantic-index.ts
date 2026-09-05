@@ -220,7 +220,7 @@ export class SemanticIndex {
   }
 
   private indexRelation(relation: OntologyRelation): void {
-    if (!relation.enabled) return;
+    if (!relation.enabled || relation.type === "DERIVED") return;
     if (relation.direction !== "TARGET_TO_SOURCE") {
       const source = this.adjacency.get(relation.sourceObjectId) ?? [];
       source.push({ objectId: relation.targetObjectId, relationId: relation.id });

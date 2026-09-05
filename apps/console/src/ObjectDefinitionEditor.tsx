@@ -1,3 +1,4 @@
+import { RelationEditor, RELATION_LABELS } from "./RelationEditor.js";
 import { useState, type ReactNode } from "react";
 import type { OntologyObject, OntologyProperty, OntologySnapshotV3, PhysicalTable } from "../../../packages/contracts/src/index.js";
 import { instantiateAxioms } from "../../../packages/domain/src/kernel.js";
@@ -11,10 +12,12 @@ function Choices({ label, value, values, onChange, disabled = false }: { label: 
   return <select aria-label={label} value={value} disabled={disabled} onChange={event => onChange(event.target.value)}>{values.map(item => <option key={item} value={item}>{term(item)}</option>)}</select>;
 }
 
-export function ObjectDefinitionEditor({ value, snapshot, tables, editing, busy, dirty, onChange, onSave, onReference, advancedRelations }: {
+export function ObjectDefinitionEditor({ value, snapshot, tables, editing, busy, dirty, onChange, onSave, onReference, onRelationChange, onRelationRemove, advancedRelations }: {
   value: OntologyObject; snapshot: OntologySnapshotV3; tables: PhysicalTable[]; editing: boolean; busy: boolean; dirty: boolean;
   onChange: (object: OntologyObject) => void; onSave: () => void;
   onReference: (property: OntologyProperty, targetId: string) => void;
+  onRelationChange: (relation: OntologySnapshotV3["relations"][number]) => void;
+  onRelationRemove: (id: string) => void;
   advancedRelations?: ReactNode;
 }) {
   const [tab, setTab] = useState("basic");
@@ -28,7 +31,7 @@ export function ObjectDefinitionEditor({ value, snapshot, tables, editing, busy,
   const changeProperty = (patch: Partial<OntologyProperty>) => property && change({ properties: value.properties.map(item => item.id === property.id ? { ...item, ...patch } : item) });
   const axioms = instantiateAxioms({ ...snapshot, objects: [value] }).filter(axiom => axiom.subjectId === value.id || value.properties.some(item => item.id === axiom.subjectId) || relations.some(item => item.id === axiom.subjectId) || metrics.some(item => item.id === axiom.subjectId));
   const objectName = (id: string) => snapshot.objects.find(object => object.id === id)?.label ?? id;
-  const ref = property && relations.find(relation => relation.sourceObjectId === value.id && relation.sourcePropertyId === property.id);
+  const ref = property && relations.find(relation => relation.type === "REFERENCE" && relation.sourceObjectId === value.id && relation.sourcePropertyId === property.id);
   return <div className="object-workbench">
     {editing ? <>
       <div className="model-editor-toolbar">
@@ -85,14 +88,14 @@ export function ObjectDefinitionEditor({ value, snapshot, tables, editing, busy,
             </div></details>
           </div></section>}
         </>}
-        {tab === "relations" && <><h3>对象关系</h3>{relations.length ? <div className="model-table-wrap"><table className="model-table"><thead><tr><th>关系</th><th>来源</th><th>目标</th><th>类型与方向</th></tr></thead><tbody>{relations.map(relation => <tr key={relation.id}><td>{relation.name}</td><td>{objectName(relation.sourceObjectId)}</td><td>{objectName(relation.targetObjectId)}</td><td>{term(relation.cardinality)} · {term(relation.direction)}</td></tr>)}</tbody></table></div> : <p className="model-help">在“属性”中将字段设为“实体引用”，即可选择关联目标。</p>}{advancedRelations}</>}
+        {tab === "relations" && <><RelationEditor snapshot={snapshot} objectId={value.id} busy={busy} onChange={onRelationChange} onRemove={onRelationRemove} />{advancedRelations}</>}
         {tab === "rules" && <><p className="model-help">公理由对象类型和属性定义自动生成；以下内容随当前编辑即时变化。</p><div className="model-rule-list">{axioms.map(axiom => <div key={axiom.id}><strong>{axiomTitle(axiom.axiomCode)}</strong><p>{axiomDescription(axiom.axiomCode)}</p><small>{value.properties.find(item => item.id === axiom.subjectId)?.label ?? value.label} · {term(axiom.enforcement)}</small></div>)}</div></>}
       </div>
     </> : <div className="model-editor-body">
       <dl className="object-summary-strip"><div><dt>对象类型</dt><dd>{term(value.objectType)}</dd></div><div><dt>对象编码</dt><dd title={value.name}>{value.name}</dd></div><div><dt>来源表</dt><dd title={source ? `${source.database}.${source.name}` : value.sourceTableId}>{source ? `${source.database}.${source.name}` : value.sourceTableId}</dd></div><div><dt>行级粒度</dt><dd title={grain}>{grain}</dd></div></dl>
       {value.description && <p className="object-description">{value.description}</p>}
       <h3>属性 <span>{value.properties.length}</span></h3><div className="model-table-wrap"><table className="model-table"><thead><tr><th>业务名称</th><th>物理字段</th><th>字段含义</th><th>约束与聚合</th><th>可见性</th></tr></thead><tbody>{value.properties.map(item => <tr key={item.id}><td><strong>{item.label}</strong><small>{item.name}</small></td><td>{item.sourceColumn}</td><td>{term(item.meaning)}<small>{item.dataType}</small></td><td>{value.grainPropertyIds.includes(item.id) ? <span className="model-chip">构成行级粒度</span> : null}{item.numericSpec ? <small>{term(item.numericSpec.defaultAggregation)} · {term(item.numericSpec.aggregationBehavior)}</small> : !value.grainPropertyIds.includes(item.id) ? "无额外约束" : null}</td><td>{term(item.visibility)}</td></tr>)}</tbody></table></div>
-      <div className="object-summary-related"><section><h3>指标 <span>{metrics.length}</span></h3>{metrics.map(metric => <p key={metric.id}>{metric.label} <small>{term(metric.aggregation)}</small></p>)}</section><section><h3>关系 <span>{relations.length}</span></h3>{relations.map(relation => <p key={relation.id}>{relation.name} <small>{term(relation.cardinality)}</small></p>)}</section></div>
+      <div className="object-summary-related"><section><h3>指标 <span>{metrics.length}</span></h3>{metrics.map(metric => <p key={metric.id}>{metric.label} <small>{term(metric.aggregation)}</small></p>)}</section><section><h3>关系 <span>{relations.length}</span></h3>{relations.map(relation => <p key={relation.id}>{relation.name} <small>{RELATION_LABELS[relation.type]} · {term(relation.cardinality)} · {term(relation.direction)}{!relation.enabled ? " · 已停用" : ""}</small></p>)}</section></div>
     </div>}
   </div>;
 }

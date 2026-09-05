@@ -1,6 +1,9 @@
 import type { AxiomAssertion, DimensionHierarchy, InferredAssertion, Metric, OntologyObject, OntologyRelation, OntologySnapshotV3, ProofStep } from "../../contracts/src/index.js";
 
-export const KERNEL_VERSION = "1.1.0";
+import { relationTraversals, RELATION_RULES } from "./relations.js";
+import { validateRelations } from "./relation-validation.js";
+
+export const KERNEL_VERSION = "1.2.0";
 export interface ValidationIssue { level: "ERROR" | "WARNING"; code: string; message: string; subjectId?: string; references: string[] }
 export interface KernelResult { valid: boolean; issues: ValidationIssue[]; axioms: AxiomAssertion[]; inferences: InferredAssertion[]; inferenceDigest: string }
 
@@ -10,7 +13,10 @@ export const AXIOM_CATALOG = [
   ["GRAIN_PROPERTIES_VALID", "GRAIN"], ["NUMBER_SPEC_REQUIRED", "TYPE"], ["RATIO_NON_ADDITIVE", "METRIC_ALGEBRA"],
   ["SEMI_ADDITIVE_TIME", "METRIC_ALGEBRA"], ["METRIC_SINGLE_FACT", "METRIC_ALGEBRA"], ["METRIC_DEPENDENCY_ACYCLIC", "METRIC_ALGEBRA"],
   ["RELATION_TARGET_ID", "RELATION"], ["RELATION_DIRECTIONAL_PATH", "RELATION"], ["RELATION_CARDINALITY_FANOUT", "RELATION"],
-  ["HIERARCHY_TRANSITIVE", "HIERARCHY"], ["VISIBILITY_SENSITIVE", "VISIBILITY"]
+  ["HIERARCHY_TRANSITIVE", "HIERARCHY"], ["VISIBILITY_SENSITIVE", "VISIBILITY"],
+  ["RELATION_BINDING", "RELATION"], ["RELATION_REFERENCE", "RELATION"], ["RELATION_ASSOCIATION", "RELATION"],
+  ["RELATION_COMPOSITION", "RELATION"], ["RELATION_HIERARCHY", "RELATION"], ["RELATION_EVENT", "RELATION"],
+  ["RELATION_IDENTITY", "RELATION"], ["RELATION_DERIVED", "RELATION"]
 ] as const;
 
 function assertion(code: string, domain: AxiomAssertion["domain"], subjectType: AxiomAssertion["subjectType"], subjectId: string, sourceDefinitionIds: string[], parameters: Record<string, unknown> = {}, severity: AxiomAssertion["severity"] = "INVARIANT", enforcement: AxiomAssertion["enforcement"] = "PUBLISH_VALIDATION"): AxiomAssertion {
@@ -41,9 +47,12 @@ export function instantiateAxioms(snapshot: Pick<OntologySnapshotV3, "objects" |
     if (metric.calculationOperator === "RATIO" || metric.format === "percent") axioms.push(assertion("RATIO_NON_ADDITIVE", "METRIC_ALGEBRA", "METRIC", metric.id, [metric.id], { numerator: metric.leftMetricId, denominator: metric.rightMetricId }, "ERROR", "QUERY_COMPILATION"));
   }
   for (const relation of snapshot.relations) {
+    const parameters = { type: relation.type, sourceObjectId: relation.sourceObjectId, targetObjectId: relation.targetObjectId, sourcePropertyId: relation.sourcePropertyId, targetPropertyId: relation.targetPropertyId, joinExpression: relation.joinExpression, direction: relation.direction, cardinality: relation.cardinality, required: relation.required, enabled: relation.enabled, fanoutRisk: relation.fanoutRisk, ...(relation.composition ? { composition: relation.composition } : {}) };
+    axioms.push(assertion(RELATION_RULES[relation.type], "RELATION", "RELATION", relation.id, [relation.id, relation.sourceObjectId, relation.targetObjectId], parameters, "ERROR", "QUERY_COMPILATION"));
+    axioms.push(assertion("RELATION_BINDING", "RELATION", "RELATION", relation.id, [relation.id, ...[relation.sourcePropertyId, relation.targetPropertyId].filter((id): id is string => Boolean(id))], parameters, "ERROR"));
     axioms.push(assertion("RELATION_DIRECTIONAL_PATH", "RELATION", "RELATION", relation.id, [relation.id], { direction: relation.direction }, "INVARIANT", "SEMANTIC_PLANNING"));
     axioms.push(assertion("RELATION_CARDINALITY_FANOUT", "RELATION", "RELATION", relation.id, [relation.id], { cardinality: relation.cardinality, fanoutRisk: relation.fanoutRisk }, relation.cardinality === "MANY_TO_MANY" ? "ERROR" : "INVARIANT", "SEMANTIC_PLANNING"));
-    if (relation.targetPropertyId) axioms.push(assertion("RELATION_TARGET_ID", "RELATION", "RELATION", relation.id, [relation.id, relation.targetPropertyId], {}, "ERROR"));
+    if (relation.targetPropertyId && ["REFERENCE", "HIERARCHY", "EVENT_PARTICIPATION"].includes(relation.type)) axioms.push(assertion("RELATION_TARGET_ID", "RELATION", "RELATION", relation.id, [relation.id, relation.targetPropertyId], {}, "ERROR"));
   }
   for (const hierarchy of snapshot.dimensionHierarchies) axioms.push(assertion("HIERARCHY_TRANSITIVE", "HIERARCHY", "HIERARCHY", hierarchy.id, [hierarchy.id, ...hierarchy.levels.flatMap(level => [level.objectId, level.propertyId])], { kind: hierarchy.kind }, "ERROR", "SEMANTIC_PLANNING"));
   return axioms.sort(byStableId);
@@ -76,14 +85,7 @@ export function validateSnapshot(snapshot: Pick<OntologySnapshotV3, "objects" | 
       if (property.sensitive && (property.visibility === "ANALYTICAL" || property.valueSearchable || property.exportable)) issues.push(issue("VISIBILITY_SENSITIVE", `${property.label} 为敏感属性，不能进入分析、索引或导出`, property.id, [property.id]));
     }
   }
-  for (const relation of snapshot.relations) {
-    const source = objectById.get(relation.sourceObjectId);
-    if (relation.sourcePropertyId && !source?.properties.some(p => p.id === relation.sourcePropertyId)) issues.push(issue("RELATION_SOURCE_PROPERTY", `${relation.name} 的来源属性不存在`, relation.id, [relation.sourcePropertyId]));
-    const target = objectById.get(relation.targetObjectId);
-    const targetProperty = target?.properties.find(property => property.id === relation.targetPropertyId);
-    if (!objectById.has(relation.sourceObjectId) || !target) issues.push(issue("RELATION_PATH_NOT_FOUND", `${relation.name} 引用了不存在的对象`, relation.id, [relation.sourceObjectId, relation.targetObjectId]));
-    if (relation.targetPropertyId && targetProperty?.meaning !== "ID") issues.push(issue("RELATION_TARGET_ID", `${relation.name} 的目标属性必须是目标对象 ID`, relation.id, [relation.targetPropertyId]));
-  }
+  issues.push(...validateRelations(snapshot));
   for (const metric of snapshot.metrics) {
     const object = objectById.get(metric.objectId);
     if (!object) issues.push(issue("METRIC_SINGLE_FACT", `${metric.label} 的事实对象不存在`, metric.id, [metric.objectId]));
@@ -112,17 +114,16 @@ export function validateSnapshot(snapshot: Pick<OntologySnapshotV3, "objects" | 
 
 export function inferAssertions(snapshot: Pick<OntologySnapshotV3, "version" | "objects" | "metrics" | "relations" | "dimensionHierarchies">, axioms = instantiateAxioms(snapshot)): InferredAssertion[] {
   const results: InferredAssertion[] = [];
+  const relationAxioms = new Map<string, AxiomAssertion[]>();
+  for (const axiom of axioms) if (axiom.subjectType === "RELATION") { const list = relationAxioms.get(axiom.subjectId) ?? []; list.push(axiom); relationAxioms.set(axiom.subjectId, list); }
   type Traversal = { from: string; to: string; relation: OntologyRelation };
   const outgoing = new Map<string, Traversal[]>();
   for (const relation of snapshot.relations.filter(r => r.enabled).sort(byStableId)) {
-    if (relation.fanoutRisk === "HIGH") continue;
-    const forward = relation.direction !== "TARGET_TO_SOURCE" && ["ONE_TO_ONE", "MANY_TO_ONE"].includes(relation.cardinality);
-    const reverse = relation.direction !== "SOURCE_TO_TARGET" && ["ONE_TO_ONE", "ONE_TO_MANY"].includes(relation.cardinality);
-    for (const edge of [forward ? { from: relation.sourceObjectId, to: relation.targetObjectId, relation } : undefined, reverse ? { from: relation.targetObjectId, to: relation.sourceObjectId, relation } : undefined]) {
-      if (edge) { const list = outgoing.get(edge.from) ?? []; list.push(edge); outgoing.set(edge.from, list); }
+    for (const edge of relationTraversals(relation).filter(edge => edge.safe)) {
+      const list = outgoing.get(edge.from) ?? [];
+      list.push({ from: edge.from, to: edge.to, relation }); outgoing.set(edge.from, list);
     }
   }
-  const pathAxioms = new Map(axioms.filter(a => a.axiomCode === "RELATION_DIRECTIONAL_PATH").map(a => [a.subjectId, a.id]));
   for (const origin of [...outgoing.keys()].sort()) {
     const seen = new Set([origin]);
     const queue: Array<{ node: string; path: Traversal[] }> = [{ node: origin, path: [] }];
@@ -135,13 +136,19 @@ export function inferAssertions(snapshot: Pick<OntologySnapshotV3, "version" | "
         queue.push({ node: edge.to, path });
         if (path.length < 2) continue;
         const premises = path.map(e => e.relation.id);
-        const axiomIds = premises.map(id => pathAxioms.get(id)!).filter(Boolean);
+        const axiomIds = path.flatMap(edge => (relationAxioms.get(edge.relation.id) ?? []).filter(a => ["RELATION_DIRECTIONAL_PATH", "RELATION_CARDINALITY_FANOUT", RELATION_RULES[edge.relation.type]].includes(a.axiomCode)).map(a => a.id));
         const proof = path.map((e, i) => fact(i + 1, e.relation.id, `${e.from} 通过 ${e.relation.name} 到达 ${e.to}`));
-        proof.push(axiomStep(proof.length + 1, axiomIds[0]!, "声明方向且当前遍历基数安全的关系可以组合"));
+        for (const axiomId of axiomIds) proof.push(axiomStep(proof.length + 1, axiomId, "路径组合同时遵守关系类型、方向和基数约束"));
         proof.push(derivation(proof.length + 1, `${origin} 可达 ${edge.to}`));
         results.push(inference(snapshot.version, "RELATION_REACHABLE", origin, edge.to, premises, axiomIds, proof));
       }
     }
+  }
+  for (const relation of snapshot.relations.filter(r => r.enabled).sort(byStableId)) {
+    const axiom = relationAxioms.get(relation.id)!.find(a => a.axiomCode === RELATION_RULES[relation.type])!;
+    const predicate = relation.type === "DERIVED" ? "RELATION_LINEAGE" : "RELATION_QUERY_POLICY";
+    const value = { type: relation.type, sourcePropertyId: relation.sourcePropertyId, targetPropertyId: relation.targetPropertyId, ...(relation.type === "DERIVED" ? { physicalJoin: false } : { traversals: relationTraversals(relation), joinKind: relation.required ? "INNER" : "LEFT" }), ...(relation.composition ? { composition: relation.composition } : {}) };
+    results.push(inference(snapshot.version, predicate, relation.sourceObjectId, relation.targetObjectId, [relation.id], [axiom.id], [fact(1, relation.id, relation.name), axiomStep(2, axiom.id, relation.type === "DERIVED" ? "派生关系用于血缘说明，不作为物理查询连接" : "连接遵循关系类型、方向、数量关系和汇总策略"), derivation(3, relation.type === "DERIVED" ? "输出派生依赖" : "输出受公理约束的查询策略")], value));
   }
   for (const hierarchy of snapshot.dimensionHierarchies.filter(item => item.kind === "FIXED_LEVELS")) {
     for (let from = 0; from < hierarchy.levels.length - 2; from++) for (let to = from + 2; to < hierarchy.levels.length; to++) {

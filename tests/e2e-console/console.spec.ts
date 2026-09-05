@@ -284,6 +284,51 @@ test("object tabs save Chinese semantic and aggregation settings and expose type
   await page.screenshot({ path: `${tmpdir()}/ontology-platform-basic-editor-1280.png`, fullPage: true });
 });
 
+test("relations expose seven types, validate semantics, persist configuration and delete in drafts", async ({ page }) => {
+  await page.goto("/?page=ontology");
+  await page.getByRole("button", { name: "在草稿中编辑", exact: true }).click();
+  await page.getByRole("tab", { name: /^关系 / }).click();
+  await page.getByRole("button", { name: "新增关系", exact: true }).click();
+  await page.getByLabel("关系名称", { exact: true }).fill("事件参与测试");
+  await expect(page.getByLabel("关系类型", { exact: true }).locator("option")).toHaveText(["实体引用", "业务关联", "组成关系", "层级关系", "事件参与", "身份对应", "派生血缘"]);
+  await page.getByLabel("关系类型", { exact: true }).selectOption("IDENTITY");
+  await expect(page.getByLabel("关系公理校验")).toContainText("身份对应必须");
+  await page.getByLabel("关系类型", { exact: true }).selectOption("EVENT_PARTICIPATION");
+  await page.getByLabel("必须存在关联记录", { exact: true }).check();
+  await page.getByLabel("遍历方向", { exact: true }).selectOption("BIDIRECTIONAL");
+  const saved = page.waitForResponse(r => r.request().method() === "PATCH" && r.url().includes("/drafts/"));
+  await page.getByRole("button", { name: "保存对象", exact: true }).click();
+  const response = await saved;
+  expect(response.status()).toBe(200);
+  const result = (await response.json()).data;
+  const relationship = result.snapshot.relations.find((r: any) => r.name === "事件参与测试");
+  expect(result.validation.valid).toBe(true);
+  expect(result.snapshot.axiomAssertions.some((a: any) => a.subjectId === relationship.id && a.axiomCode === "RELATION_EVENT" && a.parameters.required && a.parameters.direction === "BIDIRECTIONAL")).toBe(true);
+  await page.reload();
+  await page.getByRole("tab", { name: /^关系 / }).click();
+  await page.getByRole("button", { name: "编辑关系 事件参与测试", exact: true }).click();
+  await expect(page.getByLabel("关系类型", { exact: true })).toHaveValue("EVENT_PARTICIPATION");
+  await expect(page.getByLabel("必须存在关联记录", { exact: true })).toBeChecked();
+  await page.getByLabel("关系类型", { exact: true }).selectOption("COMPOSITION");
+  await page.getByLabel("组成部分汇总策略", { exact: true }).selectOption("EXISTS_ONLY");
+  await expect(page.getByLabel("整体对象", { exact: true })).toHaveValue("o_store");
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({ path: `${tmpdir()}/ontology-platform-relation-editor-${width}.png`, fullPage: true });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("button", { name: "删除关系 事件参与测试", exact: true }).click();
+  await expect(page.getByLabel("关系类型", { exact: true })).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "删除关系 事件参与测试", exact: true }).click();
+  await page.getByRole("button", { name: "保存对象", exact: true }).click();
+  await expect(page.getByRole("button", { name: "保存对象", exact: true })).toBeDisabled();
+  await page.reload();
+  await page.getByRole("tab", { name: /^关系 / }).click();
+  await expect(page.getByRole("button", { name: "编辑关系 事件参与测试", exact: true })).toHaveCount(0);
+});
+
 test("pending tables support typed object creation and draft deletion", async ({ page }) => {
   await page.goto("http://127.0.0.1:4332/?page=ontology");
   await page.getByRole("radio", { name: /orders/ }).check();
