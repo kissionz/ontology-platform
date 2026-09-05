@@ -14,7 +14,7 @@ export class OntologyHttpMcpAdapter {
       case "ContinueSemanticQuery": endpoint = `/v1/semantic-query/clarifications/${encodeURIComponent(String(input.clarificationId))}:continue`; payload = { selections: input.selections }; break;
       case "GetOntologySnapshot": endpoint = `/v1/namespaces/${ns}/ontology?version=${encodeURIComponent(String(input.version ?? "latest"))}`; method = "GET"; break;
       case "ApplyOntologyDraftPatch": endpoint = `/v1/namespaces/${ns}/drafts/${id}`; method = "PATCH"; payload = { revision: input.revision, operations: input.operations }; break;
-      case "ValidateOntologyDraft": endpoint = `/v1/namespaces/${ns}/drafts/${id}/validate`; payload = {}; break;
+      case "ValidateOntologyDraft": endpoint = `/v1/namespaces/${ns}/drafts/${id}/validate`; payload = { goldenCases: input.goldenCases }; break;
       case "PublishOntologyDraft": endpoint = `/v1/namespaces/${ns}/drafts/${id}/publish`; payload = { baseVersion: input.baseVersion, changeSummary: input.changeSummary }; break;
       case "ExplainInference": endpoint = `/v1/namespaces/${ns}/inferences/${encodeURIComponent(String(input.id))}/explanation?version=${encodeURIComponent(String(input.version))}`; method = "GET"; break;
       default: throw new Error(`Unknown MCP tool: ${name}`);

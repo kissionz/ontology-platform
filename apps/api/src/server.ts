@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   ContinueSemanticQueryInputSchema,
-  CreateDraftInputSchema, DraftPatchInputSchema, PublishDraftInputSchema, DataSourceInputSchema,
+  CreateDraftInputSchema, DraftPatchInputSchema, PublishDraftInputSchema, DataSourceInputSchema, ValidateDraftInputSchema,
   ExecuteSemanticQueryInputSchema,
   PlatformException,
   ResolveSemanticContextInputSchema,
@@ -296,7 +296,7 @@ export function buildApp(options: AppOptions = {}) {
     const body = CreateDraftInputSchema.parse(request.body ?? {});
     const base = body.baseVersion ?? "latest", sourceVersion = body.sourceVersion;
     const data = platform.createDraft(ns, base, sourceVersion);
-    return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables() });
+    return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables(), goldenReport: store.getGoldenReport(ns, data.draftId) });
   });
   app.get("/v1/namespaces/:ns/drafts/:draftId", async (request) => {
     requireScopes(request, "ontology:draft");
@@ -312,7 +312,7 @@ export function buildApp(options: AppOptions = {}) {
         },
         404,
       );
-    return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables() });
+    return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables(), goldenReport: store.getGoldenReport(ns, data.draftId) });
   });
   app.patch("/v1/namespaces/:ns/drafts/:draftId", async (request) => {
     requireScopes(request, "ontology:draft");
@@ -326,12 +326,13 @@ export function buildApp(options: AppOptions = {}) {
       revision,
       body.operations,
     );
-    return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables() });
+    return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables(), goldenReport: store.getGoldenReport(ns, data.draftId) });
   });
   app.post("/v1/namespaces/:ns/drafts/:draftId/validate", async (request) => {
     requireScopes(request, "ontology:draft");
     const { ns, draftId } = request.params as { ns: string; draftId: string };
-    const data = platform.validateDraft(ns, draftId);
+    const body = ValidateDraftInputSchema.parse(request.body ?? {});
+    const data = platform.validateDraft(ns, draftId, body.goldenCases);
     return ok(request, ns, undefined, data);
   });
   app.post("/v1/namespaces/:ns/drafts/:draftId/publish", async (request) => {

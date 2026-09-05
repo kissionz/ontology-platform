@@ -103,6 +103,13 @@ export const DraftPatchOperationSchema = z.discriminatedUnion("op", [
 ]);
 export const CreateDraftInputSchema = z.object({ baseVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(), sourceVersion: z.number().int().nonnegative().optional() }).strict();
 export const DraftPatchInputSchema = z.object({ revision: z.number().int().positive().optional(), operations: z.array(DraftPatchOperationSchema).min(1) }).strict();
+export const GoldenCaseSchema = z.object({
+  id: z.string().min(1), label: z.string().min(1), queryShape: FixedQueryShapeSchema,
+  parameters: z.record(z.string(), z.unknown()).optional(),
+  expected: z.object({ rootObjectId: z.string().optional(), measureIds: z.array(z.string()).optional(), dimensionPropertyIds: z.array(z.string()).optional(), relationIds: z.array(z.string()).optional(), sqlContains: z.array(z.string().min(1)).optional() }).strict(),
+}).strict();
+export type GoldenCase = z.infer<typeof GoldenCaseSchema>;
+export const ValidateDraftInputSchema = z.object({ goldenCases: z.array(GoldenCaseSchema).max(100).optional() }).strict();
 export const PublishDraftInputSchema = z.object({ baseVersion: z.number().int().nonnegative(), changeSummary: z.string().optional() }).strict();
 export const DataSourceInputSchema = z.object({ host: z.string().min(1), port: z.number().int().min(1).max(65535), username: z.string().min(1), password: z.string().min(1).optional(), catalog: z.string(), database: z.string().min(1), tls: z.boolean() }).strict();
 
@@ -138,6 +145,7 @@ export const CONTRACT_SCHEMAS = {
   CreateDraftInput: CreateDraftInputSchema,
   DraftPatchInput: DraftPatchInputSchema,
   PublishDraftInput: PublishDraftInputSchema,
+  ValidateDraftInput: ValidateDraftInputSchema,
   DataSourceInput: DataSourceInputSchema,
   QueryIR: QueryIrSchema
 } as const;

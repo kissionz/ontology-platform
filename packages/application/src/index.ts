@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   ExecuteSemanticQueryInput,
+  GoldenCase,
   FixedQueryShape,
   OntologyObject,
   OntologyProperty,
@@ -32,6 +33,18 @@ export interface DraftRecord {
   snapshot: OntologySnapshotV3;
   updatedAt: string;
 }
+export interface GoldenReport {
+  reportId: string;
+  draftId: string;
+  revision: number;
+  checkedAt: string;
+  snapshotDigest: string;
+  schemaDigest: string;
+  mode: "COMPILATION";
+  status: "PASSED" | "FAILED" | "NOT_CONFIGURED";
+  cases: GoldenCase[];
+  results: Array<{ id: string; label: string; passed: boolean; issues: string[]; sqlDigest?: string }>;
+}
 export type CompiledTemplate = Pick<CompiledQuery, "ir" | "sql">;
 
 export interface ClarificationRecord {
@@ -43,6 +56,8 @@ export interface ClarificationRecord {
   expiresAt: string;
 }
 export interface PlatformStorePort {
+  saveGoldenReport(namespace: string, report: GoldenReport): void;
+  getGoldenReport(namespace: string, draftId: string): GoldenReport | undefined;
   getCompiledTemplate(namespace: string, version: number, key: string): CompiledTemplate | undefined;
   putCompiledTemplate(namespace: string, version: number, key: string, template: CompiledTemplate): void;
   saveClarification(record: ClarificationRecord): void;
@@ -385,7 +400,7 @@ export class OntologyPlatform {
       validation: { valid: kernel.valid, issues: kernel.issues },
     };
   }
-  validateDraft(namespace: string, draftId: string) {
+  validateDraft(namespace: string, draftId: string, cases?: GoldenCase[]) {
     const draft = this.store.getDraft(namespace, draftId);
     if (!draft)
       throw new PlatformException(
@@ -398,10 +413,13 @@ export class OntologyPlatform {
         404,
       );
     const kernel = runKernel(draft.snapshot);
+    const goldenCases = this.runGoldenCases(draft, cases ?? this.store.getGoldenReport(namespace, draftId)?.cases ?? []);
+    this.store.saveGoldenReport(namespace, goldenCases);
     return {
       draftId,
       revision: draft.revision,
-      valid: kernel.valid,
+      valid: kernel.valid && goldenCases.status !== "FAILED",
+      goldenCases,
       issues: kernel.issues,
       axiomAssertions: kernel.axioms,
       inferencePreview: kernel.inferences,
@@ -410,6 +428,26 @@ export class OntologyPlatform {
         inference: kernel.inferenceDigest,
       },
     };
+  }
+  private runGoldenCases(draft: DraftRecord, cases: GoldenCase[]): GoldenReport {
+    const tables = this.store.listPhysicalTables();
+    const snapshot = visibleSnapshot({ ...draft.snapshot, status: "PUBLISHED", objects: draft.snapshot.objects.map(item => ({ ...item, status: "PUBLISHED" })), metrics: draft.snapshot.metrics.map(item => ({ ...item, status: "PUBLISHED" })), relations: draft.snapshot.relations.map(item => ({ ...item, status: "PUBLISHED" })), dimensionHierarchies: draft.snapshot.dimensionHierarchies.map(item => ({ ...item, status: "PUBLISHED" })) });
+    const results = cases.map(test => {
+      const issues: string[] = [];
+      try {
+        const shape = bindShape(test.queryShape, test.parameters ?? {});
+        const compiled = this.compiler.compile(shapeToIntent(shape, snapshot), snapshot as unknown as LegacySnapshot, tables as unknown as LegacyTable[]);
+        guardReadOnlySql(compiled.sql, shape.limit);
+        if (test.expected.rootObjectId && test.expected.rootObjectId !== compiled.ir.rootObjectId) issues.push("主对象与预期不一致");
+        for (const key of ["measureIds", "dimensionPropertyIds", "relationIds"] as const)
+          if (test.expected[key] && digest([...test.expected[key]!].sort()) !== digest([...compiled.ir[key]].sort())) issues.push(`${key} 与预期不一致`);
+        for (const text of test.expected.sqlContains ?? []) if (!compiled.sql.includes(text)) issues.push(`SQL 缺少预期片段：${text}`);
+        return { id: test.id, label: test.label, passed: issues.length === 0, issues, sqlDigest: digest(compiled.sql) };
+      } catch (error) {
+        return { id: test.id, label: test.label, passed: false, issues: [error instanceof Error ? error.message : String(error)] };
+      }
+    });
+    return { reportId: `golden_${randomUUID()}`, draftId: draft.draftId, revision: draft.revision, checkedAt: this.now().toISOString(), snapshotDigest: digest(draft.snapshot), schemaDigest: digest(tables), mode: "COMPILATION", status: !cases.length ? "NOT_CONFIGURED" : results.every(result => result.passed) ? "PASSED" : "FAILED", cases, results };
   }
   publishDraft(
     namespace: string,
@@ -446,8 +484,8 @@ export class OntologyPlatform {
         },
         409,
       );
-    const kernel = runKernel(draft.snapshot);
-    if (!kernel.valid)
+    const validation = this.validateDraft(namespace, draftId);
+    if (!validation.valid)
       throw new PlatformException(
         {
           code: "ONTOLOGY_VALIDATION_FAILED",
@@ -455,7 +493,7 @@ export class OntologyPlatform {
           stage: "publish",
           retryable: false,
           action: "修复全部 ERROR 后重新发布",
-          details: { issues: kernel.issues },
+          details: { issues: validation.issues, goldenCases: validation.goldenCases },
         },
         422,
       );
@@ -493,6 +531,7 @@ export class OntologyPlatform {
     this.store.appendAudit(`audit_${randomUUID()}`, `req_${randomUUID()}`, "OntologyPublished", {
       namespace, ontologyVersion: published.version, publishedBy, changeSummary,
       contentDigest: published.contentDigest, inferenceDigest: published.inferenceDigest,
+      goldenReportId: validation.goldenCases.reportId, goldenStatus: validation.goldenCases.status,
     });
     return { ...published, changeSummary };
     });

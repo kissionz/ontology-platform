@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { AxiomAssertion, InferredAssertion, OntologySnapshotV3, PhysicalTable, QueryIR, Scope } from "../../../packages/contracts/src/index.js";
 
-import type { ClarificationRecord, CompiledTemplate } from "../../../packages/application/src/index.js";
+import type { ClarificationRecord, CompiledTemplate, GoldenReport } from "../../../packages/application/src/index.js";
 
 const MIGRATIONS = [
 `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
@@ -29,7 +29,9 @@ CREATE INDEX IF NOT EXISTS ontology_versions_digest ON ontology_versions(namespa
 `CREATE TABLE IF NOT EXISTS ontology_version_metadata (namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, published_by TEXT NOT NULL, change_summary TEXT NOT NULL, PRIMARY KEY(namespace,ontology_version));`,
 `CREATE TABLE IF NOT EXISTS semantic_clarifications (clarification_id TEXT PRIMARY KEY, namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, payload TEXT NOT NULL, expires_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS semantic_clarifications_expiry ON semantic_clarifications(expires_at);`,
-`CREATE TABLE IF NOT EXISTS compiled_query_templates (namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, cache_key TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(namespace,ontology_version,cache_key));`
+`CREATE TABLE IF NOT EXISTS compiled_query_templates (namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, cache_key TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(namespace,ontology_version,cache_key));`,
+`CREATE TABLE IF NOT EXISTS draft_golden_reports (report_id TEXT PRIMARY KEY, namespace TEXT NOT NULL, draft_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS draft_golden_reports_lookup ON draft_golden_reports(namespace,draft_id,created_at);`
 ] as const;
 
 export interface DraftRecord { namespace: string; draftId: string; baseVersion?: number; revision: number; snapshot: OntologySnapshotV3; updatedAt: string }
@@ -83,6 +85,13 @@ export class SqlitePlatformStore {
   explainInference(namespace:string,version:number,id:string): InferredAssertion|undefined { const row=this.db.prepare("SELECT payload FROM inferred_assertions WHERE namespace=? AND ontology_version=? AND id=?").get(namespace,version,id) as {payload:string}|undefined; return row?JSON.parse(row.payload) as InferredAssertion:undefined; }
   saveSession(session: {sessionId:string;namespace:string;ontologyVersion:number;refs:Record<string,string>;expiresAt:string}): void { this.db.prepare("INSERT OR REPLACE INTO semantic_sessions(session_id,namespace,ontology_version,refs,expires_at,created_at) VALUES(?,?,?,?,?,?)").run(session.sessionId,session.namespace,session.ontologyVersion,JSON.stringify(session.refs),session.expiresAt,new Date().toISOString()); }
   getSession(sessionId:string) { const row=this.db.prepare("SELECT session_id sessionId,namespace,ontology_version ontologyVersion,refs,expires_at expiresAt FROM semantic_sessions WHERE session_id=? AND expires_at>?").get(sessionId,new Date().toISOString()) as Record<string,unknown>|undefined; return row?{sessionId:row.sessionId as string,namespace:row.namespace as string,ontologyVersion:row.ontologyVersion as number,refs:JSON.parse(row.refs as string) as Record<string,string>,expiresAt:row.expiresAt as string}:undefined; }
+  saveGoldenReport(namespace: string, report: GoldenReport): void {
+    this.db.prepare("INSERT INTO draft_golden_reports(report_id,namespace,draft_id,payload,created_at) VALUES(?,?,?,?,?)").run(report.reportId, namespace, report.draftId, JSON.stringify(report), report.checkedAt);
+  }
+  getGoldenReport(namespace: string, draftId: string): GoldenReport | undefined {
+    const row = this.db.prepare("SELECT payload FROM draft_golden_reports WHERE namespace=? AND draft_id=? ORDER BY rowid DESC LIMIT 1").get(namespace, draftId) as { payload: string } | undefined;
+    return row ? JSON.parse(row.payload) as GoldenReport : undefined;
+  }
   saveClarification(record: ClarificationRecord): void {
     this.transaction(() => {
       this.db.prepare("DELETE FROM semantic_clarifications WHERE expires_at<=?").run(new Date().toISOString());

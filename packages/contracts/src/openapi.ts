@@ -30,7 +30,7 @@ export function createOpenApiDocument() {
         get: operation("GetOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]),
         patch: { ...operation("PatchOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]), requestBody: request("DraftPatchInput") },
       },
-      "/namespaces/{ns}/drafts/{draftId}/validate": { post: operation("ValidateOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]) },
+      "/namespaces/{ns}/drafts/{draftId}/validate": { post: { ...operation("ValidateOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]), requestBody: request("ValidateDraftInput") } },
       "/namespaces/{ns}/drafts/{draftId}/publish": { post: { ...operation("PublishOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]), requestBody: request("PublishDraftInput") } },
       "/namespaces/{ns}/axioms": { get: operation("ListAxiomAssertions", [pathParameter("ns")]) },
       "/namespaces/{ns}/inferences": { get: operation("ListInferredAssertions", [pathParameter("ns")]) },

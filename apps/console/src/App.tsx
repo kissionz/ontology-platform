@@ -733,6 +733,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [definitionJson, setDefinitionJson] = useState("");
   const [objectForm, setObjectForm] = useState<any>();
   const [batchPatch, setBatchPatch] = useState("[]");
+  const [goldenCaseJson, setGoldenCaseJson] = useState("[]");
   const [objectType, setObjectType] = useState("");
   const [changeSummary, setChangeSummary] = useState("更新本体业务语义");
   const [busy, setBusy] = useState(false);
@@ -802,10 +803,10 @@ function Ontology({ apiKey }: { apiKey: string }) {
       const result = await api<any>(
         `/v1/namespaces/retail/drafts/${draft.draftId}/validate`,
         apiKey,
-        { method: "POST", body: "{}" },
+        { method: "POST", body: JSON.stringify({ goldenCases: JSON.parse(goldenCaseJson) }) },
       );
       setDraft((current: any) => ({ ...current, validation: result }));
-      setMessage(result.valid ? "发布校验通过" : `${result.issues.length} 项校验错误`);
+      setMessage(result.valid ? "发布校验通过" : "发布校验未通过，请查看公理与 Golden Cases 报告");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -903,7 +904,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
                   <button className="primary-button" disabled={busy} onClick={save}>
                     <FloppyDisk size={15} /> 保存对象
                   </button>
-                  <button className="primary-button" disabled={busy} onClick={publish}>发布版本</button>
+                  <button className="primary-button" disabled={busy || !draft?.validation?.valid || draft.validation.revision !== draft.revision} onClick={publish}>发布版本</button>
                 </>
               ) : (
                 <button
@@ -916,6 +917,21 @@ function Ontology({ apiKey }: { apiKey: string }) {
                 </button>
               )}
             </PanelHeader>
+            {editing && <section className="validation-report" aria-label="发布校验报告">
+              <details>
+                <summary>Golden Cases · 编译回归用例</summary>
+                <p>填写查询形状及预期对象、指标、关系或 SQL 片段。校验执行编译与 SQL Guard，业务结果需连接 SelectDB 验收。</p>
+                <textarea className="definition-editor" aria-label="Golden Cases 定义" value={goldenCaseJson} onChange={event => { setGoldenCaseJson(event.target.value); setDraft((current: any) => ({ ...current, validation: undefined })); }} />
+              </details>
+              {draft.validation?.revision === draft.revision ? <div>
+                <strong>revision {draft.revision} · {draft.validation.valid ? "校验通过" : "校验未通过"}</strong>
+                <p>Golden Cases：{draft.validation.goldenCases?.status === "PASSED" ? "全部通过" : draft.validation.goldenCases?.status === "FAILED" ? "存在失败" : "未配置"} · {draft.validation.goldenCases?.results?.length ?? 0} 条用例</p>
+                <small>{draft.validation.goldenCases?.checkedAt} · {draft.validation.goldenCases?.reportId}</small>
+                <p className="validation-digest">内容摘要：{draft.validation.digests?.content}</p>
+                {draft.validation.issues?.map((issue: any, index: number) => <p key={index}>{issue.code} · {issue.message}</p>)}
+                {draft.validation.goldenCases?.results?.map((result: any, index: number) => <p key={index}>{result.passed ? "通过" : "失败"} · {result.label}{result.issues.length ? `：${result.issues.join("；")}` : ""}</p>)}
+              </div> : <p>保存变更后运行“校验草稿”，查看当前 revision 的发布报告。</p>}
+            </section>}
             {catalogTab !== "objects" && <div className="detail-content"><h2>{definition?.label ?? "选择定义"}</h2><textarea className="definition-editor" aria-label="指标或层级定义" readOnly={!editing} value={definitionJson} onChange={event => setDefinitionJson(event.target.value)} />{editing && <button className="primary-button" disabled={busy} onClick={saveDefinition}>保存定义</button>}{message && <div className="inline-notice">{message}</div>}</div>}
             {catalogTab === "objects" && object && (
               <div className="detail-content">

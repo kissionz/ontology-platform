@@ -60,3 +60,9 @@ GitHub Actions 在 main 推送和 Pull Request 时使用 Node.js 24、Python 3.1
 ## 编译模板缓存
 
 普通 FIXED_SHAPE 的 DIRECT 筛选查询将 SQL 结构保存到 `compiled_query_templates`。缓存键包含本体摘要、版本、物理表 Schema 和参数形状；动态参数值只在执行时绑定。服务重启后可以复用模板。时间表达式与高级计算仍重新编译，以重新解析时间边界和参数顺序。该表可以在维护窗口清空，后续请求会自动重建。
+
+## 发布前 Golden Cases
+
+控制台草稿页面可以填写 Golden Cases，在“校验草稿”后查看当前 revision 的运行报告、内容摘要和逐项结果。用例定义与历史报告保存于 `draft_golden_reports`；GET 草稿接口返回最近一次 goldenReport，调用方应比较报告 revision 与当前草稿 revision。校验请求省略 goldenCases 时复用该草稿最近的用例，显式传入空数组会清空本草稿的用例集。
+
+Golden Cases 当前检查 Query IR 的对象/指标/维度/关系集合和 SQL 片段，并执行 SQL Guard，不请求数据库结果。未配置用例时标记 NOT_CONFIGURED。发布会重新执行当前草稿的校验；用例失败阻止事务提交。发布审计关联 goldenReportId，便于回溯。业务数值正确性应另行通过真实 SelectDB 验收。

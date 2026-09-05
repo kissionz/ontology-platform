@@ -413,3 +413,14 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .request-footer { flex-wrap: wrap; gap: 8px; }
 .request-footer small { flex: 1 0 100%; }
 .request-footer button, .version-side .panel-header button { white-space: nowrap; flex-shrink: 0; }
+
+.validation-report { margin: 16px 22px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.validation-report summary { cursor: pointer; font-weight: 600; }
+.validation-report p { margin: 8px 0; }
+.validation-report small { color: var(--muted); }
+.validation-report .definition-editor { min-height: 160px; width: 100%; }
+.validation-digest { font-family: monospace; font-size: 11px; }
+.detail-panel { display: flex; flex-direction: column; }
+.detail-panel > .detail-content { flex: 1; min-height: 0; height: auto; }
+.detail-panel > .validation-report { flex-shrink: 0; max-height: 45%; overflow: auto; }
+.catalog-item > span:only-child { grid-column: 1 / -1; }

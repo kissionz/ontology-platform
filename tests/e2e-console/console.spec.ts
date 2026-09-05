@@ -82,6 +82,11 @@ test("draft catalogs, publication and parameterized API debugging are interactiv
   await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
   await page.getByRole("button", { name: "层级", exact: true }).click();
   await expect(page.getByLabel("指标或层级定义")).toContainText('"FIXED_LEVELS"');
+  await page.getByText("Golden Cases · 编译回归用例", { exact: true }).click();
+  await page.getByLabel("Golden Cases 定义").fill(JSON.stringify([{ id: "sales", label: "销售指标回归", queryShape: { rootObjectId: "o_order", measureIds: ["m_sales"], dimensionPropertyIds: [], filters: [], sort: [], limit: 20 }, expected: { measureIds: ["m_sales"] } }]));
+  await page.getByRole("button", { name: "校验草稿", exact: true }).click();
+  await expect(page.getByText("Golden Cases：全部通过 · 1 条用例")).toBeVisible();
+  await page.screenshot({ path: `${tmpdir()}/ontology-platform-golden-report.png`, fullPage: true });
   await page.getByRole("button", { name: "发布版本", exact: true }).click();
   await expect(page.getByText(/v\d+ 已发布/)).toBeVisible();
   await page.getByRole("button", { name: "系统", exact: true }).click();
