@@ -544,3 +544,24 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .relation-settings legend { font-size: 14px; font-weight: 600; padding-right: 12px; }
 .relation-issues { margin: 0; padding: 12px 12px 12px 28px; font-size: 12px; line-height: 1.6; color: #9c3427; background: #fff4ed; border-radius: 6px; }
 .relation-workbench .source-actions h3 { margin: 0 auto 0 0; }
+
+.api-reference { margin: 14px 0; font-size: 12px; line-height: 1.65; }
+.api-reference h3 { margin: 0 0 6px; font-size: 14px; }
+.api-reference p { margin: 6px 0; }
+.api-reference details { border-top: 1px solid var(--border); padding: 8px 0; }
+.api-reference summary, .tool-reference summary { cursor: pointer; font-weight: 600; }
+.api-reference .api-permissions { color: var(--muted); overflow-wrap: anywhere; }
+.api-reference pre, .integration-guide pre { max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: 6px; background: #f6f8fc; font: 11px/1.65 monospace; }
+.api-reference .model-table td { vertical-align: top; }
+.integration-guide { min-height: 0; overflow: auto; }
+.guide-header { padding: 20px; border-bottom: 1px solid var(--border); }
+.guide-header h2 { margin: 0 0 8px; font-size: 18px; }
+.guide-header p { margin: 0; font-size: 12px; color: var(--muted); }
+.guide-body { padding: 20px; font-size: 12px; line-height: 1.8; }
+.guide-body h3 { font-size: 14px; }
+.guide-body li { margin-bottom: 8px; max-width: 90ch; }
+.guide-body code, .api-reference code { overflow-wrap: anywhere; }
+.guide-example { margin: 18px 0; }
+.guide-example .source-actions h3 { margin: 0 auto 0 0; }
+.tool-reference { padding: 14px 0; border-top: 1px solid var(--border); }
+.tool-reference summary span { margin-left: 10px; color: var(--muted); font-weight: 400; }

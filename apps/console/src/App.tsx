@@ -1,3 +1,5 @@
+import { ApiReference } from "./ApiReference.js";
+import { IntegrationGuide } from "./IntegrationGuide.js";
 import { axiomTitle, axiomDescription, chineseParameters, term } from "./axiom-copy.js";
 import { CONTRACT_SCHEMAS } from "../../../packages/contracts/src/index.js";
 import { NewObjectForm } from "./NewObjectForm.js";
@@ -1576,7 +1578,7 @@ function SystemPage({
   const openapi = useApi<any>("/v1/system/openapi.json", "no-auth");
   const clients = useApi<any[]>("/v1/system/api-clients", apiKey);
   const audits = useApi<any[]>("/v1/system/audit-events?limit=100", apiKey);
-  const [section, setSection] = useState<"debug" | "clients" | "audit">("debug");
+  const [section, setSection] = useState<"debug" | "clients" | "audit" | "mcp" | "sdk">("debug");
   const [endpoint, setEndpoint] = useState("/v1/semantic-context:resolve");
   const [method, setMethod] = useState("POST");
   const [body, setBody] = useState(
@@ -1601,20 +1603,25 @@ function SystemPage({
   const [responseHeaders, setResponseHeaders] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [headers, setHeaders] = useState("{}");
-  const [pathValues, setPathValues] = useState<Record<string, string>>({ ns: "retail", sourceId: "selectdb", version: "latest" });
+  const [pathValues, setPathValues] = useState<Record<string, string>>({ ns: "retail", sourceId: "selectdb", version: "1" });
   const [responseTab, setResponseTab] = useState("响应体");
   const pathKeys = [...endpoint.matchAll(/\{([^}]+)\}/g)].map(match => match[1]!);
-  const resolvedEndpoint = endpoint.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(pathValues[key] ?? ""));
+  const operation = openapi.data?.paths?.[endpoint.replace(/^\/v1/, "")]?.[method.toLowerCase()];
+  const [queryValues, setQueryValues] = useState<Record<string, string>>({});
+  const queryParameters = (operation?.parameters ?? []).filter((p: any) => p.in === "query");
+  const queryString = new URLSearchParams(queryParameters.filter((p: any) => queryValues[p.name]?.trim()).map((p: any) => [p.name, queryValues[p.name]])).toString();
+  const resolvedEndpoint = endpoint.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(pathValues[key] ?? "")) + (queryString ? `?${queryString}` : "");
   const responseData = response?.data ?? response;
   const displayedResponse = responseTab === "响应体" ? response : responseTab === "解析摘要" ? responseData?.resolution : responseTab === "Ontology Context" ? responseData?.ontologyContext ?? responseData?.context : responseTab === "Query IR" ? responseData?.queryIr : responseTab === "SQL" ? responseData?.sqlPreview : responseTab === "推论证据" ? responseData?.inferenceEvidence ?? responseData?.inferences : audits.data?.filter(event => event.auditId === response?.auditId);
   const [clientName, setClientName] = useState("外部 Agent");
   const [createdKey, setCreatedKey] = useState("");
   const [clientScopes, setClientScopes] = useState(["ontology:read", "semantic:read", "semantic:plan", "data:execute"]);
   const [clientRateLimit, setClientRateLimit] = useState(120);
-  const endpoints = useMemo<Array<{ method: string; path: string }>>(
+  const endpoints = useMemo<Array<{ method: string; path: string; summary?: string }>>(
     () =>
       Object.entries(openapi.data?.paths ?? {}).flatMap(([path, methods]) =>
-        Object.keys(methods as object).map((candidate) => ({
+        Object.keys(methods as object).filter(candidate => ["get", "post", "put", "patch", "delete"].includes(candidate)).map((candidate) => ({
+          summary: (methods as any)[candidate]?.summary,
           method: candidate.toUpperCase(),
           path: path.startsWith("/v1") ? path : `/v1${path}`,
         })),
@@ -1624,7 +1631,7 @@ function SystemPage({
   const send = async () => {
     const started = performance.now();
     try {
-      const parsed = body.trim() ? JSON.parse(body) : undefined;
+      const parsed = !operation?.requestBody ? undefined : body.trim() ? JSON.parse(body) : undefined;
       validateOpenApiRequest(openapi.data, endpoint, method, parsed);
       if (pathKeys.some(key => !pathValues[key]?.trim())) throw new Error("请填写所有路径参数");
       const extraHeaders = headers.trim() ? JSON.parse(headers) : {};
@@ -1639,7 +1646,7 @@ function SystemPage({
           ? {}
           : { body: JSON.stringify(parsed) }),
       });
-      const data = await raw.json().catch(() => ({}));
+      const data = raw.status === 304 ? { status: "NOT_MODIFIED", message: "快照未改变，HTTP 304 无响应体。" } : await raw.json().catch(() => ({}));
       setResponse(data);
       audits.reload();
       setResponseHeaders(Object.fromEntries(raw.headers.entries()));
@@ -1680,6 +1687,8 @@ function SystemPage({
             <Code size={16} />
             API 调试台
           </button>
+          <button className={section === "mcp" ? "active" : ""} onClick={() => setSection("mcp")}><Code size={16} />MCP 接入说明</button>
+          <button className={section === "sdk" ? "active" : ""} onClick={() => setSection("sdk")}><Code size={16} />SDK 接入说明</button>
           <button className={section === "clients" ? "active" : ""} onClick={() => setSection("clients")}>
             <Key size={16} />
             API Client 与密钥轮换
@@ -1714,11 +1723,13 @@ function SystemPage({
                 <div className="method-box">{method}</div>
                 <select
                   className="path-box"
+                  aria-label="选择 API 接口"
                   value={`${method} ${endpoint}`}
                   onChange={(e) => {
                     const [nextMethod, ...parts] = e.target.value.split(" ");
                     setMethod(nextMethod ?? "GET");
                     setEndpoint(parts.join(" "));
+                    setQueryValues({});
                   }}
                 >
                   {(endpoints.length
@@ -1729,23 +1740,24 @@ function SystemPage({
                       key={`${value.method} ${value.path}`}
                       value={`${value.method} ${value.path}`}
                     >
-                      {value.method} {value.path}
+                      {value.summary ? `${value.summary} · ` : ""}{value.method} {value.path}
                     </option>
                   ))}
                 </select>
               </div>
+              <ApiReference document={openapi.data} operation={operation} onExample={value => setBody(JSON.stringify(value, null, 2))} />
+              {queryParameters.length > 0 && <div className="request-path-params">{queryParameters.map((p: any) => <label key={p.name}>{p.name}（查询参数）<input aria-label={`查询参数 ${p.name}`} value={queryValues[p.name] ?? ""} placeholder={p.schema?.default != null ? `默认 ${p.schema.default}` : "可选"} onChange={e => setQueryValues({ ...queryValues, [p.name]: e.target.value })} /></label>)}</div>}
               {pathKeys.length > 0 && <div className="request-path-params">{pathKeys.map(key => <label key={key}>{key}<input aria-label={`路径参数 ${key}`} value={pathValues[key] ?? ""} onChange={event => setPathValues({ ...pathValues, [key]: event.target.value })} /></label>)}</div>}
               <div className="console-tabs">
-                <span className="active">请求体</span>
-                <span>Headers（下方 JSON）</span>
-                <span>认证</span>
+                {operation?.requestBody && <span className="active">请求体</span>}
+                <span>请求头（JSON）</span>
               </div>
-              <textarea
+              {operation?.requestBody && <textarea
                 className="json-editor editable-json"
                 aria-label="请求体"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-              />
+              />}
               <textarea
                 className="header-editor"
                 aria-label="请求 Headers"
@@ -1754,8 +1766,8 @@ function SystemPage({
               />
               <div className="request-footer">
                 <small>发送前进行 JSON 解析，服务端执行契约校验</small>
-                <button className="secondary-button" onClick={() => void navigator.clipboard.writeText(JSON.stringify(redactUi(JSON.parse(body)), null, 2))}>复制请求</button>
-                <button className="secondary-button" onClick={() => void navigator.clipboard.writeText(`curl -X ${method} '${location.origin}${resolvedEndpoint}' -H 'Authorization: Bearer $ONTOLOGY_API_KEY' -H 'Content-Type: application/json' --data '${body.replaceAll("'", "'\\''")}'`)}>复制 curl</button>
+                {operation?.requestBody && <button className="secondary-button" onClick={() => { try { void navigator.clipboard.writeText(JSON.stringify(redactUi(JSON.parse(body)), null, 2)); } catch { setStatus("请求体不是有效 JSON，请先修正。"); } }}>复制请求</button>}
+                <button className="secondary-button" onClick={() => void navigator.clipboard.writeText(`curl -X ${method} '${location.origin}${resolvedEndpoint}' -H 'Authorization: Bearer $ONTOLOGY_API_KEY'${operation?.requestBody ? ` -H 'Content-Type: application/json' --data '${body.replaceAll("'", "'\\''")}'` : ""}`)}>复制 curl</button>
                 <button className="primary-button" onClick={send}>
                   <PaperPlaneTilt size={15} />
                   发送请求
@@ -1780,7 +1792,7 @@ function SystemPage({
               </div>
             </div>
           </div>
-        </section> : section === "clients" ? (
+        </section> : section === "mcp" || section === "sdk" ? <IntegrationGuide key={section} kind={section} /> : section === "clients" ? (
           <section className="panel admin-panel">
             <PanelHeader title="API Client 与密钥轮换" subtitle="密钥仅在创建时显示一次；存储中仅保留摘要">
               <button className="primary-button" onClick={createClient}><Plus size={15} />创建客户端</button>
@@ -1811,7 +1823,7 @@ function validateOpenApiRequest(document: any, endpoint: string, method: string,
   const schema = document.components?.schemas?.[schemaName];
   const validator = CONTRACT_SCHEMAS[schemaName as keyof typeof CONTRACT_SCHEMAS];
   if (validator) {
-    const result = validator.safeParse(body);
+    const result = validator.safeParse(body === undefined && operation.requestBody?.required === false ? {} : body);
     if (!result.success) throw new Error(`OpenAPI 校验失败：${result.error.issues.map(issue => `${issue.path.join(".")}: ${issue.message}`).join("；")}`);
     return;
   }

@@ -178,6 +178,48 @@ test("all six pages fit both confirmed desktop widths", async ({ page }) => {
   }
 });
 
+test("API reference covers every endpoint and provides MCP and SDK guides", async ({ page }) => {
+  await page.goto("/?page=system");
+  const selector = page.getByLabel("选择 API 接口");
+  await expect(selector.locator("option")).toHaveCount(29);
+  const values = await selector.locator("option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
+  for (const value of values) {
+    await selector.selectOption(value);
+    await expect(page.getByLabel("当前 API 说明").locator("h3")).not.toBeEmpty();
+    await expect(page.getByLabel("当前 API 说明")).toContainText("所需权限");
+  }
+  await selector.selectOption("POST /v1/semantic-query");
+  await page.getByText("参数说明（9）", { exact: true }).click();
+  await expect(page.getByLabel("当前 API 说明")).toContainText("FIXED_SHAPE");
+  await page.getByText("请求示例与完整结构", { exact: true }).click();
+  await page.getByRole("button", { name: "填入请求示例", exact: true }).click();
+  await expect(page.getByLabel("请求体", { exact: true })).toHaveValue(/"ANALYSIS"/);
+  await selector.selectOption("GET /v1/namespaces/{ns}/summary");
+  await page.getByLabel("查询参数 version").fill("1");
+  const request = page.waitForResponse(r => r.url().includes("/summary?version=1"));
+  await page.getByRole("button", { name: "发送请求", exact: true }).click();
+  expect((await request).status()).toBe(200);
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({ path: `${tmpdir()}/ontology-platform-api-reference-${width}.png`, fullPage: true });
+    for (const kind of ["MCP", "SDK"]) {
+      await page.getByRole("button", { name: `${kind} 接入说明`, exact: true }).click();
+      await expect(page.getByRole("heading", { name: `${kind} 接入说明`, exact: true })).toBeVisible();
+      if (kind === "MCP") {
+        await expect(page.locator(".tool-reference")).toHaveCount(8);
+        await page.locator(".tool-reference").first().locator("summary").first().click();
+        await expect(page.locator(".tool-reference").first()).toContainText("ontologyVersion");
+      } else {
+        await expect(page.getByRole("heading", { name: "TypeScript 调用示例", exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Python 调用示例", exact: true })).toBeVisible();
+      }
+      await page.screenshot({ path: `${tmpdir()}/ontology-platform-${kind.toLowerCase()}-guide-${width}.png`, fullPage: true });
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    }
+    await page.getByRole("button", { name: "API 调试台", exact: true }).click();
+  }
+});
+
 test("graph inspection, version filters and rollback drafts remain usable across navigation", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));

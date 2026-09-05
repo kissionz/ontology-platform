@@ -2,6 +2,8 @@
 
 独立本体管理与语义执行平台。
 
+接入文档：[REST API](./docs/API.md) · [MCP](./docs/MCP.md) · [TypeScript / Python SDK](./docs/SDK.md)。控制台“系统管理”中也可查看接口说明、MCP 与 SDK 接入指南。接口说明和示例与 OpenAPI 共用元数据；更新后运行 `node --import tsx scripts/export-openapi.ts` 和 `node --import tsx scripts/export-integration-docs.ts` 同步文档。
+
 实施前先阅读：[功能实施规格](./docs/IMPLEMENTATION_SPEC.md)。该文档是当前需求、领域模型、API/MCP 契约、确认版原型、实施阶段和验收标准的事实源。
 
 视觉参考：

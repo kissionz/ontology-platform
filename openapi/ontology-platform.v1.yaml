@@ -14,11 +14,14 @@
     "/health": {
       "get": {
         "operationId": "GetHealth",
+        "summary": "检查服务状态",
+        "description": "查看服务版本、组件配置状态和服务器时间；组件显示已配置不代表数据库连接测试通过。",
         "security": [],
+        "x-required-scopes": "无需认证",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "直接返回状态对象，包含 status、version、kernelVersion、components、time。",
             "content": {
               "application/json": {
                 "schema": {
@@ -26,6 +29,12 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -33,11 +42,14 @@
     "/system/openapi.json": {
       "get": {
         "operationId": "GetOpenApiDocument",
+        "summary": "读取 API 契约",
+        "description": "获取当前服务提供的 OpenAPI 3.1 文档，包含接口、参数、请求结构和中文说明。",
         "security": [],
+        "x-required-scopes": "无需认证",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "直接返回 OpenAPI 文档，主要字段为 paths、components.schemas、info。",
             "content": {
               "application/json": {
                 "schema": {
@@ -45,6 +57,12 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -52,24 +70,38 @@
     "/namespaces/{ns}/summary": {
       "get": {
         "operationId": "GetOntologySummary",
+        "summary": "读取本体概览",
+        "description": "查看指定发布版本的对象、关系、指标、层级数量和版本摘要。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含版本信息、counts 和 contentDigest；响应头提供 ETag。",
             "content": {
               "application/json": {
                 "schema": {
@@ -77,6 +109,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -84,16 +131,39 @@
     "/namespaces/{ns}/ontology": {
       "get": {
         "operationId": "GetOntologySnapshot",
+        "summary": "读取本体快照",
+        "description": "导出指定发布版本的本体、公理和推论，遵循敏感字段导出边界。If-None-Match 可用于缓存校验。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "description": "上次响应的 ETag，相同则返回 304。",
             "schema": {
               "type": "string"
             }
@@ -101,7 +171,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为完整可导出快照；ETag 匹配时返回 HTTP 304，响应体为空。",
             "content": {
               "application/json": {
                 "schema": {
@@ -109,6 +179,24 @@
                 }
               }
             }
+          },
+          "304": {
+            "description": "快照未改变，响应体为空。"
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -116,24 +204,53 @@
     "/namespaces/{ns}/graph": {
       "get": {
         "operationId": "GetOntologyGraph",
+        "summary": "读取本体图谱",
+        "description": "按关系、指标或公理视图获取图谱节点和连线。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
+            }
+          },
+          {
+            "in": "query",
+            "name": "projection",
+            "required": false,
+            "description": "图谱视图：relations 关系、metrics 指标、axioms 公理。",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "relations",
+                "metrics",
+                "axioms"
+              ],
+              "default": "relations"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 ontologyVersion、nodes 和 edges。",
             "content": {
               "application/json": {
                 "schema": {
@@ -141,6 +258,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -148,16 +280,20 @@
     "/namespaces/{ns}/versions": {
       "get": {
         "operationId": "ListOntologyVersions",
+        "summary": "列出发布版本",
+        "description": "查看命名空间的发布历史，用于选择查询版本或创建回滚草稿。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -165,7 +301,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为版本列表，包含发布时间、变更说明及定义数量。",
             "content": {
               "application/json": {
                 "schema": {
@@ -173,6 +309,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -180,16 +331,20 @@
     "/namespaces/{ns}/versions/{version}/diff": {
       "get": {
         "operationId": "DiffOntologyVersions",
+        "summary": "比较本体版本",
+        "description": "比较目标版本与基线，查看对象、关系、指标、公理及推论的增删改。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -198,14 +353,25 @@
             "in": "path",
             "name": "version",
             "required": true,
+            "description": "目标发布版本号，从版本列表取得，不能填写 latest。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "baseVersion",
+            "required": false,
+            "description": "基线版本号；省略时使用目标版本的记录基线或前一版本。",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 baseVersion 及各类定义的 added、changed、removed。",
             "content": {
               "application/json": {
                 "schema": {
@@ -213,6 +379,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -220,16 +401,20 @@
     "/namespaces/{ns}/drafts": {
       "post": {
         "operationId": "CreateOntologyDraft",
+        "summary": "创建本体草稿",
+        "description": "基于发布版本创建可编辑草稿；空命名空间可从 latest 创建首个草稿。sourceVersion 用于将历史版本复制为回滚草稿。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:draft",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -237,7 +422,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 draftId、revision、snapshot、physicalTables 和已有回归报告。",
             "content": {
               "application/json": {
                 "schema": {
@@ -245,14 +430,33 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
-          "required": true,
+          "required": false,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateDraftInput"
+              },
+              "example": {
+                "baseVersion": "latest"
               }
             }
           }
@@ -262,16 +466,20 @@
     "/namespaces/{ns}/drafts/{draftId}": {
       "get": {
         "operationId": "GetOntologyDraft",
+        "summary": "读取本体草稿",
+        "description": "读取草稿及其当前修订号，后续修改需要提交该 revision。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:draft",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -280,6 +488,7 @@
             "in": "path",
             "name": "draftId",
             "required": true,
+            "description": "创建或读取草稿返回的 draftId。",
             "schema": {
               "type": "string"
             }
@@ -287,7 +496,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含草稿快照、revision、已扫描表和回归报告；草稿不存在时返回 404。",
             "content": {
               "application/json": {
                 "schema": {
@@ -295,21 +504,40 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       },
       "patch": {
         "operationId": "PatchOntologyDraft",
+        "summary": "修改本体草稿",
+        "description": "以一组原子操作新增、更新或移除对象、关系、指标和层级，同时生成公理校验结果。保存成功不等于可发布。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:draft",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -318,6 +546,16 @@
             "in": "path",
             "name": "draftId",
             "required": true,
+            "description": "创建或读取草稿返回的 draftId。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "description": "可替代请求体 revision，值为草稿当前修订号。",
             "schema": {
               "type": "string"
             }
@@ -325,7 +563,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 返回新 revision、snapshot 和 validation；并发修订冲突返回 409。",
             "content": {
               "application/json": {
                 "schema": {
@@ -333,14 +571,39 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
           "required": true,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DraftPatchInput"
+              },
+              "example": {
+                "revision": 1,
+                "operations": [
+                  {
+                    "op": "REMOVE_RELATION",
+                    "id": "待移除关系ID"
+                  }
+                ]
               }
             }
           }
@@ -350,16 +613,20 @@
     "/namespaces/{ns}/drafts/{draftId}/validate": {
       "post": {
         "operationId": "ValidateOntologyDraft",
+        "summary": "校验草稿",
+        "description": "执行公理校验和可选的查询编译回归，预览推论；回归只编译查询，不执行正式业务查询。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:draft",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -368,6 +635,7 @@
             "in": "path",
             "name": "draftId",
             "required": true,
+            "description": "创建或读取草稿返回的 draftId。",
             "schema": {
               "type": "string"
             }
@@ -375,7 +643,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 valid、issues、公理与推论及回归结果；valid 为 false 时应修复后再发布。",
             "content": {
               "application/json": {
                 "schema": {
@@ -383,15 +651,32 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
-          "required": true,
+          "required": false,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ValidateDraftInput"
-              }
+              },
+              "example": {}
             }
           }
         }
@@ -400,16 +685,20 @@
     "/namespaces/{ns}/drafts/{draftId}/publish": {
       "post": {
         "operationId": "PublishOntologyDraft",
+        "summary": "发布本体版本",
+        "description": "校验草稿及基线一致性后生成不可变发布版本，并启动值索引重建。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:publish",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -418,6 +707,7 @@
             "in": "path",
             "name": "draftId",
             "required": true,
+            "description": "创建或读取草稿返回的 draftId。",
             "schema": {
               "type": "string"
             }
@@ -425,7 +715,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为已发布快照；校验不通过或基线版本过期时拒绝发布。索引进度通过值索引状态接口查看。",
             "content": {
               "application/json": {
                 "schema": {
@@ -433,14 +723,34 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
           "required": true,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PublishDraftInput"
+              },
+              "example": {
+                "baseVersion": 0,
+                "changeSummary": "首次发布业务本体"
               }
             }
           }
@@ -450,24 +760,38 @@
     "/namespaces/{ns}/axioms": {
       "get": {
         "operationId": "ListAxiomAssertions",
+        "summary": "列出公理实例",
+        "description": "读取指定版本根据对象、属性、关系和指标定义固化的规则。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为公理数组，包含 axiomCode、parameters、enforcement 和 sourceDefinitionIds。",
             "content": {
               "application/json": {
                 "schema": {
@@ -475,6 +799,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -482,24 +821,38 @@
     "/namespaces/{ns}/inferences": {
       "get": {
         "operationId": "ListInferredAssertions",
+        "summary": "列出推论",
+        "description": "读取指定版本的关系可达性、查询策略、血缘及指标重算等确定性推论。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为推论数组，包含 predicate、axiomAssertionIds、premiseAssertionIds 和 proof。",
             "content": {
               "application/json": {
                 "schema": {
@@ -507,6 +860,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -514,16 +882,20 @@
     "/namespaces/{ns}/inferences/{id}/explanation": {
       "get": {
         "operationId": "ExplainInference",
+        "summary": "解释推论依据",
+        "description": "按版本与推论 ID 查看完整证明路径；推论 ID 可从推论列表或语义上下文取得。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "ontology:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
             }
@@ -532,14 +904,25 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "description": "该版本推论列表中的推论 ID。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为推论及其 FACT、AXIOM、DERIVATION 证明步骤；不存在时返回 404。",
             "content": {
               "application/json": {
                 "schema": {
@@ -547,6 +930,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -554,15 +952,18 @@
     "/semantic-context:resolve": {
       "post": {
         "operationId": "ResolveOntologyContext",
+        "summary": "解析语义上下文",
+        "description": "根据问题或术语一次获取匹配的对象、指标、值、公理和推理证据，供 Agent 理解业务语义。此接口不执行数据查询。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "semantic:read",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 sessionId、ontologyVersion、objects、metrics、relations、values、axioms、inferences、refs、ambiguities 和 contextDigest。会话固定版本，有效期 30 分钟。",
             "content": {
               "application/json": {
                 "schema": {
@@ -570,14 +971,42 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
           "required": true,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ResolveSemanticContextInput"
+              },
+              "example": {
+                "namespace": "retail",
+                "ontologyVersion": "latest",
+                "question": "按店铺查看销售额",
+                "purpose": "PLAN",
+                "include": {
+                  "values": true,
+                  "axioms": true,
+                  "inferences": true,
+                  "evidence": true
+                }
               }
             }
           }
@@ -587,15 +1016,18 @@
     "/semantic-query": {
       "post": {
         "operationId": "ExecuteSemanticQuery",
+        "summary": "执行语义查询",
+        "description": "AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "semantic:read + semantic:plan；AUTO / FIXED_SHAPE 还需 data:execute",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "返回执行信封。status 可为 SUCCEEDED、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；成功时 data 含 columns、rows、rowCount，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。",
             "content": {
               "application/json": {
                 "schema": {
@@ -603,14 +1035,40 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
           "required": true,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ExecuteSemanticQueryInput"
+              },
+              "example": {
+                "namespace": "retail",
+                "ontologyVersion": "latest",
+                "queryMode": "ANALYSIS",
+                "question": "按店铺查看销售额",
+                "options": {
+                  "includeAxioms": true,
+                  "includeInferenceEvidence": true
+                }
               }
             }
           }
@@ -620,16 +1078,20 @@
     "/semantic-query/clarifications/{clarificationId}:continue": {
       "post": {
         "operationId": "ContinueSemanticQuery",
+        "summary": "提交澄清并继续查询",
+        "description": "当语义查询返回 NEEDS_CLARIFICATION 时，提交该次澄清所需的全部选择，继续原版本查询。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "semantic:read + semantic:plan + data:execute",
         "parameters": [
           {
             "in": "path",
             "name": "clarificationId",
             "required": true,
+            "description": "NEEDS_CLARIFICATION 响应中的澄清 ID。",
             "schema": {
               "type": "string"
             }
@@ -637,7 +1099,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "返回与语义查询一致的执行信封；无效、过期或不完整的选择会返回错误状态。",
             "content": {
               "application/json": {
                 "schema": {
@@ -645,14 +1107,35 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
           "required": true,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ContinueSemanticQueryInput"
+              },
+              "example": {
+                "selections": {
+                  "待选择项目ID": "候选项ID"
+                }
               }
             }
           }
@@ -662,16 +1145,20 @@
     "/data-sources/{sourceId}": {
       "get": {
         "operationId": "GetDataSource",
+        "summary": "读取数据源配置",
+        "description": "读取已保存的连接信息及扫描到的物理表，密码不会明文返回。数据源配置不要求已有本体。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [
           {
             "in": "path",
             "name": "sourceId",
             "required": true,
+            "description": "数据源标识，控制台默认使用 selectdb。",
             "schema": {
               "type": "string"
             }
@@ -679,7 +1166,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含配置状态、payload、updatedAt 和 tables；未配置时 configured 为 false。",
             "content": {
               "application/json": {
                 "schema": {
@@ -687,21 +1174,40 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       },
       "put": {
         "operationId": "PutDataSource",
+        "summary": "保存数据源连接",
+        "description": "保存 SelectDB 连接并更新凭据缓存。首次配置提供密码；修改时省略 password 保留原密码。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [
           {
             "in": "path",
             "name": "sourceId",
             "required": true,
+            "description": "数据源标识，控制台默认使用 selectdb。",
             "schema": {
               "type": "string"
             }
@@ -709,7 +1215,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为已保存的连接元数据，密码加密存储且不在响应中明文返回。",
             "content": {
               "application/json": {
                 "schema": {
@@ -717,14 +1223,39 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         },
         "requestBody": {
           "required": true,
+          "description": "JSON 请求体，字段说明与实际契约一致。",
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DataSourceInput"
+              },
+              "example": {
+                "host": "selectdb.example.com",
+                "port": 9030,
+                "username": "readonly_user",
+                "password": "请填写数据库密码",
+                "catalog": "internal",
+                "database": "retail",
+                "tls": false
               }
             }
           }
@@ -734,16 +1265,20 @@
     "/data-sources/{sourceId}:test": {
       "post": {
         "operationId": "TestDataSource",
+        "summary": "测试数据源连接",
+        "description": "使用已保存的连接配置测试数据库可用性。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [
           {
             "in": "path",
             "name": "sourceId",
             "required": true,
+            "description": "数据源标识，控制台默认使用 selectdb。",
             "schema": {
               "type": "string"
             }
@@ -751,7 +1286,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为连接测试结果；连接或认证失败时返回错误详情。",
             "content": {
               "application/json": {
                 "schema": {
@@ -759,6 +1294,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -766,16 +1316,20 @@
     "/data-sources/{sourceId}/schema:scan": {
       "post": {
         "operationId": "ScanDataSourceSchema",
+        "summary": "扫描表结构",
+        "description": "读取数据库表名、注释和字段元数据并保存，供后续本体建模使用。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [
           {
             "in": "path",
             "name": "sourceId",
             "required": true,
+            "description": "数据源标识，控制台默认使用 selectdb。",
             "schema": {
               "type": "string"
             }
@@ -783,7 +1337,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 sourceId 和 tables，各表包含字段、注释、结构指纹及扫描时间。",
             "content": {
               "application/json": {
                 "schema": {
@@ -791,6 +1345,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -798,24 +1367,38 @@
     "/namespaces/{ns}/value-index/status": {
       "get": {
         "operationId": "GetValueIndexStatus",
+        "summary": "读取值索引状态",
+        "description": "查看某个发布版本的属性值索引状态及失败情况。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "semantic:read",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含索引状态、属性数、值数和失败属性数。",
             "content": {
               "application/json": {
                 "schema": {
@@ -823,6 +1406,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -830,24 +1428,38 @@
     "/namespaces/{ns}/value-index:rebuild": {
       "post": {
         "operationId": "RebuildValueIndex",
+        "summary": "重建属性值索引",
+        "description": "针对指定发布版本重建允许值检索的属性索引；此操作会读取数据库中的属性值。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [
           {
             "in": "path",
             "name": "ns",
             "required": true,
+            "description": "本体命名空间，例如 retail。",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "description": "发布版本号或 latest；省略时读取最新发布版本。",
+            "schema": {
+              "type": "string",
+              "default": "latest"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 返回本轮索引状态与统计，包含 properties、valuesCount 和 failedProperties。",
             "content": {
               "application/json": {
                 "schema": {
@@ -855,6 +1467,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -862,15 +1489,18 @@
     "/system/api-clients": {
       "get": {
         "operationId": "ListApiClients",
+        "summary": "列出 API 客户端",
+        "description": "查看已创建客户端的权限范围、状态和调用限额。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为客户端列表，不包含可恢复的明文 API Key。",
             "content": {
               "application/json": {
                 "schema": {
@@ -878,25 +1508,109 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       },
       "post": {
         "operationId": "CreateApiClient",
+        "summary": "创建 API 客户端",
+        "description": "创建带指定权限和调用限额的客户端，系统自动生成密钥。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 clientId 和 apiKey。明文密钥仅在创建响应中提供一次，请当次保存。",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object"
                 }
+              }
+            }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "scopes"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "客户端名称。"
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "description": "允许的权限列表；只读语义接入可用 ontology:read、semantic:read。",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "ontology:read",
+                        "ontology:draft",
+                        "ontology:publish",
+                        "semantic:read",
+                        "semantic:plan",
+                        "data:execute",
+                        "system:admin"
+                      ]
+                    }
+                  },
+                  "rateLimit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 120,
+                    "description": "每分钟请求上限，默认 120。"
+                  }
+                }
+              },
+              "example": {
+                "name": "外部 Agent",
+                "scopes": [
+                  "ontology:read",
+                  "semantic:read"
+                ],
+                "rateLimit": 120
               }
             }
           }
@@ -906,16 +1620,20 @@
     "/system/api-clients/{clientId}": {
       "delete": {
         "operationId": "RevokeApiClient",
+        "summary": "撤销 API 客户端",
+        "description": "撤销指定客户端，使其密钥不能继续调用平台。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [
           {
             "in": "path",
             "name": "clientId",
             "required": true,
+            "description": "客户端列表或创建响应中的 clientId。",
             "schema": {
               "type": "string"
             }
@@ -923,7 +1641,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data.deleted 为 true。",
             "content": {
               "application/json": {
                 "schema": {
@@ -931,6 +1649,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -938,15 +1671,29 @@
     "/system/audit-events": {
       "get": {
         "operationId": "ListAuditEvents",
+        "summary": "读取调用审计",
+        "description": "查看最近的请求及业务审计事件，可根据返回的 auditId 关联调用过程。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [],
+        "x-required-scopes": "system:admin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "最近审计事件的条数，默认 100。",
+            "schema": {
+              "type": "integer",
+              "default": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 为审计事件数组，包含 auditId、eventType、createdAt 和脱敏 payload。",
             "content": {
               "application/json": {
                 "schema": {
@@ -954,6 +1701,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -961,15 +1723,18 @@
     "/system/metrics": {
       "get": {
         "operationId": "GetSystemMetrics",
+        "summary": "读取服务指标",
+        "description": "查看当前进程运行时间、内存，以及各路由调用量、错误量和延迟。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-required-scopes": "system:admin",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "data 包含 uptimeSeconds、memory 和 routes；路由指标含 count、errors、p95Ms、maxMs。",
             "content": {
               "application/json": {
                 "schema": {
@@ -977,6 +1742,21 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
           }
         }
       }
@@ -1869,7 +2649,8 @@
         "properties": {
           "namespace": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "本体命名空间，例如 retail。"
           },
           "ontologyVersion": {
             "anyOf": [
@@ -1882,16 +2663,19 @@
                 "type": "string",
                 "const": "latest"
               }
-            ]
+            ],
+            "description": "发布版本号或 latest；省略时选择最新发布版本。"
           },
           "question": {
-            "type": "string"
+            "type": "string",
+            "description": "需要理解的自然语言问题；question 与 terms 至少提供一项。"
           },
           "terms": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "明确的业务术语数组；可与 question 配合，二者至少提供一项。"
           },
           "purpose": {
             "type": "string",
@@ -1900,7 +2684,8 @@
               "PLAN",
               "EXPLAIN",
               "MODEL"
-            ]
+            ],
+            "description": "用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。"
           },
           "projection": {
             "type": "string",
@@ -1908,7 +2693,8 @@
               "compact",
               "standard",
               "full"
-            ]
+            ],
+            "description": "对象字段详细程度：compact（默认）、standard、full。敏感字段边界始终生效。"
           },
           "include": {
             "type": "object",
@@ -1926,7 +2712,8 @@
                 "type": "boolean"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；values 需显式开启，其他默认包含。"
           }
         },
         "required": [
@@ -1945,11 +2732,13 @@
               "AUTO",
               "FIXED_SHAPE",
               "ANALYSIS"
-            ]
+            ],
+            "description": "AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。"
           },
           "namespace": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "本体命名空间。"
           },
           "ontologyVersion": {
             "anyOf": [
@@ -1962,10 +2751,12 @@
                 "type": "string",
                 "const": "latest"
               }
-            ]
+            ],
+            "description": "发布版本号或 latest；有 sessionId 时须与会话版本一致。"
           },
           "question": {
-            "type": "string"
+            "type": "string",
+            "description": "AUTO 与 ANALYSIS 使用的自然语言问题。"
           },
           "queryShape": {
             "type": "object",
@@ -2563,17 +3354,20 @@
               "sort",
               "limit"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；具体 ID 从本体或语义上下文取得。"
           },
           "parameters": {
             "type": "object",
             "propertyNames": {
               "type": "string"
             },
-            "additionalProperties": {}
+            "additionalProperties": {},
+            "description": "查询结构中参数占位符的名称与取值。"
           },
           "sessionId": {
-            "type": "string"
+            "type": "string",
+            "description": "语义上下文返回的会话 ID，用于固定版本和解析短引用。"
           },
           "pagination": {
             "type": "object",
@@ -2587,7 +3381,8 @@
                 "type": "string"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。"
           },
           "options": {
             "type": "object",
@@ -2611,7 +3406,8 @@
                 "type": "boolean"
               }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "可开启 includeResolution、includeOntologyContext、includeAxioms、includeInferenceEvidence、includeQueryIr、includeSqlPreview。"
           }
         },
         "required": [
@@ -2839,7 +3635,8 @@
             },
             "additionalProperties": {
               "type": "string"
-            }
+            },
+            "description": "澄清响应中的项目 ID 到所选候选项 ID 的映射，需一次提交全部选择。"
           }
         },
         "required": [
@@ -2862,12 +3659,14 @@
                 "type": "string",
                 "const": "latest"
               }
-            ]
+            ],
+            "description": "基线版本号或 latest，默认 latest。"
           },
           "sourceVersion": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "可选历史内容版本；用于创建回滚草稿，发布仍以 baseVersion 检查并发。"
           }
         },
         "additionalProperties": false
@@ -2879,7 +3678,8 @@
           "revision": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "当前草稿修订号，需使用最近一次响应中的值；也可用 If-Match 请求头提供。"
           },
           "operations": {
             "minItems": 1,
@@ -3639,7 +4439,8 @@
                   "additionalProperties": false
                 }
               ]
-            }
+            },
+            "description": "非空操作数组。UPSERT_OBJECT / UPSERT_RELATION / UPSERT_METRIC / UPSERT_HIERARCHY 携带完整 value；REMOVE_* 携带 id。操作原子保存，公理问题通过 validation 返回。"
           }
         },
         "required": [
@@ -3654,10 +4455,12 @@
           "baseVersion": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "创建草稿时的基线发布版本。首次发布为 0，必须与最新发布版本一致。"
           },
           "changeSummary": {
-            "type": "string"
+            "type": "string",
+            "description": "本次发布变更说明。"
           }
         },
         "required": [
@@ -4330,7 +5133,8 @@
                 "expected"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "可选、最多 100 条查询编译回归；每条包含 id、label、queryShape 和 expected（可检查 SQL 片段及所用定义 ID）。"
           }
         },
         "additionalProperties": false,
@@ -4549,30 +5353,37 @@
         "properties": {
           "host": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "SelectDB 主机名或 IP。"
           },
           "port": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 65535
+            "maximum": 65535,
+            "description": "数据库 MySQL 协议端口，例如 9030。"
           },
           "username": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "数据库用户名。"
           },
           "password": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "首次连接密码；后续省略此字段保留已保存密码。"
           },
           "catalog": {
-            "type": "string"
+            "type": "string",
+            "description": "数据目录，例如 internal。"
           },
           "database": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "需要扫描的数据库名称。"
           },
           "tls": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "是否启用 TLS；应与服务端支持情况一致。"
           }
         },
         "required": [

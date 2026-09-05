@@ -1,3 +1,4 @@
+import { API_DOCS, REQUEST_DOCS } from "../../contracts/src/api-docs.js";
 import { z } from "zod";
 import type { OntologyPlatform } from "../../application/src/index.js";
 import { ValidateDraftInputSchema, DraftPatchOperationSchema, ExecuteSemanticQueryInputSchema, ResolveSemanticContextInputSchema, PlatformException } from "../../contracts/src/index.js";
@@ -12,17 +13,18 @@ export const MCP_INPUT_SCHEMAS = {
   PublishOntologyDraft: z.object({ namespace, draftId, baseVersion: version, changeSummary: z.string().optional() }).strict(),
   ExplainInference: z.object({ namespace, version, id: z.string().min(1) }).strict(),
 };
-const descriptions = {
-  ResolveOntologyContext: "Resolve version-pinned ontology context, values, axioms, inferences and evidence in one call",
-  ExecuteSemanticQuery: "Resolve, plan, compile and execute a semantic query in one call",
-  ContinueSemanticQuery: "Submit all clarification selections and continue",
-  GetOntologySnapshot: "Read a versioned ontology snapshot",
-  ApplyOntologyDraftPatch: "Apply an atomic ontology draft patch",
-  ValidateOntologyDraft: "Validate a draft and preview axioms and inferences",
-  PublishOntologyDraft: "Publish an immutable ontology version",
-  ExplainInference: "Return the complete proof path for an inference",
-};
-export const MCP_TOOLS = Object.entries(MCP_INPUT_SCHEMAS).map(([name, schema]) => ({ name, description: descriptions[name as keyof typeof descriptions], inputSchema: z.toJSONSchema(schema, { target: "draft-2020-12" }) }));
+export const MCP_API_OPERATIONS = {
+  ResolveOntologyContext: "ResolveOntologyContext", ExecuteSemanticQuery: "ExecuteSemanticQuery", ContinueSemanticQuery: "ContinueSemanticQuery", GetOntologySnapshot: "GetOntologySnapshot", ApplyOntologyDraftPatch: "PatchOntologyDraft", ValidateOntologyDraft: "ValidateOntologyDraft", PublishOntologyDraft: "PublishOntologyDraft", ExplainInference: "ExplainInference",
+} as const;
+const toolRequestDocs: Record<string, string> = { ResolveOntologyContext: "ResolveSemanticContextInput", ExecuteSemanticQuery: "ExecuteSemanticQueryInput", ContinueSemanticQuery: "ContinueSemanticQueryInput", ApplyOntologyDraftPatch: "DraftPatchInput", ValidateOntologyDraft: "ValidateDraftInput", PublishOntologyDraft: "PublishDraftInput" };
+export const MCP_TOOL_DOCS = Object.fromEntries(Object.entries(MCP_API_OPERATIONS).map(([name, operation]) => {
+  const base = API_DOCS[operation];
+  const fields: Record<string, string> = { namespace: "本体命名空间，例如 retail。", draftId: "REST 创建草稿返回的 draftId。", version: name === "GetOntologySnapshot" ? "发布版本号或 latest，省略时读取最新发布版本。" : "推论所属的数字发布版本，必须明确指定。", id: "指定版本的推论 ID。", clarificationId: "查询响应中的澄清 ID。", ...REQUEST_DOCS[toolRequestDocs[name] ?? ""]?.fields };
+  if (name === "ApplyOntologyDraftPatch") fields.revision = "草稿当前修订号，必填，使用最近一次草稿响应中的值。";
+  return [name, { ...base, fields, description: name === "GetOntologySnapshot" ? "读取指定发布版本的可导出本体快照，包含对象、关系、公理和推论，遵循敏感字段边界。" : base.description,
+    returns: name === "GetOntologySnapshot" ? "返回本体快照对象，包含 version、objects、relations、metrics、axiomAssertions 和 inferredAssertions。" : name === "ExecuteSemanticQuery" || name === "ContinueSemanticQuery" ? base.returns : base.returns.replace(/^data /, "工具结果 ") }];
+}));
+export const MCP_TOOLS = Object.entries(MCP_INPUT_SCHEMAS).map(([name, schema]) => ({ name, description: `${MCP_TOOL_DOCS[name]!.description} 所需权限：${MCP_TOOL_DOCS[name]!.scopes}。`, inputSchema: z.toJSONSchema(schema, { target: "draft-2020-12" }) }));
 export class OntologyMcpAdapter {
   constructor(private readonly application: OntologyPlatform) {}
   listTools() { return MCP_TOOLS; }
