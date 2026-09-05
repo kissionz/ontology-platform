@@ -25,9 +25,10 @@ MCP server 导出八个工具：`ResolveOntologyContext`、`ExecuteSemanticQuery
 
 ```bash
 export ONTOLOGY_API_URL=http://127.0.0.1:4300
-export ONTOLOGY_API_KEY='<已授权客户端密钥>'
 npm run start:mcp
 ```
+
+本机 MCP 默认自动读取平台生成的密钥文件，无需手工设置 API Key。若 API 服务使用自定义数据库或密钥路径，MCP 使用相同的 `ONTOLOGY_DB_PATH` 或 `ONTOLOGY_KEYS_PATH`。连接远程平台时，填写目标平台自动生成的客户端密钥到 `ONTOLOGY_API_KEY`。
 
 MCP 通过 HTTP SDK 调用同一个平台，沿用客户端 Scope、限流和请求审计。标准输出仅用于 MCP JSON-RPC 消息。
 

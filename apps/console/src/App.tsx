@@ -1757,10 +1757,11 @@ function SystemPage({
                   aria-label="API Key"
                   type="password"
                   value={apiKey}
-                  placeholder="输入 API Key"
+                  placeholder="填入自动生成的 API Key"
                   onChange={(e) => setApiKey(e.target.value)}
                 />
               </label>
+              <p className="muted-copy">管理员密钥已自动生成，可在服务主机运行 <code>npm run keys:show</code> 查看。</p>
               <div className="endpoint-row">
                 <div className="method-box">{method}</div>
                 <select

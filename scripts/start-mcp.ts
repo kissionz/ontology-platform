@@ -1,13 +1,15 @@
+import { defaultDatabasePath, resolveMcpApiKey } from "../adapters/runtime-keys/src/index.js";
 import { createInterface } from "node:readline";
 import { PlatformException } from "../packages/contracts/src/index.js";
 import { MCP_TOOLS } from "../packages/mcp-server/src/index.js";
 import { OntologyHttpMcpAdapter } from "../packages/mcp-server/src/http.js";
 import { OntologyPlatformClient } from "../packages/sdk-typescript/src/index.js";
 
-if (!process.env.ONTOLOGY_API_KEY) throw new Error("MCP 需要 ONTOLOGY_API_KEY，所有调用通过已认证 HTTP API 执行");
+const baseUrl = process.env.ONTOLOGY_API_URL ?? "http://127.0.0.1:4300";
+const apiKey = resolveMcpApiKey(baseUrl, { databasePath: defaultDatabasePath(), keysPath: process.env.ONTOLOGY_KEYS_PATH, apiKey: process.env.ONTOLOGY_API_KEY });
 const adapter = new OntologyHttpMcpAdapter(new OntologyPlatformClient({
-  baseUrl: process.env.ONTOLOGY_API_URL ?? "http://127.0.0.1:4300",
-  apiKey: process.env.ONTOLOGY_API_KEY,
+  baseUrl,
+  apiKey,
 }));
 const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
 

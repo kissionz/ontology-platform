@@ -11,3 +11,6 @@ __pycache__/
 .env.*
 !.env.example
 .learnings/
+
+*.keys.json
+*.keys.json.*.tmp

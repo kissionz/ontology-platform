@@ -2,13 +2,21 @@
 
 ## 运行与健康
 
-Node.js 24+。配置 `ONTOLOGY_API_KEY` 后运行 `npm start`；默认数据库为 `.data/ontology-platform.sqlite`，可用 `ONTOLOGY_DB_PATH` 覆盖。`GET /v1/health` 无需认证，返回 SQLite、SelectDB 配置状态与内核版本。
+Node.js 24+。直接运行 `npm start`，首次启动自动生成所需平台密钥；默认数据库为 `.data/ontology-platform.sqlite`，可用 `ONTOLOGY_DB_PATH` 覆盖。`GET /v1/health` 无需认证，返回 SQLite、SelectDB 配置状态与内核版本。
 
 结构化日志使用 Fastify JSON 日志，包含 `requestId`、`traceId`、路由、状态码和耗时，不记录认证头或请求体。`GET /v1/system/metrics` 需要 `system:admin`，返回最近 1,000 次各路由请求的计数、错误数、P95、最大耗时，以及进程运行时间和内存。
 
 ## SelectDB
 
 设置：`SELECTDB_HOST`、`SELECTDB_PORT`、`SELECTDB_USER`、`SELECTDB_PASSWORD`、`SELECTDB_CATALOG`、`SELECTDB_DATABASE`、`SELECTDB_TLS`。配置缺失时，语义执行明确返回 `DATA_SOURCE_NOT_CONFIGURED`；平台不会生成替代数据。
+
+## 密钥生成与保存
+
+管理员 API Key 与数据源凭据加密密钥均使用系统安全随机源生成，默认保存在数据库旁的 `<数据库文件>.keys.json`。文件在 macOS/Linux 上仅当前用户可读写（0600），重启复用，多进程同时启动时共用原子创建的同一份文件。可用 `ONTOLOGY_KEYS_PATH` 指定文件位置。密钥文件损坏时启动明确报错，不会覆盖旧密钥。
+
+`npm run keys:show` 在本地终端显示管理员 API Key。启动日志只打印密钥文件位置，不打印密钥值；控制台认证仍需填写生成的 API Key。客户端 API Key 在创建客户端时自动生成。
+
+已有部署显式提供的 `ONTOLOGY_API_KEY` 和 `ONTOLOGY_ENCRYPTION_KEY` 优先于自动生成值，便于继续使用已有凭据；自动生成文件只保存系统生成的值。内存测试数据库使用临时密钥。
 
 ## 密钥轮换
 
@@ -17,7 +25,7 @@ Node.js 24+。配置 `ONTOLOGY_API_KEY` 后运行 `npm start`；默认数据库�
 3. 调用 `DELETE /v1/system/api-clients/{clientId}` 撤销旧密钥。
 4. 启动密钥通过进程环境轮换，重启服务后生效。
 
-存储中仅保存密钥 SHA-256 摘要。数据源密码使用 AES-256-GCM 加密，绑定 sourceId，公开配置与审计只展示配置状态。控制台保存密码前，必须设置 `ONTOLOGY_ENCRYPTION_KEY` 为 32 字节随机密钥的 64 位十六进制编码，并将该密钥保存在部署密钥管理器中。备份数据库时另行保管此密钥；密钥缺失或不匹配会明确拒绝解密。默认 `selectdb` 数据源也支持环境变量配置。
+客户端表仅保存 API Key 的 SHA-256 摘要。平台自动生成的管理员和加密密钥保存在本地密钥文件中。数据源密码使用 AES-256-GCM 加密，绑定 sourceId，公开配置与审计只展示配置状态，保存密码时自动使用平台加密密钥。默认 `selectdb` 数据源也支持环境变量配置。
 
 ## 备份与恢复
 
@@ -32,6 +40,8 @@ npm run backup -- --destination /secure/ontology-2026-09-04.sqlite
 ```bash
 npm run restore -- --source /secure/ontology-2026-09-04.sqlite --force
 ```
+
+备份数据库时需另行保存对应的 `.keys.json` 文件，恢复时将原密钥文件放回数据库旁，或通过 `ONTOLOGY_KEYS_PATH` 指向原文件。数据库备份命令不将密钥混入 SQLite 备份。使用显式环境密钥的部署保留原配置；凭据解密需要原加密密钥。
 
 恢复后先运行健康检查，再抽查 namespace 最新版本、内容摘要和推论摘要。
 

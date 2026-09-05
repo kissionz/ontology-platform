@@ -15,10 +15,17 @@
 
 ```bash
 npm install
-export ONTOLOGY_API_KEY='replace-with-a-long-random-key'
 npm run build
 npm start
 ```
+
+首次启动自动生成管理员 API Key 和凭据加密密钥，保存在 `.data/ontology-platform.sqlite.keys.json`，后续启动复用。在另一个终端运行以下命令查看管理员 API Key，再填入控制台“系统”的 API Key 输入框：
+
+```bash
+npm run keys:show
+```
+
+客户端密钥在“系统 → 客户端”创建时自动生成。
 
 服务默认监听 `127.0.0.1:4300`，SQLite 位于 `.data/ontology-platform.sqlite`。新库会自动执行 migration；已有 InsightFlow 库按[迁移说明](./docs/MIGRATION.md)导入。SelectDB 环境变量未配置时，管理与语义解析仍可使用，数据查询会返回明确配置错误。
 

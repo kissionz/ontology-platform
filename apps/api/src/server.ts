@@ -1,3 +1,4 @@
+import { defaultDatabasePath, resolveRuntimeKeys } from "../../../adapters/runtime-keys/src/index.js";
 import { registerIdempotency } from "./idempotency.js";
 import Fastify, { type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
@@ -53,6 +54,7 @@ declare module "fastify" {
 export interface AppOptions {
   databasePath?: string;
   apiKey?: string;
+  keysPath?: string;
   logger?: boolean;
   queryGateway?: QueryExecutorPort & {
     testConnection(): Promise<Record<string, unknown>>;
@@ -72,10 +74,8 @@ export function buildApp(options: AppOptions = {}) {
     logger: options.logger ?? false,
     bodyLimit: 2_000_000,
   });
-  const databasePath =
-    options.databasePath ??
-    process.env.ONTOLOGY_DB_PATH ??
-    path.resolve(".data/ontology-platform.sqlite");
+  const databasePath = options.databasePath ?? defaultDatabasePath();
+  const keys = resolveRuntimeKeys({ databasePath, keysPath: options.keysPath ?? process.env.ONTOLOGY_KEYS_PATH, apiKey: options.apiKey ?? process.env.ONTOLOGY_API_KEY, encryptionKey: process.env.ONTOLOGY_ENCRYPTION_KEY });
   const store = new SqlitePlatformStore(databasePath);
   const gateways = new Map<string, SelectDbGateway>();
   function sourceConfig(sourceId: string): SelectDbConfig | undefined {
@@ -83,7 +83,7 @@ export function buildApp(options: AppOptions = {}) {
     const env = sourceId === "selectdb" ? selectDbConfigFromEnv() : undefined;
     if (!stored) return env;
     const ciphertext = store.getCredentialCiphertext(sourceId);
-    const password = ciphertext ? decryptCredential(ciphertext, sourceId, process.env.ONTOLOGY_ENCRYPTION_KEY) : env?.password;
+    const password = ciphertext ? decryptCredential(ciphertext, sourceId, keys.encryptionKey) : env?.password;
     if (!password) return undefined;
     return { ...stored.payload, password } as unknown as SelectDbConfig;
   }
@@ -99,7 +99,7 @@ export function buildApp(options: AppOptions = {}) {
   const platform = new OntologyPlatform(store, executor);
   const valueIndex = new PropertyValueIndexService(store, executor);
   const backgroundJobs = new Set<Promise<unknown>>();
-  const bootstrapKey = options.apiKey ?? process.env.ONTOLOGY_API_KEY;
+  const bootstrapKey = keys.apiKey;
   const requests = new Map<string, { minute: number; count: number }>();
   const metrics = new Map<
     string,
@@ -422,7 +422,7 @@ export function buildApp(options: AppOptions = {}) {
     store.putPhysicalSource(
       sourceId,
       { ...body, password: undefined },
-      body.password ? encryptCredential(body.password, sourceId, process.env.ONTOLOGY_ENCRYPTION_KEY) : undefined,
+      body.password ? encryptCredential(body.password, sourceId, keys.encryptionKey) : undefined,
     );
     await gateways.get(sourceId)?.close();
     gateways.delete(sourceId);
@@ -578,6 +578,7 @@ export function buildApp(options: AppOptions = {}) {
     );
   }
   return Object.assign(app, {
+    runtimeKeysFile: keys.filePath,
     platformStore: store,
     platformService: platform,
   });
@@ -621,4 +622,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const app = buildApp({ logger: true });
   const port = Number(process.env.PORT ?? 4300);
   await app.listen({ port, host: process.env.HOST ?? "127.0.0.1" });
+  app.log.info({ keysFile: app.runtimeKeysFile }, "平台密钥已就绪；运行 npm run keys:show 查看管理员 API Key");
 }

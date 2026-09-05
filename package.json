@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json && vite build --config apps/console/vite.config.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
     "start": "tsx apps/api/src/server.ts",
+    "keys:show": "tsx scripts/show-api-key.ts",
     "start:mcp": "tsx scripts/start-mcp.ts",
     "test": "vitest run",
     "test:phase0": "vitest run tests/contract tests/storage",
