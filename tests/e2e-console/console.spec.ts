@@ -230,6 +230,22 @@ test("object tabs save Chinese semantic and aggregation settings and expose type
   await expect(page.getByLabel("业务分类", { exact: true })).toHaveValue("交易域");
   await page.getByRole("tab", { name: /^属性 / }).click();
   await page.getByRole("button", { name: "配置属性 销售金额", exact: true }).click();
+  await page.getByText("高级语义与访问设置", { exact: true }).click();
+  for (const meaning of ["CODE", "NAME", "CATEGORY", "GEOGRAPHY"]) {
+    await page.getByLabel("销售金额语义", { exact: true }).selectOption(meaning);
+    await expect(page.getByLabel("允许值检索", { exact: true })).toBeChecked();
+    await page.getByLabel("允许值检索", { exact: true }).uncheck();
+  }
+  await page.getByLabel("销售金额可见性", { exact: true }).selectOption("DETAIL_ONLY");
+  await page.getByLabel("销售金额语义", { exact: true }).selectOption("CODE");
+  await expect(page.getByLabel("允许值检索", { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel("允许值检索", { exact: true })).toBeDisabled();
+  await page.getByLabel("销售金额可见性", { exact: true }).selectOption("ANALYTICAL");
+  await page.getByLabel("销售金额语义", { exact: true }).selectOption("NUMBER");
+  await page.getByLabel("销售金额数字类型", { exact: true }).selectOption("CURRENCY");
+  await expect(page.getByLabel("销售金额单位或币种", { exact: true })).toHaveValue("CNY");
+  await expect(page.getByLabel("销售金额默认聚合", { exact: true })).toHaveValue("SUM");
+  await expect(page.getByLabel("销售金额聚合性质", { exact: true })).toHaveValue("ADDITIVE");
   await page.getByLabel("销售金额默认聚合", { exact: true }).selectOption("AVG");
   await page.getByLabel("销售金额聚合性质", { exact: true }).selectOption("SEMI_ADDITIVE");
   await page.getByLabel("销售金额单位或币种", { exact: true }).fill("CNY");
@@ -244,6 +260,7 @@ test("object tabs save Chinese semantic and aggregation settings and expose type
   await page.getByRole("button", { name: "配置属性 销售金额", exact: true }).click();
   await expect(page.getByLabel("销售金额默认聚合", { exact: true })).toHaveValue("AVG");
   await expect(page.getByLabel("销售金额聚合性质", { exact: true })).toHaveValue("SEMI_ADDITIVE");
+  await expect(page.getByLabel("销售金额单位或币种", { exact: true })).toHaveValue("CNY");
   await page.getByLabel("销售金额数字类型", { exact: true }).selectOption("RATIO");
   await expect(page.getByLabel("销售金额默认聚合", { exact: true })).toHaveValue("NONE");
   await expect(page.getByLabel("销售金额聚合性质", { exact: true })).toHaveValue("NON_ADDITIVE");
