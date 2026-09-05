@@ -76,7 +76,28 @@ export class SqlitePlatformStore {
   getSnapshot(namespace: string, version: number | "latest" = "latest"): OntologySnapshotV3 | undefined { const resolved = version === "latest" ? this.latestVersion(namespace) : version; if (resolved == null) return undefined; const row = this.db.prepare("SELECT snapshot FROM ontology_versions WHERE namespace=? AND ontology_version=?").get(namespace,resolved) as {snapshot:string}|undefined; return row ? JSON.parse(row.snapshot) as OntologySnapshotV3 : undefined; }
   listVersions(namespace: string): Array<{version:number;status:string;contentDigest:string;inferenceDigest:string;publishedAt:string;publishedBy:string;changeSummary:string;objectCount:number;relationCount:number;metricCount:number}> { return (this.db.prepare("SELECT v.ontology_version version,v.status,v.content_digest contentDigest,v.inference_digest inferenceDigest,v.published_at publishedAt,v.snapshot,COALESCE(m.published_by,'system') publishedBy,COALESCE(m.change_summary,'Imported or initial version') changeSummary FROM ontology_versions v LEFT JOIN ontology_version_metadata m ON m.namespace=v.namespace AND m.ontology_version=v.ontology_version WHERE v.namespace=? ORDER BY v.ontology_version DESC").all(namespace) as Array<Record<string,unknown>>).map(row => { const snapshot = JSON.parse(row.snapshot as string) as OntologySnapshotV3; return { version: row.version as number, status: row.status as string, contentDigest: row.contentDigest as string, inferenceDigest: row.inferenceDigest as string, publishedAt: row.publishedAt as string, publishedBy: row.publishedBy as string, changeSummary: row.changeSummary as string, objectCount: snapshot.objects.length, relationCount: snapshot.relations.length, metricCount: snapshot.metrics.length }; }); }
   saveVersionMetadata(namespace:string,version:number,publishedBy:string,changeSummary:string):void { this.db.prepare("INSERT INTO ontology_version_metadata(namespace,ontology_version,published_by,change_summary) VALUES(?,?,?,?) ON CONFLICT(namespace,ontology_version) DO NOTHING").run(namespace,version,publishedBy,changeSummary); }
-  createDraft(namespace: string, baseVersion: number | "latest" = "latest"): DraftRecord { const base = this.getSnapshot(namespace, baseVersion); if (!base) throw new Error("ONTOLOGY_VERSION_NOT_FOUND"); const draftId = `draft_${randomUUID()}`; const snapshot = structuredClone(base); snapshot.status = "DRAFT"; snapshot.baseVersion = base.version; snapshot.version = base.version + 1; snapshot.publishedAt = undefined; snapshot.objects.forEach(item => item.status = "DRAFT"); snapshot.metrics.forEach(item => item.status = "DRAFT"); snapshot.relations.forEach(item => item.status = "DRAFT"); snapshot.dimensionHierarchies.forEach(item => item.status = "DRAFT"); const now = new Date().toISOString(); this.db.prepare("INSERT INTO ontology_drafts(namespace,draft_id,base_version,revision,payload,updated_at) VALUES(?,?,?,?,?,?)").run(namespace,draftId,base.version,1,JSON.stringify(snapshot),now); return { namespace,draftId,baseVersion:base.version,revision:1,snapshot,updatedAt:now }; }
+  createDraft(namespace: string, baseVersion: number | "latest" = "latest"): DraftRecord {
+    const base = this.getSnapshot(namespace, baseVersion);
+    if (!base && (baseVersion !== "latest" || this.latestVersion(namespace) != null)) throw new Error("ONTOLOGY_VERSION_NOT_FOUND");
+    const draftId = `draft_${randomUUID()}`;
+    const snapshot: OntologySnapshotV3 = base ? structuredClone(base) : {
+      schemaVersion: 3, namespace, version: 1, status: "DRAFT", contentDigest: "", inferenceDigest: "",
+      objects: [], relations: [], metrics: [], dimensionHierarchies: [], axiomAssertions: [], inferredAssertions: [],
+    };
+    snapshot.status = "DRAFT";
+    snapshot.baseVersion = base?.version;
+    snapshot.version = (base?.version ?? 0) + 1;
+    snapshot.publishedAt = undefined;
+    snapshot.objects.forEach(item => item.status = "DRAFT");
+    snapshot.metrics.forEach(item => item.status = "DRAFT");
+    snapshot.relations.forEach(item => item.status = "DRAFT");
+    snapshot.dimensionHierarchies.forEach(item => item.status = "DRAFT");
+    const now = new Date().toISOString();
+    this.upsertNamespace(namespace);
+    this.db.prepare("INSERT INTO ontology_drafts(namespace,draft_id,base_version,revision,payload,updated_at) VALUES(?,?,?,?,?,?)")
+      .run(namespace, draftId, base?.version ?? 0, 1, JSON.stringify(snapshot), now);
+    return { namespace, draftId, baseVersion: base?.version ?? 0, revision: 1, snapshot, updatedAt: now };
+  }
   getDraft(namespace: string, draftId: string): DraftRecord | undefined { const row = this.db.prepare("SELECT namespace,draft_id draftId,base_version baseVersion,revision,payload,updated_at updatedAt FROM ontology_drafts WHERE namespace=? AND draft_id=?").get(namespace,draftId) as Record<string,unknown>|undefined; return row ? { namespace:row.namespace as string,draftId:row.draftId as string,...(row.baseVersion == null?{}:{baseVersion:row.baseVersion as number}),revision:row.revision as number,snapshot:JSON.parse(row.payload as string) as OntologySnapshotV3,updatedAt:row.updatedAt as string } : undefined; }
   saveDraft(record: DraftRecord, expectedRevision: number): DraftRecord { const nextRevision = expectedRevision + 1; const now = new Date().toISOString(); const result = this.db.prepare("UPDATE ontology_drafts SET revision=?,payload=?,updated_at=? WHERE namespace=? AND draft_id=? AND revision=?").run(nextRevision,JSON.stringify(record.snapshot),now,record.namespace,record.draftId,expectedRevision); if (Number(result.changes) !== 1) throw new Error("DRAFT_REVISION_CONFLICT"); return {...record,revision:nextRevision,updatedAt:now}; }
   deleteDraft(namespace: string, draftId: string): void { this.db.prepare("DELETE FROM ontology_drafts WHERE namespace=? AND draft_id=?").run(namespace,draftId); }

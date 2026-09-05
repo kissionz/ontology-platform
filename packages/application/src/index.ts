@@ -313,7 +313,7 @@ export class OntologyPlatform {
     sourceVersion?: number,
   ) {
     return this.store.transaction(() => {
-      this.resolveVersion(namespace, baseVersion);
+      if (baseVersion !== "latest" || this.store.latestVersion(namespace) != null) this.resolveVersion(namespace, baseVersion);
       const draft = this.store.createDraft(namespace, baseVersion);
       if (sourceVersion == null) return draft;
       const source = this.getSnapshot(namespace, sourceVersion);
@@ -472,7 +472,8 @@ export class OntologyPlatform {
       );
     const latest = this.store.latestVersion(namespace);
     if (
-      latest !== expectedBaseVersion ||
+      (latest ?? 0) !== expectedBaseVersion ||
+      (draft.baseVersion === 0 && draft.snapshot.baseVersion == null && latest != null) ||
       draft.baseVersion !== expectedBaseVersion
     )
       throw new PlatformException(

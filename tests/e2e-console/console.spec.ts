@@ -75,6 +75,44 @@ test("first visit guides key setup, rejects invalid keys and retains a valid ses
   await page.close();
 });
 
+test("an empty installation can configure its source and publish its first ontology", async ({ page }) => {
+  await page.goto("http://127.0.0.1:4332/");
+  await expect(page.getByRole("heading", { name: "尚无已发布本体" })).toBeVisible();
+  await page.getByRole("link", { name: "配置数据源", exact: true }).click();
+  await expect(page.getByRole("button", { name: "保存连接", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "重建索引", exact: true })).toBeDisabled();
+  await page.getByLabel("host", { exact: true }).fill("fixture.internal");
+  await page.getByLabel("username", { exact: true }).fill("fixture");
+  await page.getByLabel("database", { exact: true }).fill("retail");
+  await page.getByRole("button", { name: "保存连接", exact: true }).click();
+  await expect(page.locator(".source-card").getByText("已配置", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "测试连接", exact: true }).click();
+  await expect(page.locator(".action-result")).toContainText("SelectDB 3.x");
+  await page.getByRole("button", { name: "扫描 Schema", exact: true }).first().click();
+  await expect(page.locator(".schema-table")).toHaveCount(4);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: `${tmpdir()}/ontology-platform-empty-source-1280.png`, fullPage: true });
+  await page.getByRole("button", { name: "本体", exact: true }).click();
+  await page.getByRole("button", { name: "创建空白草稿", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "从物理表添加对象" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "从物理表添加对象" })).toBeVisible();
+  await page.getByLabel("新对象来源表").selectOption("selectdb:bu");
+  await page.getByLabel("新对象业务名称").fill("事业部");
+  await page.getByLabel("新对象唯一标识字段").selectOption("bu_id");
+  await page.screenshot({ path: `${tmpdir()}/ontology-platform-first-object-1280.png`, fullPage: true });
+  await page.getByRole("button", { name: "创建对象", exact: true }).click();
+  await expect(page.getByText("对象已创建，请检查属性语义后校验草稿", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "校验草稿", exact: true }).click();
+  await expect(page.getByText(/revision \d+ · 校验通过/)).toBeVisible();
+  await page.getByRole("button", { name: "发布版本", exact: true }).click();
+  await expect(page.getByText("v1 已发布", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "数据源", exact: true }).click();
+  await expect(page.getByRole("button", { name: "重建索引", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "概览", exact: true }).click();
+  await expect(page.getByText("本体图谱", { exact: true })).toBeVisible();
+});
+
 test("confirmed desktop widths do not clip the workspace", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("本体图谱", { exact: true })).toBeVisible();

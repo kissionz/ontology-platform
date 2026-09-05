@@ -5,6 +5,8 @@ HTTP、TypeScript SDK、Python SDK 与 MCP 复用同一 Application/Domain 内�
 1. `ResolveOntologyContext`：规划或解释任务时一次获取相关对象、属性、指标、关系、值、公理、推论、证据和短引用。
 2. `ExecuteSemanticQuery`：明确问数用 `AUTO` 一次完成；稳定流程用 `FIXED_SHAPE`；开放分析用 `ANALYSIS`。
 
+从空命名空间建模时，先保存数据源并扫描 Schema，再调用 `POST /v1/namespaces/{ns}/drafts`，省略 `baseVersion` 或传 `latest` 即可创建初始草稿。响应的 `baseVersion: 0` 是首次发布的基线标记，初始草稿不创建已发布 v0。按扫描结果提交对象定义，校验后以 `baseVersion: 0` 发布 v1；另一个初始草稿在 v1 已发布后提交会返回 409。显式指定不存在的版本仍返回 404。
+
 HTTP 示例：
 
 ```bash

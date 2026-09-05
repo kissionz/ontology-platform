@@ -385,6 +385,11 @@ button.version-row { width: 100%; border: 0; background: transparent; text-align
 .connect-platform { min-height:400px; padding:28px; }
 .connect-platform .api-key-field { width:min(420px,100%); margin:10px 0 0; text-align:left; }
 .connect-platform [role="alert"] { color:var(--ink); }
+.new-object-form h2 { margin:0 0 12px; font-size:16px; }
+.new-object-form p { margin:0 0 18px; color:var(--muted); font-size:12px; line-height:1.6; }
+.new-object-form input { width:100%; min-width:0; border:1px solid var(--border); border-radius:6px; padding:10px 12px; color:var(--ink); font:inherit; }
+.new-object-form input:focus { outline:2px solid var(--blue); outline-offset:1px; }
+.new-object-form .source-actions { margin-top:18px; flex-wrap:wrap; }
 .skeleton-state div { width:min(720px,70%); height:54px; border-radius:8px; background:linear-gradient(90deg,#f2f4f7,#fafbfc,#f2f4f7); background-size:200% 100%; animation:skeleton 1.4s ease-in-out infinite; }
 @keyframes skeleton { to { background-position:-200% 0; } }
 .state-inline { display:grid; height:100%; place-items:center; color:var(--muted); font-size:11px; }.muted-copy { color:var(--muted); font-size:10px; }

@@ -1,5 +1,6 @@
 import { axiomTitle, axiomDescription, chineseParameters, term } from "./axiom-copy.js";
 import { CONTRACT_SCHEMAS } from "../../../packages/contracts/src/index.js";
+import { NewObjectForm } from "./NewObjectForm.js";
 import {
   useEffect,
   useMemo,
@@ -385,7 +386,8 @@ function PageState({
         </div>
       </main>
     );
-  if (error)
+  const missingOntology = error?.payload?.error?.code === "ONTOLOGY_VERSION_NOT_FOUND" && (error.payload.error.details?.availableVersions as unknown[] | undefined)?.length === 0;
+  if (error && !missingOntology)
     return (
       <main className="content">
         <div className="state-panel">
@@ -408,14 +410,15 @@ function PageState({
         </div>
       </main>
     );
-  if (empty)
+  if (empty || missingOntology)
     return (
       <main className="content">
         <div className="state-panel">
           <CirclesThreePlus size={28} />
           <h2>尚无已发布本体</h2>
-          <p>导入 InsightFlow 快照，或通过 API 创建并发布第一个本体版本。</p>
-          <code>npm run ontology:import -- --source … --namespace retail</code>
+          <p>先配置数据源并扫描表字段，再创建草稿、添加对象并发布第一个版本。</p>
+          <a className="primary-button" href="?page=data">配置数据源</a>
+          <a className="secondary-button" href="?page=ontology">创建本体</a>
         </div>
       </main>
     );
@@ -779,6 +782,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [changeSummary, setChangeSummary] = useState("更新本体业务语义");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [addingObject, setAddingObject] = useState(false);
   useEffect(() => {
     const draftId = route.get("draft") ?? (route.has("version") ? null : sessionStorage.getItem("ontology-active-draft"));
     if (!draftId) return;
@@ -914,11 +918,33 @@ function Ontology({ apiKey }: { apiKey: string }) {
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
+  const refreshDraft = async () => {
+    if (!draft) return;
+    try { const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey); setDraft(result); }
+    catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+  };
+  const addObject = async (value: import("../../../packages/contracts/src/index.js").OntologyObject) => {
+    if (!draft) return;
+    setBusy(true);
+    try {
+      const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "PATCH", body: JSON.stringify({ revision: draft.revision, operations: [{ op: "UPSERT_OBJECT", value }] }) });
+      setDraft(result); setSelected(value.id); setCatalogTab("objects"); setAddingObject(false); setMessage("对象已创建，请检查属性语义后校验草稿");
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+  if (!snapshot && snap.error?.payload?.error?.code === "ONTOLOGY_VERSION_NOT_FOUND" && (snap.error.payload.error.details?.availableVersions as unknown[] | undefined)?.length === 0) return (
+    <main className="content"><section className="state-panel">
+      <CirclesThreePlus size={28} /><h2>创建第一个本体</h2>
+      <p>创建空白草稿后，可从已扫描的物理表添加对象，定义业务语义并发布。</p>
+      <button className="primary-button" disabled={busy} onClick={createDraft}>创建空白草稿</button>
+      <a className="secondary-button" href="?page=data">配置数据源</a>
+      {message && <p role="status">{message}</p>}
+    </section></main>
+  );
   return (
     <PageState
-      loading={snap.loading}
-      error={snap.error}
-      empty={!snapshot?.objects.length}
+      loading={!draft && snap.loading}
+      error={draft ? undefined : snap.error}
       onRetry={snap.reload}
     >
       <main className="content no-scroll">
@@ -933,13 +959,14 @@ function Ontology({ apiKey }: { apiKey: string }) {
             <div className="catalog-tabs">
               {([["objects", "对象"], ["metrics", "指标"], ["dimensionHierarchies", "层级"]] as const).map(([id, label]) => <button key={id} className={catalogTab === id ? "active" : ""} onClick={() => { setCatalogTab(id); setDefinitionId(snapshot?.[id]?.[0]?.id ?? ""); }}>{label}</button>)}
             </div>
+            {editing && <button className="secondary-button" disabled={busy} onClick={() => { setAddingObject(true); setCatalogTab("objects"); }}>添加对象</button>}
             <input className="catalog-search" aria-label="搜索本体目录" placeholder="搜索名称或标识" value={catalogSearch} onChange={event => setCatalogSearch(event.target.value)} />
             <div className="catalog-list">
               {catalogTab === "objects" && snapshot?.objects.filter(o => `${o.label} ${o.name}`.includes(catalogSearch)).map((o: ObjectDef) => (
                 <button
                   key={o.id}
                   className={`catalog-item ${selected === o.id ? "active" : ""}`}
-                  onClick={() => setSelected(o.id)}
+                  onClick={() => { setSelected(o.id); setAddingObject(false); }}
                 >
                   <span className="catalog-icon">
                     <CirclesThreePlus size={17} />
@@ -966,7 +993,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
               {editing ? (
                 <>
                   <button className="secondary-button" disabled={busy} onClick={validate}>校验草稿</button>
-                  <button className="primary-button" disabled={busy} onClick={save}>
+                  <button className="primary-button" disabled={busy || !object || addingObject} onClick={save}>
                     <FloppyDisk size={15} /> 保存对象
                   </button>
                   <button className="primary-button" disabled={busy || !draft?.validation?.valid || draft.validation.revision !== draft.revision} onClick={publish}>发布版本</button>
@@ -982,6 +1009,10 @@ function Ontology({ apiKey }: { apiKey: string }) {
                 </button>
               )}
             </PanelHeader>
+            {editing && catalogTab === "objects" && (addingObject || !snapshot?.objects.length) && <>
+              <NewObjectForm tables={draft.physicalTables ?? []} busy={busy} onCreate={addObject} onRefresh={() => void refreshDraft()} onCancel={snapshot?.objects.length ? () => setAddingObject(false) : undefined} />
+              {message && <div className="inline-notice" role="status">{message}</div>}
+            </>}
             {editing && <section className="validation-report" aria-label="发布校验报告">
               <details>
                 <summary>Golden Cases · 编译回归用例</summary>
@@ -998,7 +1029,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
               </div> : <p>保存变更后运行“校验草稿”，查看当前 revision 的发布报告。</p>}
             </section>}
             {catalogTab !== "objects" && <div className="detail-content"><h2>{definition?.label ?? "选择定义"}</h2><textarea className="definition-editor" aria-label="指标或层级定义" readOnly={!editing} value={definitionJson} onChange={event => setDefinitionJson(event.target.value)} />{editing && <button className="primary-button" disabled={busy} onClick={saveDefinition}>保存定义</button>}{message && <div className="inline-notice">{message}</div>}</div>}
-            {catalogTab === "objects" && object && (
+            {catalogTab === "objects" && object && !addingObject && (
               <div className="detail-content">
                 <div className="detail-title">
                   <div>
@@ -1494,7 +1525,8 @@ function DataPage({ apiKey }: { apiKey: string }) {
   const versions = useApi<any[]>("/v1/namespaces/retail/versions", apiKey);
   const [indexVersion, setIndexVersion] = useState("latest");
   const source = useApi<any>("/v1/data-sources/selectdb", apiKey);
-  const index = useApi<any>(`/v1/namespaces/retail/value-index/status?version=${indexVersion}`, apiKey, [indexVersion]);
+  const hasPublished = Boolean(versions.data?.length);
+  const index = useApi<any>(hasPublished ? `/v1/namespaces/retail/value-index/status?version=${indexVersion}` : "", apiKey, [indexVersion]);
   const [action, setAction] = useState("");
   const [schema, setSchema] = useState<any[]>([]);
   const [config, setConfig] = useState({ host: "", port: 9030, username: "", password: "", catalog: "internal", database: "", tls: true });
@@ -1529,8 +1561,8 @@ function DataPage({ apiKey }: { apiKey: string }) {
   };
   return (
     <PageState
-      loading={source.loading || index.loading}
-      error={source.error ?? index.error}
+      loading={source.loading}
+      error={source.error}
       onRetry={() => {
         source.reload();
         index.reload();
@@ -1598,13 +1630,15 @@ function DataPage({ apiKey }: { apiKey: string }) {
                   </span>
                   <div>
                     <h2>属性值索引</h2>
-                    <label>本体版本 <select aria-label="索引本体版本" value={indexVersion} onChange={event => setIndexVersion(event.target.value)}><option value="latest">最新发布</option>{versions.data?.map(item => <option key={item.version} value={item.version}>v{item.version}</option>)}</select></label>
+                    <label>本体版本 <select aria-label="索引本体版本" disabled={!hasPublished} value={indexVersion} onChange={event => setIndexVersion(event.target.value)}><option value="latest">最新发布</option>{versions.data?.map(item => <option key={item.version} value={item.version}>v{item.version}</option>)}</select></label>
                   </div>
                 </div>
                 <Badge tone={index.data?.status === "ready" ? "success" : "warning"}>
-                  {index.data?.status ?? "EMPTY"}
+                  {hasPublished ? index.data?.status ?? "待构建" : "待发布本体"}
                 </Badge>
               </div>
+              {!versions.loading && !versions.error && !hasPublished && <p className="muted-copy">连接配置和表字段扫描已可使用。发布第一个本体版本后，再构建属性值索引。<a href="?page=ontology">创建本体</a></p>}
+              {(versions.error || index.error) && <p role="alert">索引状态暂不可用：{(versions.error ?? index.error)?.message}<button className="secondary-button" onClick={() => { versions.reload(); index.reload(); }}>重试索引状态</button></p>}
               <div className="index-progress">
                 <span
                   style={{ width: index.data?.properties ? "100%" : "0%" }}
@@ -1620,6 +1654,7 @@ function DataPage({ apiKey }: { apiKey: string }) {
               <div className="source-actions">
                 <button
                   className="secondary-button"
+                  disabled={!hasPublished || index.loading || Boolean(versions.error)}
                   onClick={() =>
                     run(`/v1/namespaces/retail/value-index:rebuild?version=${indexVersion}`)
                   }

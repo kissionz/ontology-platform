@@ -77,3 +77,10 @@ app.platformStore.saveIndexStatus(
 );
 
 await app.listen({ port: 4331, host: "127.0.0.1" });
+
+// A separate empty installation exercises onboarding without affecting seeded workflows.
+const emptyDatabasePath = path.join(tmpdir(), "ontology-platform-empty-e2e.sqlite");
+for (const suffix of ["", "-wal", "-shm"])
+  if (existsSync(`${emptyDatabasePath}${suffix}`)) unlinkSync(`${emptyDatabasePath}${suffix}`);
+const emptyApp = buildApp({ databasePath: emptyDatabasePath, apiKey: "e2e-key", logger: false, queryExecutor: executor, queryGateway: gateway });
+await emptyApp.listen({ port: 4332, host: "127.0.0.1" });
