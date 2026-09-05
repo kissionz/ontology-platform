@@ -26,7 +26,7 @@ test("U01-U12 console workflow uses the real HTTP contracts", async ({ page }) =
   await expect(page.getByText(/草稿已保存/)).toBeVisible();
 
   await page.getByRole("button", { name: "公理", exact: true }).click();
-  await page.getByRole("button", { name: /RATIO_NON_ADDITIVE.*METRIC/ }).click();
+  await page.getByRole("button", { name: /比例不能直接累加.*指标/ }).click();
   await expect(page.getByText("重算语义")).toBeVisible();
   await expect(page.getByText(/NULLIF/).first()).toBeVisible();
   await expect(page.getByText("推论依据")).toBeVisible();
@@ -112,4 +112,42 @@ test("all six pages fit both confirmed desktop widths", async ({ page }) => {
       await page.screenshot({ path: `${tmpdir()}/ontology-platform-${name}-${width}.png`, fullPage: true });
     }
   }
+});
+
+test("graph inspection, version filters and rollback drafts remain usable across navigation", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: /订单.*EVENT/ }).click();
+  await page.getByRole("tab", { name: "指标", exact: true }).click();
+  await expect(page.locator(".inspector").getByText("SUM(orders.sales)", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "关系", exact: true }).click();
+  await expect(page.locator(".inspector").getByText("订单关联店铺")).toBeVisible();
+  await page.getByRole("button", { name: "含指标", exact: true }).click();
+  await page.getByRole("button", { name: /销售额.*METRIC/ }).click();
+  await expect(page.locator(".inspector h2")).toHaveText("订单");
+  await expect(page.getByRole("tab", { name: "指标", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "公理", exact: true }).click();
+  await page.getByLabel("公理本体版本").selectOption("1");
+  await expect(page.locator(".logic-grid")).not.toContainText(/PROPERTY|ENTITY|SEMANTIC_PLANNING|PUBLISH_VALIDATION/);
+  await page.getByLabel("公理适用对象").selectOption("o_order");
+  await page.getByLabel("公理域筛选").selectOption("METRIC_ALGEBRA");
+  await page.getByRole("button", { name: /比例不能直接累加.*指标/ }).click();
+  await page.getByRole("button", { name: /查看定义 · 毛利率/ }).first().click();
+  await expect(page.getByLabel("指标或层级定义")).toContainText('"id": "m_margin"');
+  await expect(page).toHaveURL(/version=1/);
+  await page.getByRole("button", { name: "版本", exact: true }).click();
+  await page.getByRole("button", { name: /v1\b/ }).click();
+  await page.getByRole("button", { name: "创建回滚草稿", exact: true }).click();
+  await expect(page).toHaveURL(/draft=/);
+  await expect(page.getByRole("button", { name: "保存对象", exact: true })).toBeVisible();
+  await expect(page.getByLabel("默认时间字段")).toHaveValue("p_order_date");
+  await page.getByRole("button", { name: "数据源", exact: true }).click();
+  await page.getByLabel("索引本体版本").selectOption("1");
+  const rebuilt = page.waitForResponse(response => response.url().includes("value-index:rebuild?version=1") && response.request().method() === "POST");
+  await page.getByRole("button", { name: /重建索引/ }).click();
+  expect((await rebuilt).status()).toBe(200);
+  await page.getByRole("button", { name: "本体", exact: true }).click();
+  await expect(page.getByRole("button", { name: "保存对象", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
 });

@@ -424,3 +424,15 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .detail-panel > .detail-content { flex: 1; min-height: 0; height: auto; }
 .detail-panel > .validation-report { flex-shrink: 0; max-height: 45%; overflow: auto; }
 .catalog-item > span:only-child { grid-column: 1 / -1; }
+.inspector-definition { padding: 12px 4px; border-bottom: 1px solid var(--border); font-size: 11px; overflow-wrap: anywhere; }
+.inspector-definition p { color: var(--muted); line-height: 1.6; }
+.inspector-definition code, .inspector-definition small { font-size: 10px; }
+.logic-filters { display: grid; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); font-size: 11px; }
+.logic-filters label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.logic-filters select { min-width: 0; width: 68%; padding: 5px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); }
+.logic-grid .catalog-panel { display: flex; flex-direction: column; }
+.logic-grid .logic-list { flex: 1; min-height: 0; height: auto; }
+.inference-choice { width: 100%; background: transparent; border: 0; text-align: left; }
+.inference-choice.active { background: var(--blue-soft); }
+.text-button { border: 0; padding: 5px 0; background: transparent; color: var(--blue); font-size: 11px; text-align: left; }
+.mapping-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0; }

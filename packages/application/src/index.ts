@@ -312,20 +312,22 @@ export class OntologyPlatform {
     baseVersion: number | "latest" = "latest",
     sourceVersion?: number,
   ) {
-    this.resolveVersion(namespace, baseVersion);
-    const draft = this.store.createDraft(namespace, baseVersion);
-    if (sourceVersion == null) return draft;
-    const source = this.getSnapshot(namespace, sourceVersion);
-    const restored = structuredClone(source);
-    restored.status = "DRAFT";
-    restored.version = draft.snapshot.version;
-    restored.baseVersion = draft.baseVersion;
-    restored.publishedAt = undefined;
-    restored.objects.forEach((item) => (item.status = "DRAFT"));
-    restored.metrics.forEach((item) => (item.status = "DRAFT"));
-    restored.relations.forEach((item) => (item.status = "DRAFT"));
-    restored.dimensionHierarchies.forEach((item) => (item.status = "DRAFT"));
-    return this.store.saveDraft({ ...draft, snapshot: restored }, draft.revision);
+    return this.store.transaction(() => {
+      this.resolveVersion(namespace, baseVersion);
+      const draft = this.store.createDraft(namespace, baseVersion);
+      if (sourceVersion == null) return draft;
+      const source = this.getSnapshot(namespace, sourceVersion);
+      const restored = structuredClone(source);
+      restored.status = "DRAFT";
+      restored.version = draft.snapshot.version;
+      restored.baseVersion = draft.baseVersion;
+      restored.publishedAt = undefined;
+      restored.objects.forEach((item) => (item.status = "DRAFT"));
+      restored.metrics.forEach((item) => (item.status = "DRAFT"));
+      restored.relations.forEach((item) => (item.status = "DRAFT"));
+      restored.dimensionHierarchies.forEach((item) => (item.status = "DRAFT"));
+      return this.store.saveDraft({ ...draft, snapshot: restored }, draft.revision);
+    });
   }
   applyDraftPatch(
     namespace: string,

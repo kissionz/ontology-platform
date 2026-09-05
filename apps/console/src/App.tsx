@@ -1,3 +1,4 @@
+import { axiomTitle, axiomDescription, chineseParameters, term } from "./axiom-copy.js";
 import { CONTRACT_SCHEMAS } from "../../../packages/contracts/src/index.js";
 import {
   useEffect,
@@ -61,6 +62,7 @@ type ObjectDef = {
   objectType: string;
   grain: string;
   grainPropertyIds: string[];
+  defaultTimePropertyId?: string;
   sourceTableId: string;
   properties: Property[];
   owner?: string;
@@ -185,10 +187,15 @@ export function App() {
       import.meta.env.VITE_API_KEY ??
       "",
   );
-  const navigate = (next: Page) => {
+  const navigate = (next: Page, params: Record<string, string> = {}) => {
+    history.pushState(null, "", `?${new URLSearchParams({ page: next, ...params })}`);
     setPage(next);
-    history.pushState(null, "", `?page=${next}`);
   };
+  useEffect(() => {
+    const restorePage = () => setPage((new URLSearchParams(location.search).get("page") as Page) || "overview");
+    window.addEventListener("popstate", restorePage);
+    return () => window.removeEventListener("popstate", restorePage);
+  }, []);
   const setApiKey = (value: string) => {
     setApiKeyState(value);
     if (value) sessionStorage.setItem("ontology-api-key", value);
@@ -204,9 +211,9 @@ export function App() {
         ) : page === "ontology" ? (
           <Ontology apiKey={apiKey} />
         ) : page === "logic" ? (
-          <Logic apiKey={apiKey} />
+          <Logic apiKey={apiKey} onOpenDefinition={(entity, version) => navigate("ontology", { entity, version: String(version) })} />
         ) : page === "versions" ? (
-          <Versions apiKey={apiKey} />
+          <Versions apiKey={apiKey} onOpenDraft={draft => navigate("ontology", { draft })} />
         ) : page === "data" ? (
           <DataPage apiKey={apiKey} />
         ) : (
@@ -404,6 +411,7 @@ function PanelHeader({
 }
 
 function Overview({ apiKey }: { apiKey: string }) {
+  const ontology = useApi<Snapshot>("/v1/namespaces/retail/ontology", apiKey);
   const summary = useApi<any>("/v1/namespaces/retail/summary", apiKey);
   const [projection, setProjection] = useState("relations");
   const graph = useApi<Graph>(
@@ -431,12 +439,13 @@ function Overview({ apiKey }: { apiKey: string }) {
     const first = g?.nodes.find((n) => n.kind === "OBJECT")?.id;
     if (first && !selected) setSelected(first);
   }, [g, selected]);
-  const object = g?.nodes.find((n) => n.id === selected)?.detail as
-    | ObjectDef
-    | undefined;
+  const selectedNode = g?.nodes.find(node => node.id === selected);
+  const selectedDetail = selectedNode?.detail as any;
+  const object = ontology.data?.objects.find(item => item.id === (selectedNode?.kind === "OBJECT" ? selected : selectedNode?.kind === "METRIC" ? selectedDetail?.objectId : selectedDetail?.subjectId))
+    ?? ontology.data?.objects.find(item => item.properties.some(property => property.id === selectedDetail?.subjectId));
   return (
     <PageState
-      loading={summary.loading || (projection !== "relations" && graph.loading)}
+      loading={!summary.error && !graph.error && (summary.loading || !rawGraph || (projection !== "relations" && graph.loading))}
       error={summary.error ?? graph.error}
       empty={!data?.counts?.objects}
       onRetry={() => {
@@ -536,7 +545,7 @@ function Overview({ apiKey }: { apiKey: string }) {
               scale={scale}
             />
           </section>
-          <Inspector object={object} snapshot={undefined} />
+          <Inspector key={`${object?.id}:${selectedNode?.kind}`} object={object} snapshot={ontology.data} initialTab={selectedNode?.kind === "METRIC" ? "metrics" : selectedNode?.kind === "AXIOM" ? "axioms" : "properties"} />
         </section>
       </main>
     </PageState>
@@ -659,7 +668,8 @@ function GraphView({
     </div>
   );
 }
-function Inspector({ object }: { object?: ObjectDef; snapshot?: Snapshot }) {
+function Inspector({ object, snapshot, initialTab = "properties" }: { object?: ObjectDef; snapshot?: Snapshot; initialTab?: "properties" | "metrics" | "relations" | "axioms" }) {
+  const [tab, setTab] = useState(initialTab);
   if (!object)
     return (
       <aside className="panel inspector">
@@ -698,31 +708,22 @@ function Inspector({ object }: { object?: ObjectDef; snapshot?: Snapshot }) {
           </div>
         </div>
       </div>
-      <div className="tabbar">
-        <button className="active">属性 {object.properties.length}</button>
-        <button>指标</button>
-        <button>关系</button>
-        <button>公理</button>
+      <div className="tabbar" role="tablist" aria-label="对象详情">
+        {([["properties", `属性 ${object.properties.length}`], ["metrics", "指标"], ["relations", "关系"], ["axioms", "公理"]] as const).map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
       </div>
-      <div className="inspector-body">
-        {object.properties.map((p) => (
-          <div className="property-row" key={p.id}>
-            <div>
-              <strong>{p.label}</strong>
-              <small>
-                {p.name} · {p.dataType}
-              </small>
-            </div>
-            <span className="property-type">{p.meaning}</span>
-          </div>
-        ))}
+      <div className="inspector-body" role="tabpanel">
+        {tab === "properties" && object.properties.map(p => <div className="property-row" key={p.id}><div><strong>{p.label}</strong><small>{p.name} · {p.dataType}</small></div><span className="property-type">{p.meaning}</span></div>)}
+        {tab === "metrics" && snapshot?.metrics.filter(metric => metric.objectId === object.id).map(metric => <div className="inspector-definition" key={metric.id}><strong>{metric.label}</strong><p>{metric.description}</p><code>{metric.expression}</code></div>)}
+        {tab === "relations" && snapshot?.relations.filter(relation => relation.sourceObjectId === object.id || relation.targetObjectId === object.id).map(relation => <div className="inspector-definition" key={relation.id}><strong>{relation.name}</strong><p>{relation.sourceObjectId} → {relation.targetObjectId}</p><small>{relation.cardinality} · {relation.direction}</small></div>)}
+        {tab === "axioms" && snapshot?.axiomAssertions.filter(axiom => axiom.subjectId === object.id || axiom.sourceDefinitionIds.includes(object.id) || object.properties.some(property => property.id === axiom.subjectId)).map(axiom => <div className="inspector-definition" key={axiom.id}><strong>{axiom.axiomCode}</strong><p>{axiom.subjectId}</p><small>{axiom.enforcement}</small></div>)}
       </div>
     </aside>
   );
 }
 
 function Ontology({ apiKey }: { apiKey: string }) {
-  const snap = useApi<Snapshot>("/v1/namespaces/retail/ontology", apiKey);
+  const [route, setRoute] = useState(() => new URLSearchParams(location.search));
+  const snap = useApi<Snapshot>(`/v1/namespaces/retail/ontology?version=${route.get("version") ?? "latest"}`, apiKey);
   const [selected, setSelected] = useState<string>();
   const [draft, setDraft] = useState<any>();
   const [editing, setEditing] = useState(false);
@@ -738,11 +739,31 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [changeSummary, setChangeSummary] = useState("更新本体业务语义");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    const draftId = route.get("draft") ?? (route.has("version") ? null : sessionStorage.getItem("ontology-active-draft"));
+    if (!draftId) return;
+    let active = true;
+    api<any>(`/v1/namespaces/retail/drafts/${encodeURIComponent(draftId)}`, apiKey).then(result => {
+      if (!active) return;
+      setDraft(result); setEditing(true); setGoldenCaseJson(JSON.stringify(result.goldenReport?.cases ?? [], null, 2));
+      sessionStorage.setItem("ontology-active-draft", result.draftId);
+    }).catch(error => { if (active) { sessionStorage.removeItem("ontology-active-draft"); setMessage(error instanceof Error ? error.message : String(error)); } });
+    return () => { active = false; };
+  }, [apiKey, route]);
   const snapshot: Snapshot | undefined = draft?.snapshot ?? snap.data;
   useEffect(() => {
     const first = snapshot?.objects[0]?.id;
     if (first && !selected) setSelected(first);
   }, [snapshot, selected]);
+  useEffect(() => {
+    const id = route.get("entity");
+    if (!id || !snapshot) return;
+    const metric = snapshot.metrics.find(item => item.id === id);
+    const hierarchy = snapshot.dimensionHierarchies.find(item => item.id === id);
+    if (metric) { setCatalogTab("metrics"); setDefinitionId(id); setSelected(metric.objectId); }
+    else if (hierarchy) { setCatalogTab("dimensionHierarchies"); setDefinitionId(id); setSelected(hierarchy.levels?.[0]?.objectId); }
+    else setSelected(snapshot.objects.find(item => item.id === id || item.properties.some(property => property.id === id))?.id ?? snapshot.relations.find(item => item.id === id)?.sourceObjectId ?? snapshot.objects[0]?.id);
+  }, [snap.data?.version, draft?.draftId, route]);
   const object: ObjectDef | undefined = snapshot?.objects.find((o) => o.id === selected);
   useEffect(
     () => {
@@ -757,8 +778,9 @@ function Ontology({ apiKey }: { apiKey: string }) {
     try {
       const result = await api<any>("/v1/namespaces/retail/drafts", apiKey, {
         method: "POST",
-        body: JSON.stringify({ baseVersion: "latest" }),
+        body: JSON.stringify({ baseVersion: "latest", ...(route.has("version") ? { sourceVersion: Number(route.get("version")) } : {}) }),
       });
+      sessionStorage.setItem("ontology-active-draft", result.draftId);
       setDraft(result);
       setEditing(true);
       setMessage("草稿已创建");
@@ -828,6 +850,9 @@ function Ontology({ apiKey }: { apiKey: string }) {
           }),
         },
       );
+      sessionStorage.removeItem("ontology-active-draft");
+      history.replaceState(null, "", "?page=ontology");
+      setRoute(new URLSearchParams({ page: "ontology" }));
       setDraft(undefined);
       setEditing(false);
       setMessage(`v${result.version} 已发布`);
@@ -955,15 +980,9 @@ function Ontology({ apiKey }: { apiKey: string }) {
                   <h3>基本定义</h3>
                   <div className="definition-grid">
                     <Field label="机器标识" value={object.name} code />
-                    <Field label="来源表" value={object.sourceTableId} code />
+                    {editing && objectForm ? <label className="definition-field editable-field"><span>来源表</span><select aria-label="对象来源表" value={objectForm.sourceTableId} onChange={event => setObjectForm({ ...objectForm, sourceTableId: event.target.value })}>{!(draft.physicalTables ?? []).some((table: any) => table.id === objectForm.sourceTableId) && <option value={objectForm.sourceTableId}>{objectForm.sourceTableId}（未扫描）</option>}{draft.physicalTables?.map((table: any) => <option key={table.id} value={table.id}>{table.database}.{table.name}</option>)}</select></label> : <Field label="来源表" value={object.sourceTableId} code />}
                     {editing && objectForm ? <><label className="definition-field editable-field"><span>业务名称</span><input value={objectForm.label} onChange={e => setObjectForm({ ...objectForm, label: e.target.value })} /></label><label className="definition-field editable-field"><span>粒度属性 ID（逗号分隔）</span><input value={objectForm.grainPropertyIds.join(",")} onChange={e => setObjectForm({ ...objectForm, grainPropertyIds: e.target.value.split(",").map(id => id.trim()).filter(Boolean) })} /></label><label className="definition-field editable-field"><span>业务粒度</span><input value={objectForm.grain} onChange={e => setObjectForm({ ...objectForm, grain: e.target.value })} /></label></> : <Field label="业务粒度" value={object.grain} />}
-                    <Field
-                      label="默认时间字段"
-                      value={
-                        object.properties.find((p) => p.meaning === "TIME")
-                          ?.label ?? "未配置"
-                      }
-                    />
+                    {editing && objectForm ? <label className="definition-field editable-field"><span>默认时间字段</span><select aria-label="默认时间字段" value={objectForm.defaultTimePropertyId ?? ""} onChange={event => setObjectForm({ ...objectForm, defaultTimePropertyId: event.target.value || undefined })}><option value="">未配置</option>{objectForm.properties.filter((property: Property) => property.meaning === "TIME").map((property: Property) => <option key={property.id} value={property.id}>{property.label}</option>)}</select></label> : <Field label="默认时间字段" value={object.properties.find(property => property.id === object.defaultTimePropertyId)?.label ?? "未配置"} />}
                     {editing && (
                       <label className="definition-field editable-field">
                         <span>对象类型</span>
@@ -986,6 +1005,10 @@ function Ontology({ apiKey }: { apiKey: string }) {
                     <input value={changeSummary} onChange={(event) => setChangeSummary(event.target.value)} />
                   </label>
                 )}
+                {editing && objectForm && <details className="batch-editor"><summary>物理字段映射</summary><p>可选字段来自已扫描的来源表，数据类型随字段映射更新。</p><div className="mapping-fields">{objectForm.properties.map((property: Property) => {
+                  const columns: Array<{ name: string; dataType: string }> = draft.physicalTables?.find((table: any) => table.id === objectForm.sourceTableId)?.columns ?? [];
+                  return <label className="definition-field editable-field" key={property.id}><span>{property.label}</span><select aria-label={`${property.label}物理字段`} value={property.sourceColumn} onChange={event => { const column = columns.find(item => item.name === event.target.value); if (column) setObjectForm({ ...objectForm, properties: objectForm.properties.map((item: Property) => item.id === property.id ? { ...item, sourceColumn: column.name, dataType: column.dataType } : item) }); }}>{!columns.some(column => column.name === property.sourceColumn) && <option value={property.sourceColumn}>{property.sourceColumn}（未匹配）</option>}{columns.map(column => <option key={column.name} value={column.name}>{column.name} · {column.dataType}</option>)}</select></label>;
+                })}</div></details>}
                 {editing && <details className="batch-editor"><summary>关联指标、关系与层级批量变更</summary><p>输入 Draft Patch operations，与当前对象在同一次保存中提交。</p><textarea className="definition-editor" aria-label="关联定义批量变更" value={batchPatch} onChange={event => setBatchPatch(event.target.value)} /></details>}
                 <div className="detail-section">
                   <h3>属性</h3>
@@ -1125,12 +1148,16 @@ function Field({
   );
 }
 
-function Logic({ apiKey }: { apiKey: string }) {
-  const snap = useApi<Snapshot>("/v1/namespaces/retail/ontology", apiKey);
+function Logic({ apiKey, onOpenDefinition }: { apiKey: string; onOpenDefinition: (id: string, version: number) => void }) {
+  const versions = useApi<any[]>("/v1/namespaces/retail/versions", apiKey);
+  const [version, setVersion] = useState("latest");
+  const [objectId, setObjectId] = useState("ALL");
+  const snap = useApi<Snapshot>(`/v1/namespaces/retail/ontology?version=${version}`, apiKey, [version]);
+  const relatedIds = new Set(snap.data?.objects.filter(object => objectId === "ALL" || object.id === objectId).flatMap(object => [object.id, ...object.properties.map(property => property.id), ...(snap.data?.metrics.filter(metric => metric.objectId === object.id).map(metric => metric.id) ?? [])]));
   const [domain, setDomain] = useState("ALL");
   const filtered =
     snap.data?.axiomAssertions.filter(
-      (a) => domain === "ALL" || a.domain === domain,
+      (a) => (domain === "ALL" || a.domain === domain) && (objectId === "ALL" || relatedIds.has(a.subjectId) || a.sourceDefinitionIds.some(id => relatedIds.has(id))),
     ) ?? [];
   const [selectedId, setSelectedId] = useState<string>();
   const selected = filtered.find((a) => a.id === selectedId) ?? filtered[0];
@@ -1138,6 +1165,11 @@ function Logic({ apiKey }: { apiKey: string }) {
     snap.data?.inferredAssertions.filter((i) =>
       i.axiomAssertionIds.includes(selected?.id ?? ""),
     ) ?? [];
+  const definitionName = (id: string): string => snap.data?.objects.find(item => item.id === id)?.label ?? snap.data?.objects.flatMap(item => item.properties).find(item => item.id === id)?.label ?? snap.data?.metrics.find(item => item.id === id)?.label ?? snap.data?.relations.find(item => item.id === id)?.name ?? snap.data?.dimensionHierarchies.find(item => item.id === id)?.label ?? id;
+  const proofText = (text: string) => text.replace(/\b[opmrh]_[a-zA-Z0-9_]+\b/g, id => definitionName(id));
+  const [inferenceId, setInferenceId] = useState<string>();
+  const inference = inferences.find(item => item.id === inferenceId) ?? inferences[0];
+  const canLocate = (id: string) => Boolean(snap.data?.objects.some(object => object.id === id || object.properties.some(property => property.id === id)) || snap.data?.metrics.some(item => item.id === id) || snap.data?.relations.some(item => item.id === id) || snap.data?.dimensionHierarchies.some(item => item.id === id));
   return (
     <PageState
       loading={snap.loading}
@@ -1154,22 +1186,10 @@ function Logic({ apiKey }: { apiKey: string }) {
             >
               <Badge tone="success">{filtered.length} 项</Badge>
             </PanelHeader>
-            <div className="catalog-tabs">
-              {["ALL", "IDENTITY", "METRIC_ALGEBRA", "RELATION"].map((id) => (
-                <button
-                  key={id}
-                  className={domain === id ? "active" : ""}
-                  onClick={() => setDomain(id)}
-                >
-                  {id === "ALL"
-                    ? "全部"
-                    : id === "IDENTITY"
-                      ? "身份"
-                      : id === "METRIC_ALGEBRA"
-                        ? "度量"
-                        : "关系"}
-                </button>
-              ))}
+            <div className="logic-filters">
+              <label>本体版本<select aria-label="公理本体版本" value={version} onChange={event => { setVersion(event.target.value); setSelectedId(undefined); }}><option value="latest">最新发布</option>{versions.data?.map(item => <option key={item.version} value={item.version}>v{item.version}</option>)}</select></label>
+              <label>适用对象<select aria-label="公理适用对象" value={objectId} onChange={event => setObjectId(event.target.value)}><option value="ALL">全部对象</option>{snap.data?.objects.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+              <label>公理域<select aria-label="公理域筛选" value={domain} onChange={event => setDomain(event.target.value)}>{Object.entries({ ALL: "全部", IDENTITY: "身份", GRAIN: "粒度", TYPE: "类型", METRIC_ALGEBRA: "度量代数", RELATION: "关系", HIERARCHY: "层级", VISIBILITY: "可见性" }).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
             </div>
             <div className="logic-list">
               {filtered.map((a) => (
@@ -1179,14 +1199,14 @@ function Logic({ apiKey }: { apiKey: string }) {
                   onClick={() => setSelectedId(a.id)}
                 >
                   <div className="logic-item-top">
-                    <span className="logic-id">{a.axiomCode}</span>
+                    <span className="logic-id">{axiomTitle(a.axiomCode)}</span>
                     <Badge tone="success">内建</Badge>
                   </div>
                   <strong>
-                    {a.subjectType} · {a.subjectId}
+                    {term(a.subjectType)} · {definitionName(a.subjectId)}
                   </strong>
                   <p>
-                    {a.domain} · {a.enforcement}
+                    {term(a.domain)} · {term(a.enforcement)}
                   </p>
                 </button>
               ))}
@@ -1194,9 +1214,9 @@ function Logic({ apiKey }: { apiKey: string }) {
           </aside>
           <section className="panel detail-panel">
             <PanelHeader
-              title={selected?.axiomCode ?? "公理定义"}
+              title={selected ? axiomTitle(selected.axiomCode) : "公理定义"}
               subtitle={
-                selected ? `${selected.id} · ${selected.kernelVersion}` : ""
+                selected ? `${definitionName(selected.subjectId)} · 内核 ${selected.kernelVersion}` : ""
               }
             >
               <Badge tone="success">内建公理</Badge>
@@ -1205,25 +1225,24 @@ function Logic({ apiKey }: { apiKey: string }) {
               <div className="detail-content">
                 <div className="detail-title">
                   <div>
-                    <h2>{selected.axiomCode}</h2>
+                    <h2>{axiomTitle(selected.axiomCode)}</h2>
                     <p>
-                      由本体定义触发，规范会在 {selected.enforcement}{" "}
-                      阶段确定性执行。
+                      {axiomDescription(selected.axiomCode)} 该规则在{term(selected.enforcement)}阶段生效。
                     </p>
                   </div>
-                  <Badge tone="purple">{selected.domain}</Badge>
+                  <Badge tone="purple">{term(selected.domain)}</Badge>
                 </div>
                 <div className="definition-grid logic-fields">
-                  <Field label="公理域" value={selected.domain} />
+                  <Field label="公理域" value={term(selected.domain)} />
                   <Field
                     label="适用对象"
-                    value={`${selected.subjectType} · ${selected.subjectId}`}
+                    value={`${term(selected.subjectType)} · ${definitionName(selected.subjectId)}`}
                   />
-                  <Field label="严重度" value={selected.severity} />
-                  <Field label="生效阶段" value={selected.enforcement} />
+                  <Field label="严重度" value={term(selected.severity)} />
+                  <Field label="生效阶段" value={term(selected.enforcement)} />
                   <Field
                     label="公理参数"
-                    value={JSON.stringify(selected.parameters)}
+                    value={JSON.stringify(chineseParameters(selected.parameters, definitionName))}
                     code
                   />
                   {selected.axiomCode === "RATIO_NON_ADDITIVE" && (
@@ -1236,10 +1255,10 @@ function Logic({ apiKey }: { apiKey: string }) {
                 </div>
                 <div className="code-editor">
                   <div className="code-toolbar">
-                    <span>规范化公理表示</span>
+                    <span>公理说明与参数</span>
                     <span>v{snap.data?.version} · 已固化</span>
                   </div>
-                  <pre>{JSON.stringify(selected, null, 2)}</pre>
+                  <pre>{JSON.stringify({ 规则: axiomTitle(selected.axiomCode), 说明: axiomDescription(selected.axiomCode), 适用类型: term(selected.subjectType), 适用对象: definitionName(selected.subjectId), 参数: chineseParameters(selected.parameters, definitionName), 生效阶段: term(selected.enforcement), 严重程度: term(selected.severity), 来源定义: selected.sourceDefinitionIds.map(definitionName), 内核版本: selected.kernelVersion }, null, 2)}</pre>
                 </div>
               </div>
             )}
@@ -1254,33 +1273,35 @@ function Logic({ apiKey }: { apiKey: string }) {
               </h3>
               {inferences.length ? (
                 inferences.map((i) => (
-                  <div className="inference-card" key={i.id}>
+                  <button className={`inference-card inference-choice ${inference?.id === i.id ? "active" : ""}`} key={i.id} onClick={() => setInferenceId(i.id)}>
                     <span className="catalog-icon">
                       <Check size={15} />
                     </span>
                     <div>
-                      <strong>{i.predicate}</strong>
+                      <strong>{term(i.predicate)}</strong>
                       <small>
-                        {i.subjectId}
-                        {i.objectId ? ` → ${i.objectId}` : ""}
+                        {definitionName(i.subjectId)}
+                        {i.objectId ? ` → ${definitionName(i.objectId)}` : ""}
                       </small>
                     </div>
-                  </div>
+                  </button>
                 ))
               ) : (
                 <p className="muted-copy">当前公理没有物化推论。</p>
               )}
             </div>
-            {inferences[0] && (
+            {inference && (
               <div className="side-section">
                 <h3>推论依据</h3>
+                {[inference.subjectId, inference.objectId].filter((id): id is string => Boolean(id && canLocate(id))).map(id => <button className="text-button" key={id} onClick={() => onOpenDefinition(id, snap.data!.version)}>查看定义 · {definitionName(id)}</button>)}
                 <div className="evidence-flow">
-                  {inferences[0].proof.map((step) => (
+                  {inference.proof.map((step) => (
                     <div className="flow-step" key={step.sequence}>
                       <span className="flow-marker">{step.sequence}</span>
                       <div className="flow-copy">
-                        <strong>{step.kind}</strong>
-                        <small>{step.statement}</small>
+                        <strong>{term(step.kind)}</strong>
+                        <small>{proofText(step.statement)}</small>
+                        {canLocate(step.refId) && <button className="text-button" onClick={() => onOpenDefinition(step.refId, snap.data!.version)}>查看定义 · {definitionName(step.refId)}</button>}
                       </div>
                     </div>
                   ))}
@@ -1294,18 +1315,18 @@ function Logic({ apiKey }: { apiKey: string }) {
   );
 }
 
-function Versions({ apiKey }: { apiKey: string }) {
+function Versions({ apiKey, onOpenDraft }: { apiKey: string; onOpenDraft: (draftId: string) => void }) {
   const list = useApi<any[]>("/v1/namespaces/retail/versions", apiKey);
   const [selected, setSelected] = useState<number>();
   const version = selected ?? list.data?.[0]?.version;
   const diff = useApi<any>(
-    version ? `/v1/namespaces/retail/versions/${version}/diff` : "/v1/health",
+    version != null ? `/v1/namespaces/retail/versions/${version}/diff` : "/v1/health",
     apiKey,
     [version],
   );
   const [action, setAction] = useState("");
   const download = async () => {
-    if (!version) return;
+    if (version == null) return;
     const snapshot = await api<any>(`/v1/namespaces/retail/ontology?version=${version}`, apiKey);
     const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
     const anchor = document.createElement("a");
@@ -1315,12 +1336,13 @@ function Versions({ apiKey }: { apiKey: string }) {
     URL.revokeObjectURL(url);
   };
   const rollbackDraft = async () => {
-    if (!version) return;
+    if (version == null) return;
     const draft = await api<any>("/v1/namespaces/retail/drafts", apiKey, {
       method: "POST",
       body: JSON.stringify({ baseVersion: "latest", sourceVersion: version }),
     });
-    setAction(`已从 v${version} 创建回滚草稿 ${draft.draftId}，基线为当前最新 v${draft.baseVersion}`);
+    sessionStorage.setItem("ontology-active-draft", draft.draftId);
+    onOpenDraft(draft.draftId);
   };
   return (
     <PageState
@@ -1429,8 +1451,10 @@ function Versions({ apiKey }: { apiKey: string }) {
 }
 
 function DataPage({ apiKey }: { apiKey: string }) {
+  const versions = useApi<any[]>("/v1/namespaces/retail/versions", apiKey);
+  const [indexVersion, setIndexVersion] = useState("latest");
   const source = useApi<any>("/v1/data-sources/selectdb", apiKey);
-  const index = useApi<any>("/v1/namespaces/retail/value-index/status", apiKey);
+  const index = useApi<any>(`/v1/namespaces/retail/value-index/status?version=${indexVersion}`, apiKey, [indexVersion]);
   const [action, setAction] = useState("");
   const [schema, setSchema] = useState<any[]>([]);
   const [config, setConfig] = useState({ host: "", port: 9030, username: "", password: "", catalog: "internal", database: "", tls: true });
@@ -1534,7 +1558,7 @@ function DataPage({ apiKey }: { apiKey: string }) {
                   </span>
                   <div>
                     <h2>属性值索引</h2>
-                    <p>按已发布本体版本隔离</p>
+                    <label>本体版本 <select aria-label="索引本体版本" value={indexVersion} onChange={event => setIndexVersion(event.target.value)}><option value="latest">最新发布</option>{versions.data?.map(item => <option key={item.version} value={item.version}>v{item.version}</option>)}</select></label>
                   </div>
                 </div>
                 <Badge tone={index.data?.status === "ready" ? "success" : "warning"}>
@@ -1557,7 +1581,7 @@ function DataPage({ apiKey }: { apiKey: string }) {
                 <button
                   className="secondary-button"
                   onClick={() =>
-                    run("/v1/namespaces/retail/value-index:rebuild")
+                    run(`/v1/namespaces/retail/value-index:rebuild?version=${indexVersion}`)
                   }
                 >
                   <ArrowClockwise size={15} />

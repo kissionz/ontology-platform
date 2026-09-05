@@ -32,3 +32,12 @@ describe("atomic publication", () => {
     store.close();
   });
 });
+
+it("does not leave an orphan rollback draft when the source version is invalid", () => {
+  const store = new SqlitePlatformStore(":memory:");
+  try {
+    store.savePublished(validSnapshot());
+    expect(() => new OntologyPlatform(store).createDraft("retail", "latest", 99)).toThrow();
+    expect(store.db.prepare("SELECT * FROM ontology_drafts").all()).toEqual([]);
+  } finally { store.close(); }
+});
