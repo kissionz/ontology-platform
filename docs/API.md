@@ -280,7 +280,7 @@
 | ontologyVersion | body | 否 | 发布版本号或 latest；省略时选择最新发布版本。 |
 | question | body | 否 | 保留用户原问题。未传 concepts 或非空 terms 时才用于完整词典词的包含匹配，不进行自然语言意图或时间解析。 |
 | terms | body | 否 | 完整业务术语数组，最多 32 项；按名称、编码或同义词精确匹配。优先级 concepts > terms > question。 |
-| concepts | body | 否 | Agent 提取的业务概念：metrics 指标名称、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
+| concepts | body | 否 | Agent 提取的业务概念：metrics 命名指标或对象度量字段的名称/编码、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
 | purpose | body | 是 | 用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。 |
 | projection | body | 否 | 已选对象字段详细程度：compact（默认）、standard、full；均只包含相关属性，不会扩展检索范围。敏感字段边界始终生效。 |
 | include | body | 否 | 开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；values 需显式开启，其他默认包含。 |
@@ -325,7 +325,7 @@ AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编�
 | namespace | body | 是 | 本体命名空间。 |
 | ontologyVersion | body | 否 | 发布版本号或 latest；有 sessionId 时须与会话版本一致。 |
 | question | body | 否 | AUTO 与 ANALYSIS 使用的自然语言问题。 |
-| queryShape | body | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；具体 ID 从本体或语义上下文取得。 |
+| queryShape | body | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；具体 ID 从本体或语义上下文取得。 |
 | parameters | body | 否 | 查询结构中参数占位符的名称与取值。 |
 | sessionId | body | 否 | 语义上下文返回的会话 ID，用于固定版本和解析短引用。 |
 | pagination | body | 否 | pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。 |

@@ -9,6 +9,7 @@ export const MCP_CONFIG = {
 };
 
 export const MCP_NOTES = [
+  "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
   "Agent 先提取完整业务概念传入 concepts。解析上下文只返回词典候选；优先级 concepts > terms > question。filters、time 数组填写属性名称，筛选值和时间范围由 Agent 确认后放入查询结构。检查 retrieval.status、unmatchedTerms、ambiguities；未命中返回空上下文，不会退回全部本体。",
   "先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。",
   "使用支持 stdio 的 MCP 客户端，配置中的项目路径须替换为本机绝对路径。通过标准输入输出交换逐行 JSON-RPC；当前启动器不提供独立的远程 MCP HTTP 入口。",
@@ -38,6 +39,7 @@ export const SDK_METHODS = [
 ];
 
 export const SDK_NOTES = [
+  "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
   "resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.status：NO_MATCH 时补充术语或同义词，PARTIAL_MATCH 时处理 unmatchedTerms，AMBIGUOUS 时确认候选；MATCHED 也不代表已完成业务意图解析。时间范围、筛选值和最终查询结构由调用方确定。",
   "当前 SDK 随仓库源码交付。TypeScript 入口为 packages/sdk-typescript/src/index.ts；Python 模块为 packages/sdk-python/ontology_platform.py，Python 客户端仅使用标准库。",
   "下面示例保存到项目根目录运行。TypeScript 使用 npx tsx example.ts；Python 使用 python3 example.py。提前在进程环境中配置 ONTOLOGY_API_KEY；ONTOLOGY_API_URL 可覆盖默认服务根地址。SDK 不会自动读取本机密钥文件。",

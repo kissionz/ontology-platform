@@ -1,3 +1,5 @@
+import { effectiveMetrics } from "../../domain/src/property-metrics.js";
+import type { OntologySnapshotV3 } from "../../contracts/src/index.js";
 import type {
   AnalysisFilter,
   AnalysisFilterExpression,
@@ -163,6 +165,7 @@ export class QueryIrCompiler {
     tables: PhysicalTable[],
     timezone = "Asia/Shanghai",
   ): CompiledQuery {
+    ontology = { ...ontology, metrics: effectiveMetrics(ontology as unknown as OntologySnapshotV3) };
     const originalDimensionIds = [...intent.dimensionPropertyIds];
     intent = preferNameDisplayDimensions(intent, ontology);
     const objectById = new Map(ontology.objects.map((object) => [object.id, object]));
@@ -1326,7 +1329,7 @@ function validateAggregationSafety(
     const numeric = property?.numericSpec;
     if (!numeric) continue;
     if (
-      metric.aggregation === "SUM" &&
+      (metric.aggregation === "SUM" || (metric.definitionMode === "SQL" && /\bSUM\s*\(/i.test(metric.expression))) &&
       (numeric.kind === "RATIO" ||
         numeric.aggregationBehavior === "NON_ADDITIVE")
     ) {
@@ -2073,7 +2076,7 @@ function resolveMeasureReference(
       source:
         metric.metricType === "DERIVED"
           ? `复合指标ID精确绑定 · ${governedMetricFormula(metric, ontology.metrics)} · 依赖 ${collectMetricDependencyLabels(metric, ontology.metrics).join("、")}`
-          : "指标ID精确绑定",
+          : metric.id === metric.sourcePropertyId ? `数字属性默认${aggregationLabel(metric.aggregation)} · IR受控聚合` : "指标ID精确绑定",
     };
   }
   const propertyBinding = owners.find(
@@ -2082,38 +2085,13 @@ function resolveMeasureReference(
   if (!propertyBinding) {
     throw new Error(`查询计划引用了不存在的指标：${id}`);
   }
-  const governedMetrics = ontology.metrics.filter(
-    (candidate) => candidate.sourcePropertyId === id,
-  );
-  if (governedMetrics.length === 1) {
-    return {
-      metric: governedMetrics[0]!,
-      source: `Montane误传属性ID，规则引擎按唯一治理映射从“${propertyBinding.property.label}”纠正为指标`,
-    };
-  }
-  const implicitMetric = createImplicitPropertyMetric(propertyBinding);
-  if (implicitMetric && governedMetrics.length === 0) {
-    return {
-      metric: implicitMetric,
-      source: `数字属性默认${aggregationLabel(implicitMetric.aggregation)} · IR受控聚合`,
-    };
-  }
-  const availableMetrics = ontology.metrics
-    .slice(0, 8)
-    .map((candidate) => `${candidate.label}（${candidate.id}）`)
-    .join("、");
-  if (governedMetrics.length > 1) {
-    throw new Error(
-      `“${propertyBinding.property.label}”是属性且对应多个指标，不能自动选择。measure_ids 必须使用指标 ID：${governedMetrics.map((candidate) => `${candidate.label}（${candidate.id}）`).join("、")}`,
-    );
-  }
   if (propertyBinding.property.meaning === "NUMBER") {
     throw new Error(
       `数字属性“${propertyBinding.property.label}”没有可用的默认聚合规则，请在本体中设置 SUM、AVG、MIN 或 MAX，或创建正式指标`,
     );
   }
   throw new Error(
-    `“${propertyBinding.property.label}”（${id}）不是可聚合数字属性。measure_ids 只能使用 OntologySearch 返回的 metrics[].id${availableMetrics ? `；当前可用指标：${availableMetrics}` : ""}`,
+    `“${propertyBinding.property.label}”（${id}）不是可聚合数字属性。measure_ids 只能使用 OntologySearch 返回的 metrics[].id`,
   );
 }
 
@@ -2168,45 +2146,6 @@ function governedMetricFormula(
   }`;
 }
 
-function createImplicitPropertyMetric(
-  binding: { object: OntologyObject; property: OntologyProperty },
-): Metric | undefined {
-  const numeric = binding.property.numericSpec;
-  const aggregation = numeric?.defaultAggregation;
-  if (
-    binding.property.meaning !== "NUMBER" ||
-    binding.property.visibility !== "ANALYTICAL" ||
-    binding.property.sensitive ||
-    !aggregation ||
-    aggregation === "NONE" ||
-    (aggregation === "SUM" &&
-      (numeric.kind === "RATIO" ||
-        numeric.aggregationBehavior === "NON_ADDITIVE"))
-  ) {
-    return undefined;
-  }
-  return {
-    id: binding.property.id,
-    name: `implicit_${binding.property.name}`,
-    label: binding.property.label,
-    description: `${binding.property.label}按属性默认规则${aggregationLabel(aggregation)}`,
-    objectId: binding.object.id,
-    expression: `${aggregation}(${binding.property.sourceColumn})`,
-    definitionMode: "VISUAL",
-    sourcePropertyId: binding.property.id,
-    timePropertyId: binding.object.defaultTimePropertyId,
-    aggregation,
-    format:
-      numeric.kind === "CURRENCY"
-        ? "currency"
-        : numeric.kind === "RATIO"
-          ? "percent"
-          : "number",
-    unit: numeric.kind === "CURRENCY" ? numeric.currency : numeric.unit,
-    synonyms: binding.property.synonyms,
-    status: binding.object.status,
-  };
-}
 
 function aggregationLabel(aggregation: Metric["aggregation"]): string {
   return {

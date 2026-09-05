@@ -1,3 +1,4 @@
+import { effectiveMetrics } from "./property-metrics.js";
 import type { AxiomAssertion, DimensionHierarchy, InferredAssertion, Metric, OntologyObject, OntologyRelation, OntologySnapshotV3, ProofStep } from "../../contracts/src/index.js";
 
 import { relationTraversals, RELATION_RULES } from "./relations.js";
@@ -61,7 +62,7 @@ export function instantiateAxioms(snapshot: Pick<OntologySnapshotV3, "objects" |
 export function validateSnapshot(snapshot: Pick<OntologySnapshotV3, "objects" | "metrics" | "relations" | "dimensionHierarchies">): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const objectById = new Map(snapshot.objects.map(object => [object.id, object]));
-  const metricById = new Map(snapshot.metrics.map(metric => [metric.id, metric]));
+  const metricById = new Map(effectiveMetrics(snapshot).map(metric => [metric.id, metric]));
   const definitions = [...snapshot.objects, ...snapshot.objects.flatMap(o => o.properties), ...snapshot.metrics, ...snapshot.relations, ...snapshot.dimensionHierarchies];
   const knownIds = new Set<string>();
   for (const definition of definitions) {
@@ -90,6 +91,12 @@ export function validateSnapshot(snapshot: Pick<OntologySnapshotV3, "objects" | 
     const object = objectById.get(metric.objectId);
     if (!object) issues.push(issue("METRIC_SINGLE_FACT", `${metric.label} 的事实对象不存在`, metric.id, [metric.objectId]));
     if (metric.metricType === "BASE" && metric.sourcePropertyId && !object?.properties.some(p => p.id === metric.sourcePropertyId)) issues.push(issue("METRIC_SOURCE_PROPERTY", `${metric.label} 的来源属性不存在`, metric.id, [metric.sourcePropertyId]));
+    if (metric.metricType === "BASE" && metric.definitionMode === "VISUAL" && metric.aggregation !== "COUNT") {
+      const source = object?.properties.find(p => p.id === metric.sourcePropertyId);
+      if (!source || source.sensitive || source.visibility !== "ANALYTICAL") issues.push(issue("METRIC_SOURCE_PROPERTY", `${metric.label} 需要可分析的来源属性`, metric.id, [metric.id]));
+      else if (["SUM", "AVG", "MIN", "MAX"].includes(metric.aggregation) && source.meaning !== "NUMBER") issues.push(issue("NUMBER_SPEC_REQUIRED", `${metric.label} 的数值聚合需要度量字段`, metric.id, [source.id]));
+      else if (metric.aggregation === "SUM" && (source.numericSpec?.kind === "RATIO" || source.numericSpec?.aggregationBehavior === "NON_ADDITIVE")) issues.push(issue("RATIO_NON_ADDITIVE", `${metric.label} 的来源属性不允许求和`, metric.id, [source.id]));
+    }
     if (metric.metricType === "DERIVED" && (!metric.leftMetricId || !metric.rightMetricId || !metric.calculationOperator)) issues.push(issue("METRIC_SINGLE_FACT", `${metric.label} 缺少派生依赖或计算运算符`, metric.id, [metric.id]));
   }
   const cycle = metricCycle(snapshot.metrics);

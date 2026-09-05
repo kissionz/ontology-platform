@@ -1,5 +1,7 @@
 # MCP 接入说明
 
+对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。
+
 Agent 先提取完整业务概念传入 concepts。解析上下文只返回词典候选；优先级 concepts > terms > question。filters、time 数组填写属性名称，筛选值和时间范围由 Agent 确认后放入查询结构。检查 retrieval.status、unmatchedTerms、ambiguities；未命中返回空上下文，不会退回全部本体。
 
 先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。
@@ -49,7 +51,7 @@ ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读�
 | ontologyVersion | 否 | 发布版本号或 latest；省略时选择最新发布版本。 |
 | question | 否 | 保留用户原问题。未传 concepts 或非空 terms 时才用于完整词典词的包含匹配，不进行自然语言意图或时间解析。 |
 | terms | 否 | 完整业务术语数组，最多 32 项；按名称、编码或同义词精确匹配。优先级 concepts > terms > question。 |
-| concepts | 否 | Agent 提取的业务概念：metrics 指标名称、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
+| concepts | 否 | Agent 提取的业务概念：metrics 命名指标或对象度量字段的名称/编码、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
 | purpose | 是 | 用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。 |
 | projection | 否 | 已选对象字段详细程度：compact（默认）、standard、full；均只包含相关属性，不会扩展检索范围。敏感字段边界始终生效。 |
 | include | 否 | 开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；values 需显式开启，其他默认包含。 |
@@ -91,7 +93,7 @@ AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编�
 | namespace | 是 | 本体命名空间。 |
 | ontologyVersion | 否 | 发布版本号或 latest；有 sessionId 时须与会话版本一致。 |
 | question | 否 | AUTO 与 ANALYSIS 使用的自然语言问题。 |
-| queryShape | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；具体 ID 从本体或语义上下文取得。 |
+| queryShape | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；具体 ID 从本体或语义上下文取得。 |
 | parameters | 否 | 查询结构中参数占位符的名称与取值。 |
 | sessionId | 否 | 语义上下文返回的会话 ID，用于固定版本和解析短引用。 |
 | pagination | 否 | pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。 |

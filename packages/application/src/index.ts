@@ -1,3 +1,4 @@
+import { effectiveMetrics } from "../../domain/src/property-metrics.js";
 import { retrieveContext } from "./context-retrieval.js";
 import { relationJoinExpression, relationTraversals } from "../../domain/src/relations.js";
 import { randomUUID } from "node:crypto";
@@ -1219,6 +1220,7 @@ function autoShape(
   selections: Record<string, string> = {},
   indexedValues: Array<{ objectId: string; propertyId: string; displayValue: string; frequency: number }> = [],
 ) {
+  snapshot = { ...snapshot, metrics: effectiveMetrics(snapshot) };
   const eligible = new Set(snapshot.objects.flatMap(o => o.properties.filter(p => p.visibility === "ANALYTICAL" && !p.sensitive).map(p => p.id)));
   const values = indexedValues.filter(v => eligible.has(v.propertyId));
   const candidates = rankSemantic(snapshot, question);
@@ -1229,6 +1231,7 @@ function autoShape(
   const matchedMetrics = snapshot.metrics.filter(
     (m) =>
       matches(m, question) &&
+      !(m.id === m.sourcePropertyId && snapshot.metrics.some(registered => registered.id !== m.id && registered.sourcePropertyId === m.id && matches(registered, question))) &&
       (selectedIds.size === 0 ||
         selectedIds.has(m.id) ||
         !allAmbiguities.some((a) => a.candidates.some((c) => c.id === m.id))),

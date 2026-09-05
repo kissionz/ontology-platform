@@ -145,7 +145,7 @@ describe("QueryIrCompiler", () => {
     ).toThrow("不存在的指标");
   });
 
-  it("repairs a property measure reference only through a unique governed metric", () => {
+  it("keeps a property reference independent of a registered metric", () => {
     const compiler = new QueryIrCompiler();
     const compiled = compiler.compile(
       {
@@ -160,13 +160,13 @@ describe("QueryIrCompiler", () => {
       [ordersTable()],
     );
 
-    expect(compiled.ir.measureIds).toEqual(["m_gmv"]);
+    expect(compiled.ir.measureIds).toEqual(["p_order_amount"]);
     expect(compiled.bindings).toContainEqual(
       expect.objectContaining({
         label: "指标",
-        value: "成交金额",
-        entityId: "m_gmv",
-        source: expect.stringContaining("Montane误传属性ID"),
+        value: "实付金额",
+        entityId: "p_order_amount",
+        source: "数字属性默认求和 · IR受控聚合",
       }),
     );
   });

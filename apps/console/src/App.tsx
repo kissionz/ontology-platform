@@ -1,3 +1,4 @@
+import { MetricEditor, newMetric } from "./MetricEditor.js";
 import { ContextSummary } from "./ContextSummary.js";
 import { ApiReference } from "./ApiReference.js";
 import { IntegrationGuide } from "./IntegrationGuide.js";
@@ -935,6 +936,18 @@ function Ontology({ apiKey }: { apiKey: string }) {
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
+  const addMetric = async () => {
+    if (!draft || !canLeaveObject()) return;
+    const target = editorSnapshot.objects.find(o => o.id === selected) ?? editorSnapshot.objects[0];
+    if (!target) { setMessage("请先创建业务对象"); return; }
+    setBusy(true);
+    try {
+      const metric = newMetric(target);
+      const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "PATCH", body: JSON.stringify({ revision: draft.revision, operations: [{ op: "UPSERT_METRIC", value: metric }] }) });
+      setDraft(result); setDefinitionId(metric.id); setMessage("指标已创建，可选择对象属性调整口径");
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
   const refreshDraft = async () => {
     if (!draft) return;
     try { const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey); setDraft(result); }
@@ -1026,6 +1039,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
                 <button className="catalog-item" onClick={() => { if (!canLeaveObject()) return; setSelected(item.id); setAddingObject(false); }}><span className="catalog-icon"><CirclesThreePlus size={17} /></span><span><strong>{item.label}</strong><small>{item.name} · {item.properties.length} 个属性</small></span><CaretRight size={13} /></button>
                 {editing && <button className="icon-button delete-object" aria-label={`删除对象 ${item.label}`} title={`删除对象 ${item.label}`} disabled={busy} onClick={() => { if (canLeaveObject()) setPendingDelete(item.id); }}><Trash size={15} /></button>}
               </div>)}
+              {catalogTab === "metrics" && editing && <button className="secondary-button" disabled={busy} onClick={() => void addMetric()}>新建指标</button>}
               {catalogTab !== "objects" && snapshot?.[catalogTab]?.filter(item => `${item.label} ${item.id}`.includes(catalogSearch)).map(item => <button className={`catalog-item ${definitionId === item.id ? "active" : ""}`} key={item.id} onClick={() => setDefinitionId(item.id)}><span><strong>{item.label}</strong><small>{item.id}</small></span></button>)}
               {catalogTab === "objects" && !snapshot?.objects.length && <p className="model-empty-copy">从右侧选择待建模表，创建第一个业务对象。</p>}
             </div>
@@ -1039,7 +1053,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
               {removalOperations.length > 1 && <ul>{removalOperations.filter(operation => operation.op !== "REMOVE_OBJECT").map(operation => { const id = "id" in operation ? operation.id : ""; return <li key={id}>{definitionNames.get(id) ?? id}</li>; })}</ul>}
               <div className="source-actions"><button className="danger-button" disabled={busy} onClick={() => void removeObject()}>确认删除对象</button><button className="secondary-button" disabled={busy} onClick={() => setPendingDelete("")}>取消删除</button></div>
             </div>}
-            {editing && catalogTab === "objects" && (addingObject || !snapshot?.objects.length) ? <NewObjectForm key={newTableId} initialTableId={newTableId} tables={availableTables} busy={busy} onCreate={addObject} onRefresh={() => { sources.reload(); void refreshDraft(); }} onCancel={snapshot?.objects.length ? () => setAddingObject(false) : undefined} /> : catalogTab === "objects" && object && objectForm ? <ObjectDefinitionEditor key={`${object.id}:${editing}`} value={editing ? objectForm : object} snapshot={editorSnapshot} tables={tables} editing={editing} busy={busy} dirty={dirty} onChange={setObjectForm} onSave={() => void save()} onReference={changeReference} onRelationChange={relation => setRelationEdits(current => [...current.filter(op => ("value" in op ? op.value.id : op.id) !== relation.id), { op: "UPSERT_RELATION", value: relation }])} onRelationRemove={id => setRelationEdits(current => [...current.filter(op => ("value" in op ? op.value.id : op.id) !== id), { op: "REMOVE_RELATION", id }])} advancedRelations={<details className="model-advanced"><summary>高级关联定义</summary><p className="model-help">用于复杂关系、指标与层级的批量变更，随对象一起保存。</p><textarea className="definition-editor" aria-label="关联定义批量变更" value={batchPatch} onChange={event => setBatchPatch(event.target.value)} /></details>} /> : catalogTab !== "objects" ? <CatalogDefinitionEditor key={catalogTab} kind={catalogTab} json={definitionJson} editing={editing} busy={busy} objects={snapshot?.objects ?? []} onChange={setDefinitionJson} onSave={() => void saveDefinition()} /> : <p className="model-empty-copy">选择对象查看业务定义。</p>}
+            {editing && catalogTab === "objects" && (addingObject || !snapshot?.objects.length) ? <NewObjectForm key={newTableId} initialTableId={newTableId} tables={availableTables} busy={busy} onCreate={addObject} onRefresh={() => { sources.reload(); void refreshDraft(); }} onCancel={snapshot?.objects.length ? () => setAddingObject(false) : undefined} /> : catalogTab === "objects" && object && objectForm ? <ObjectDefinitionEditor key={`${object.id}:${editing}`} value={editing ? objectForm : object} snapshot={editorSnapshot} tables={tables} editing={editing} busy={busy} dirty={dirty} onChange={setObjectForm} onSave={() => void save()} onReference={changeReference} onRelationChange={relation => setRelationEdits(current => [...current.filter(op => ("value" in op ? op.value.id : op.id) !== relation.id), { op: "UPSERT_RELATION", value: relation }])} onRelationRemove={id => setRelationEdits(current => [...current.filter(op => ("value" in op ? op.value.id : op.id) !== id), { op: "REMOVE_RELATION", id }])} advancedRelations={<details className="model-advanced"><summary>高级关联定义</summary><p className="model-help">用于复杂关系、指标与层级的批量变更，随对象一起保存。</p><textarea className="definition-editor" aria-label="关联定义批量变更" value={batchPatch} onChange={event => setBatchPatch(event.target.value)} /></details>} /> : catalogTab === "metrics" ? <MetricEditor json={definitionJson} editing={editing} busy={busy} objects={editorSnapshot.objects} metrics={editorSnapshot.metrics} tables={tables} onChange={setDefinitionJson} onSave={() => void saveDefinition()} /> : catalogTab !== "objects" ? <CatalogDefinitionEditor key={catalogTab} kind={catalogTab} json={definitionJson} editing={editing} busy={busy} objects={snapshot?.objects ?? []} onChange={setDefinitionJson} onSave={() => void saveDefinition()} /> : <p className="model-empty-copy">选择对象查看业务定义。</p>}
           </section>
           <aside className="panel model-pending">
             <PanelHeader title="待建模表" subtitle="增量建模"><Badge>{availableTables.length}</Badge></PanelHeader>

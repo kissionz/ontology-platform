@@ -309,7 +309,7 @@ test("object tabs save Chinese semantic and aggregation settings and expose type
   await expect(page.getByLabel("销售金额默认聚合", { exact: true })).toHaveValue("NONE");
   await expect(page.getByLabel("销售金额聚合性质", { exact: true })).toHaveValue("NON_ADDITIVE");
   await page.getByRole("button", { name: "保存对象", exact: true }).click();
-  await expect(page.getByText("草稿已保存，公理校验通过", { exact: true })).toBeVisible();
+  await expect(page.getByText("草稿已保存，1 项需修复", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "配置属性 店铺引用", exact: true }).click();
   await page.getByLabel("店铺引用关联目标", { exact: true }).selectOption("o_bu");
   await page.getByRole("button", { name: "保存对象", exact: true }).click();
@@ -419,4 +419,38 @@ test("context retrieval presents candidates and no-match feedback before raw JSO
   await expect(summary).toContainText("0 个候选");
   await page.getByRole("button", { name: "响应体", exact: true }).click();
   await expect(page.locator(".response-json")).toContainText('"NO_MATCH"');
+});
+
+test("metric editor builds field metrics, property compositions and SQL templates", async ({ page }) => {
+  await page.goto("/?page=ontology");
+  await page.getByRole("button", { name: /在草稿中编辑/ }).click();
+  await page.getByRole("button", { name: "指标", exact: true }).click();
+  await page.getByRole("button", { name: "新建指标", exact: true }).click();
+  await expect(page.getByText("指标已创建，可选择对象属性调整口径")).toBeVisible();
+  await page.getByLabel("指标所属对象", { exact: true }).selectOption("o_order");
+  await page.getByLabel("定义名称", { exact: true }).fill("浏览器成本指标");
+  await page.getByLabel("计算字段", { exact: true }).selectOption("p_cost");
+  await expect(page.getByLabel("指标聚合方式", { exact: true })).toHaveValue("SUM");
+  await expect(page.getByLabel("指标显示格式", { exact: true })).toHaveValue("currency");
+  await expect(page.getByLabel("指标计算表达式", { exact: true })).toHaveValue("SUM(orders.cost)");
+  await page.getByLabel("指标聚合方式", { exact: true }).selectOption("AVG");
+  await page.getByRole("button", { name: "保存定义", exact: true }).click();
+  await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
+  await page.getByLabel("配置方式", { exact: true }).selectOption("DERIVED");
+  await page.getByLabel("左侧指标或度量", { exact: true }).selectOption("p_cost");
+  await page.getByLabel("右侧指标或度量", { exact: true }).selectOption("p_sales");
+  await page.getByLabel("计算模板", { exact: true }).selectOption("RATIO");
+  await page.getByRole("button", { name: "保存定义", exact: true }).click();
+  await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({ path: `${tmpdir()}/ontology-metric-editor-${width}.png`, fullPage: true });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+  await page.getByLabel("配置方式", { exact: true }).selectOption("SQL");
+  await page.getByLabel("计算字段", { exact: true }).selectOption("p_cost");
+  await page.getByLabel("SQL 配置模板", { exact: true }).selectOption("positive");
+  await expect(page.getByLabel("指标计算表达式", { exact: true })).toHaveValue("SUM(CASE WHEN `orders`.`cost` > 0 THEN `orders`.`cost` ELSE 0 END)");
+  await page.getByRole("button", { name: "保存定义", exact: true }).click();
+  await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
 });

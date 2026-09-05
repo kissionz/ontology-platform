@@ -1,3 +1,4 @@
+import { effectiveMetrics } from "../../domain/src/property-metrics.js";
 import type { OntologySnapshotV3, ResolveSemanticContextInput } from "../../contracts/src/index.js";
 import type { OntologySnapshot as LegacySnapshot } from "../../contracts/src/legacy.js";
 import { SemanticIndex } from "../../domain/src/semantic-index.js";
@@ -7,6 +8,8 @@ type Role = "metrics" | "dimensions" | "filters" | "time" | "terms";
 
 /** Agent 提供业务概念；这里只进行词典匹配与必要的定义依赖补全。 */
 export function retrieveContext(snapshot: OntologySnapshotV3, input: ResolveSemanticContextInput) {
+  const registeredMetrics = snapshot.metrics;
+  snapshot = { ...snapshot, metrics: effectiveMetrics(snapshot) };
   const structured = input.concepts !== undefined;
   const requests: Array<{ role: Role; term: string }> = structured
     ? Object.entries(input.concepts!).flatMap(([role, terms]) => (terms ?? []).map(term => ({ role: role as Role, term })))
@@ -28,7 +31,11 @@ export function retrieveContext(snapshot: OntologySnapshotV3, input: ResolveSema
       });
       return alias ? [{ kind: d.kind, id: d.id, objectId: d.objectId, label: d.label, score: 1, matchedBy: alias, term: request.term, role: request.role, reason: alias === d.label ? "业务名称命中" : alias === d.id || alias === d.name ? "编码命中" : "同义词命中" }] : [];
     });
-    return { ...request, candidates };
+    // 已定义指标命中时不重复推荐其同义词来源属性；显式属性编码仍可直接检索。
+    const filtered = candidates.filter(c => !snapshot.metrics.some(m => m.id === c.id && m.id === m.sourcePropertyId &&
+      c.matchedBy !== m.id && c.matchedBy !== m.name && c.matchedBy !== m.label &&
+      candidates.some(other => registeredMetrics.some(r => r.id === other.id && r.sourcePropertyId === m.id))));
+    return { ...request, candidates: filtered };
   });
   const candidates = [...new Map(matches.flatMap(m => m.candidates).map(c => [`${c.kind}:${c.id}`, c])).values()];
   const ambiguities = matches.flatMap(m => {
