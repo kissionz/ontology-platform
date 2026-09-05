@@ -1,3 +1,4 @@
+import { retrieveContext } from "./context-retrieval.js";
 import { relationJoinExpression, relationTraversals } from "../../domain/src/relations.js";
 import { randomUUID } from "node:crypto";
 import type {
@@ -565,11 +566,11 @@ export class OntologyPlatform {
 
   resolveOntologyContext(input: ResolveSemanticContextInput) {
     const version = this.resolveVersion(input.namespace, input.ontologyVersion);
-    if (input.question == null && !input.terms?.length)
+    if (!input.question?.trim() && !input.terms?.length && !Object.values(input.concepts ?? {}).some(terms => terms?.length))
       throw new PlatformException(
         {
           code: "INVALID_REQUEST",
-          message: "question 与 terms 至少提供一项",
+          message: "question、terms 与 concepts 至少提供一项非空内容",
           stage: "binding",
           retryable: false,
         },
@@ -577,40 +578,9 @@ export class OntologyPlatform {
       );
     const snapshot = visibleSnapshot(this.store.getSnapshot(input.namespace, version)!);
     const sessionId = `ses_${randomUUID()}`;
-    const query = [input.question ?? "", ...(input.terms ?? [])]
-      .join(" ")
-      .trim();
-    const candidates = rankSemantic(snapshot, query);
-    const relevantIds = new Set(
-      candidates.map((c) => c.objectId).filter(Boolean),
-    );
-    // Include connecting definitions so every returned relation and proof can be resolved locally.
-    if (relevantIds.size) {
-      let expanded = true;
-      while (expanded) {
-        expanded = false;
-        for (const relation of snapshot.relations.filter(r => r.enabled)) {
-          if (relevantIds.has(relation.sourceObjectId) || relevantIds.has(relation.targetObjectId))
-            for (const id of [relation.sourceObjectId, relation.targetObjectId]) if (!relevantIds.has(id)) { relevantIds.add(id); expanded = true; }
-        }
-      }
-    }
-    const objects = snapshot.objects.filter((object) => relevantIds.size === 0 || relevantIds.has(object.id));
-    const objectIds = new Set(objects.map((object) => object.id));
-    const metrics = snapshot.metrics.filter(
-      (metric) =>
-        objectIds.has(metric.objectId) && (!query || matches(metric, query)),
-    );
-    const metricIds = new Set(metrics.map(m => m.id));
-    for (let index = 0; index < metrics.length; index++) for (const id of [metrics[index]!.leftMetricId, metrics[index]!.rightMetricId]) {
-      const dependency = snapshot.metrics.find(m => m.id === id);
-      if (dependency && !metricIds.has(dependency.id)) { metrics.push(dependency); metricIds.add(dependency.id); }
-    }
-    const relations = snapshot.relations.filter(
-      (relation) =>
-        objectIds.has(relation.sourceObjectId) ||
-        objectIds.has(relation.targetObjectId),
-    );
+    const query = [input.question ?? "", ...(input.terms ?? []), ...Object.values(input.concepts ?? {}).flat()].join(" ").trim();
+    const { objects, metrics, relations, candidates, ambiguities: contextAmbiguities, retrieval } = retrieveContext(snapshot, input);
+    const objectIds = new Set(objects.map(object => object.id));
     const propertyIds = new Set(
       objects.flatMap((object) =>
         object.properties.map((property) => property.id),
@@ -630,26 +600,17 @@ export class OntologyPlatform {
       (item, index) =>
         (refs[`B${index + 1}`] = `${item.propertyId}:${item.displayValue}`),
     );
-    const axioms =
-      input.include?.axioms === false
-        ? []
-        : snapshot.axiomAssertions.filter(
-            (item) =>
-              objectIds.has(item.subjectId) ||
-              propertyIds.has(item.subjectId) ||
-              metrics.some((m) => m.id === item.subjectId) ||
-              relations.some((r) => r.id === item.subjectId),
-          );
+    const definitionIds = new Set([...objectIds, ...propertyIds, ...metrics.map(m => m.id), ...relations.map(r => r.id)]);
+    const hierarchies = snapshot.dimensionHierarchies.filter(h => h.levels.every(l => objectIds.has(l.objectId) && propertyIds.has(l.propertyId)));
+    hierarchies.forEach(h => definitionIds.add(h.id));
+    const relevantAxioms = snapshot.axiomAssertions.filter(item => definitionIds.has(item.subjectId) && item.sourceDefinitionIds.every(id => definitionIds.has(id)));
+    const axioms = input.include?.axioms === false ? [] : relevantAxioms;
     axioms.forEach((item, index) => (refs[`A${index + 1}`] = item.id));
-    const inferences =
-      input.include?.inferences === false
-        ? []
-        : snapshot.inferredAssertions.filter(
-            (item) =>
-              objectIds.has(item.subjectId) ||
-              objectIds.has(item.objectId ?? "") ||
-              metrics.some((m) => m.id === item.subjectId),
-          );
+    const axiomIds = new Set(relevantAxioms.map(a => a.id));
+    const premiseExists = (id: string) => definitionIds.has(id) || axiomIds.has(id) || (id.includes(":") && id.split(":").every(part => definitionIds.has(part)));
+    const inferences = input.include?.inferences === false ? [] : snapshot.inferredAssertions.filter(item =>
+      definitionIds.has(item.subjectId) && (!item.objectId || definitionIds.has(item.objectId)) &&
+      item.axiomAssertionIds.every(id => axiomIds.has(id)) && item.premiseAssertionIds.every(premiseExists));
     inferences.forEach((item, index) => (refs[`I${index + 1}`] = item.id));
     const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
     this.store.saveSession({
@@ -667,9 +628,7 @@ export class OntologyPlatform {
       objects: projectObjects(objects, input.projection ?? "compact"),
       metrics,
       relations,
-      hierarchies: snapshot.dimensionHierarchies.filter((h) =>
-        h.levels.some((l) => objectIds.has(l.objectId)),
-      ),
+      hierarchies,
       values,
       axioms,
       inferences:
@@ -685,7 +644,8 @@ export class OntologyPlatform {
       additivitySummary: numericSummary(objects),
       refs,
       candidates,
-      ambiguities: ambiguities(candidates),
+      ambiguities: contextAmbiguities,
+      retrieval,
     };
     return {
       sessionId,

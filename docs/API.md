@@ -270,7 +270,7 @@
 
 `POST /v1/semantic-context:resolve`
 
-根据问题或术语一次获取匹配的对象、指标、值、公理和推理证据，供 Agent 理解业务语义。此接口不执行数据查询。
+检索业务定义候选。推荐 Agent 提取 concepts（指标、维度、筛选字段、时间字段）；平台按完整名称、编码或同义词匹配，并补充连接路径及公理。question 单独使用时仅做词典匹配。接口不调用模型、不执行数据查询。
 
 所需权限：semantic:read
 
@@ -278,19 +278,28 @@
 | --- | --- | --- | --- |
 | namespace | body | 是 | 本体命名空间，例如 retail。 |
 | ontologyVersion | body | 否 | 发布版本号或 latest；省略时选择最新发布版本。 |
-| question | body | 否 | 需要理解的自然语言问题；question 与 terms 至少提供一项。 |
-| terms | body | 否 | 明确的业务术语数组；可与 question 配合，二者至少提供一项。 |
+| question | body | 否 | 保留用户原问题。未传 concepts 或非空 terms 时才用于完整词典词的包含匹配，不进行自然语言意图或时间解析。 |
+| terms | body | 否 | 完整业务术语数组，最多 32 项；按名称、编码或同义词精确匹配。优先级 concepts > terms > question。 |
+| concepts | body | 否 | Agent 提取的业务概念：metrics 指标名称、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
 | purpose | body | 是 | 用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。 |
-| projection | body | 否 | 对象字段详细程度：compact（默认）、standard、full。敏感字段边界始终生效。 |
+| projection | body | 否 | 已选对象字段详细程度：compact（默认）、standard、full；均只包含相关属性，不会扩展检索范围。敏感字段边界始终生效。 |
 | include | body | 否 | 开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；values 需显式开启，其他默认包含。 |
 
-返回：data 包含 sessionId、ontologyVersion、objects、metrics、relations、values、axioms、inferences、refs、ambiguities 和 contextDigest。会话固定版本，有效期 30 分钟。
+返回：data 包含 sessionId、ontologyVersion、objects、metrics、relations、values、axioms、inferences、refs、ambiguities 和 contextDigest。retrieval.status 为 MATCHED、PARTIAL_MATCH、NO_MATCH 或 AMBIGUOUS；未命中项位于 unmatchedTerms，candidates 包含匹配原因，ambiguities 由调用方确认。会话固定版本，有效期 30 分钟。
 
 ```json
 {
   "namespace": "retail",
   "ontologyVersion": "latest",
   "question": "按店铺查看销售额",
+  "concepts": {
+    "metrics": [
+      "销售额"
+    ],
+    "dimensions": [
+      "店铺"
+    ]
+  },
   "purpose": "PLAN",
   "include": {
     "values": true,

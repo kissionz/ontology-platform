@@ -1,3 +1,4 @@
+import { ContextSummary } from "./ContextSummary.js";
 import { ApiReference } from "./ApiReference.js";
 import { IntegrationGuide } from "./IntegrationGuide.js";
 import { axiomTitle, axiomDescription, chineseParameters, term } from "./axiom-copy.js";
@@ -1587,6 +1588,7 @@ function SystemPage({
         namespace: "retail",
         ontologyVersion: "latest",
         question: "今年各事业部销售额和毛利率",
+        concepts: { metrics: ["销售额", "毛利率"], dimensions: ["事业部"], time: ["业务日期"] },
         purpose: "ANSWER",
         include: {
           values: true,
@@ -1612,7 +1614,8 @@ function SystemPage({
   const queryString = new URLSearchParams(queryParameters.filter((p: any) => queryValues[p.name]?.trim()).map((p: any) => [p.name, queryValues[p.name]])).toString();
   const resolvedEndpoint = endpoint.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(pathValues[key] ?? "")) + (queryString ? `?${queryString}` : "");
   const responseData = response?.data ?? response;
-  const displayedResponse = responseTab === "响应体" ? response : responseTab === "解析摘要" ? responseData?.resolution : responseTab === "Ontology Context" ? responseData?.ontologyContext ?? responseData?.context : responseTab === "Query IR" ? responseData?.queryIr : responseTab === "SQL" ? responseData?.sqlPreview : responseTab === "推论证据" ? responseData?.inferenceEvidence ?? responseData?.inferences : audits.data?.filter(event => event.auditId === response?.auditId);
+  const responseContext = responseData?.retrieval ? responseData : responseData?.ontologyContext ?? responseData?.context;
+  const displayedResponse = responseTab === "响应体" ? response : responseTab === "解析摘要" ? responseData?.resolution : responseTab === "语义上下文" ? responseContext : responseTab === "Query IR" ? responseData?.queryIr : responseTab === "SQL" ? responseData?.sqlPreview : responseTab === "推论证据" ? responseData?.inferenceEvidence ?? responseData?.inferences : audits.data?.filter(event => event.auditId === response?.auditId);
   const [clientName, setClientName] = useState("外部 Agent");
   const [createdKey, setCreatedKey] = useState("");
   const [clientScopes, setClientScopes] = useState(["ontology:read", "semantic:read", "semantic:plan", "data:execute"]);
@@ -1648,6 +1651,7 @@ function SystemPage({
       });
       const data = raw.status === 304 ? { status: "NOT_MODIFIED", message: "快照未改变，HTTP 304 无响应体。" } : await raw.json().catch(() => ({}));
       setResponse(data);
+      setResponseTab((data?.data?.retrieval ?? data?.retrieval) ? "解析摘要" : "响应体");
       audits.reload();
       setResponseHeaders(Object.fromEntries(raw.headers.entries()));
       setStatus(`${raw.status} ${raw.statusText} · ${Math.round(performance.now() - started)} ms`);
@@ -1782,9 +1786,9 @@ function SystemPage({
                 </span>
               </div>
               <div className="console-tabs response-tabs">
-                {["响应体", "解析摘要", "Ontology Context", "Query IR", "SQL", "推论证据", "审计"].map(label => <button key={label} className={responseTab === label ? "active" : ""} onClick={() => setResponseTab(label)}>{label}</button>)}
+                {["响应体", "解析摘要", "语义上下文", "Query IR", "SQL", "推论证据", "审计"].map(label => <button key={label} className={responseTab === label ? "active" : ""} onClick={() => setResponseTab(label)}>{label}</button>)}
               </div>
-              <pre className="response-json">{displayedResponse != null ? JSON.stringify(redactUi(displayedResponse), null, 2) : response ? "本次响应未包含此项，可在请求 options 中启用。" : "发送请求后在此显示响应。"}</pre>
+              {responseTab === "解析摘要" && responseContext?.retrieval ? <ContextSummary context={responseContext} /> : <pre className="response-json">{displayedResponse != null ? JSON.stringify(redactUi(displayedResponse), null, 2) : response ? "本次响应未包含此项，可在请求 options 中启用。" : "发送请求后在此显示响应。"}</pre>}
               <div className="response-headers">
                 <strong>响应 Headers</strong>
                 <pre>{JSON.stringify(redactUi(responseHeaders), null, 2)}</pre>

@@ -71,7 +71,8 @@ export const OntologySnapshotV3Schema = z.object({
 
 export const ResolveSemanticContextInputSchema = z.object({
   namespace: z.string().min(1), ontologyVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(), question: z.string().optional(),
-  terms: z.array(z.string()).optional(), purpose: z.enum(["ANSWER", "PLAN", "EXPLAIN", "MODEL"]), projection: z.enum(["compact", "standard", "full"]).optional(),
+  terms: z.array(z.string().trim().min(1)).max(32).optional(),
+  concepts: z.object({ metrics: z.array(z.string().trim().min(1)).max(16).optional(), dimensions: z.array(z.string().trim().min(1)).max(16).optional(), filters: z.array(z.string().trim().min(1)).max(16).optional(), time: z.array(z.string().trim().min(1)).max(16).optional() }).strict().optional(), purpose: z.enum(["ANSWER", "PLAN", "EXPLAIN", "MODEL"]), projection: z.enum(["compact", "standard", "full"]).optional(),
   include: z.object({ values: z.boolean().optional(), axioms: z.boolean().optional(), inferences: z.boolean().optional(), evidence: z.boolean().optional() }).optional()
 }).strict();
 export const QueryIrSchema = z.object({

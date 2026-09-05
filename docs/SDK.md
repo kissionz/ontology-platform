@@ -1,5 +1,7 @@
 # SDK 接入说明
 
+resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.status：NO_MATCH 时补充术语或同义词，PARTIAL_MATCH 时处理 unmatchedTerms，AMBIGUOUS 时确认候选；MATCHED 也不代表已完成业务意图解析。时间范围、筛选值和最终查询结构由调用方确定。
+
 当前 SDK 随仓库源码交付。TypeScript 入口为 packages/sdk-typescript/src/index.ts；Python 模块为 packages/sdk-python/ontology_platform.py，Python 客户端仅使用标准库。
 
 下面示例保存到项目根目录运行。TypeScript 使用 npx tsx example.ts；Python 使用 python3 example.py。提前在进程环境中配置 ONTOLOGY_API_KEY；ONTOLOGY_API_URL 可覆盖默认服务根地址。SDK 不会自动读取本机密钥文件。
@@ -41,6 +43,7 @@ try {
     ontologyVersion: "latest",
     purpose: "PLAN",
     question: "按店铺查看销售额",
+    concepts: { metrics: ["销售额"], dimensions: ["店铺"] },
     include: { axioms: true, inferences: true, evidence: true },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
@@ -70,6 +73,7 @@ try:
         "ontologyVersion": "latest",
         "purpose": "PLAN",
         "question": "按店铺查看销售额",
+        "concepts": {"metrics": ["销售额"], "dimensions": ["店铺"]},
         "include": {"axioms": True, "inferences": True, "evidence": True},
     })
     if response.get("status") == "SUCCEEDED":

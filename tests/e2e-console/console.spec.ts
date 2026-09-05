@@ -45,6 +45,8 @@ test("U01-U12 console workflow uses the real HTTP contracts", async ({ page }) =
   await expect(page.getByText("接口元数据实时读取 OpenAPI")).toBeVisible();
   await page.getByRole("button", { name: /发送请求/ }).click();
   await expect(page.locator(".status-code")).toContainText("200 OK");
+  await expect(page.getByRole("region", { name: "语义候选摘要" })).toBeVisible();
+  await page.getByRole("button", { name: "响应体", exact: true }).click();
   await expect(page.locator(".response-json")).toContainText("contextDigest");
   await expect(page.locator(".response-json")).not.toContainText("e2e-key");
   expect(browserErrors).toEqual([]);
@@ -396,4 +398,25 @@ test("pending tables support typed object creation and draft deletion", async ({
   await page.reload();
   await expect(page.getByRole("button", { name: "删除对象 订单汇总", exact: true })).toHaveCount(0);
   await expect(page.getByRole("radio", { name: /orders/ })).toBeVisible();
+});
+
+test("context retrieval presents candidates and no-match feedback before raw JSON", async ({ page }) => {
+  await page.goto("/?page=system");
+  await page.getByLabel("请求体", { exact: true }).fill(JSON.stringify({ namespace: "retail", ontologyVersion: 1, purpose: "PLAN", concepts: { metrics: ["销售额"] } }));
+  await page.getByRole("button", { name: "发送请求", exact: true }).click();
+  const summary = page.getByRole("region", { name: "语义候选摘要" });
+  await expect(summary).toContainText("1 个候选");
+  await expect(summary).toContainText("业务名称命中");
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({ path: `${tmpdir()}/ontology-context-summary-${width}.png`, fullPage: true });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+  await page.getByLabel("请求体", { exact: true }).fill(JSON.stringify({ namespace: "retail", purpose: "PLAN", concepts: { metrics: ["天气预报"] } }));
+  await page.getByRole("button", { name: "发送请求", exact: true }).click();
+  await expect(summary).toContainText("未找到匹配的业务定义");
+  await expect(summary).toContainText("天气预报");
+  await expect(summary).toContainText("0 个候选");
+  await page.getByRole("button", { name: "响应体", exact: true }).click();
+  await expect(page.locator(".response-json")).toContainText('"NO_MATCH"');
 });

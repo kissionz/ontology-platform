@@ -565,3 +565,10 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .guide-example .source-actions h3 { margin: 0 auto 0 0; }
 .tool-reference { padding: 14px 0; border-top: 1px solid var(--border); }
 .tool-reference summary span { margin-left: 10px; color: var(--muted); font-weight: 400; }
+
+.context-summary { padding: 18px; color: var(--text); font-size: 12px; line-height: 1.65; overflow: auto; }
+.context-summary h3 { margin: 0 0 8px; font-size: 15px; }
+.context-summary p { max-width: 72ch; color: var(--muted); }
+.context-summary table { width: 100%; border-collapse: collapse; }
+.context-summary th, .context-summary td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.context-summary small { display: block; color: var(--muted); font-size: 11px; }

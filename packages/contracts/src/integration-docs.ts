@@ -9,6 +9,7 @@ export const MCP_CONFIG = {
 };
 
 export const MCP_NOTES = [
+  "Agent 先提取完整业务概念传入 concepts。解析上下文只返回词典候选；优先级 concepts > terms > question。filters、time 数组填写属性名称，筛选值和时间范围由 Agent 确认后放入查询结构。检查 retrieval.status、unmatchedTerms、ambiguities；未命中返回空上下文，不会退回全部本体。",
   "先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。",
   "使用支持 stdio 的 MCP 客户端，配置中的项目路径须替换为本机绝对路径。通过标准输入输出交换逐行 JSON-RPC；当前启动器不提供独立的远程 MCP HTTP 入口。",
   "ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读取同一数据文件旁自动生成的密钥；自定义数据文件时设置 ONTOLOGY_DB_PATH，或用 ONTOLOGY_KEYS_PATH 指定密钥文件。",
@@ -19,7 +20,7 @@ export const MCP_NOTES = [
 ];
 
 export const MCP_EXAMPLES: Record<string, unknown> = {
-  ResolveOntologyContext: { namespace: "retail", ontologyVersion: "latest", question: "按店铺查看销售额", purpose: "PLAN", include: { axioms: true, inferences: true, evidence: true } },
+  ResolveOntologyContext: { namespace: "retail", ontologyVersion: "latest", question: "按店铺查看销售额", concepts: { metrics: ["销售额"], dimensions: ["店铺"] }, purpose: "PLAN", include: { axioms: true, inferences: true, evidence: true } },
   ExecuteSemanticQuery: { namespace: "retail", queryMode: "ANALYSIS", question: "按店铺查看销售额" },
   ContinueSemanticQuery: { clarificationId: "响应中的澄清ID", selections: { "待选择项目ID": "候选项ID" } },
   GetOntologySnapshot: { namespace: "retail", version: "latest" },
@@ -37,6 +38,7 @@ export const SDK_METHODS = [
 ];
 
 export const SDK_NOTES = [
+  "resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.status：NO_MATCH 时补充术语或同义词，PARTIAL_MATCH 时处理 unmatchedTerms，AMBIGUOUS 时确认候选；MATCHED 也不代表已完成业务意图解析。时间范围、筛选值和最终查询结构由调用方确定。",
   "当前 SDK 随仓库源码交付。TypeScript 入口为 packages/sdk-typescript/src/index.ts；Python 模块为 packages/sdk-python/ontology_platform.py，Python 客户端仅使用标准库。",
   "下面示例保存到项目根目录运行。TypeScript 使用 npx tsx example.ts；Python 使用 python3 example.py。提前在进程环境中配置 ONTOLOGY_API_KEY；ONTOLOGY_API_URL 可覆盖默认服务根地址。SDK 不会自动读取本机密钥文件。",
   "TypeScript 构造参数为 baseUrl、apiKey 和可选 fetch；Python 为 base_url、api_key。根地址不包含 /v1。可从系统管理创建有合适权限的客户端并保存自动生成的密钥。",
@@ -61,6 +63,7 @@ try {
     ontologyVersion: "latest",
     purpose: "PLAN",
     question: "按店铺查看销售额",
+    concepts: { metrics: ["销售额"], dimensions: ["店铺"] },
     include: { axioms: true, inferences: true, evidence: true },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
@@ -86,6 +89,7 @@ try:
         "ontologyVersion": "latest",
         "purpose": "PLAN",
         "question": "按店铺查看销售额",
+        "concepts": {"metrics": ["销售额"], "dimensions": ["店铺"]},
         "include": {"axioms": True, "inferences": True, "evidence": True},
     })
     if response.get("status") == "SUCCEEDED":
