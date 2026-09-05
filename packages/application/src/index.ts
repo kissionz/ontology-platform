@@ -20,6 +20,7 @@ import { digest, finalizeSnapshot, runKernel, visibleSnapshot } from "../../doma
 import { SemanticIndex } from "../../domain/src/semantic-index.js";
 import {
   QueryIrCompiler,
+  type CompiledQuery,
   guardReadOnlySql,
 } from "../../sql-selectdb/src/index.js";
 
@@ -31,6 +32,8 @@ export interface DraftRecord {
   snapshot: OntologySnapshotV3;
   updatedAt: string;
 }
+export type CompiledTemplate = Pick<CompiledQuery, "ir" | "sql">;
+
 export interface ClarificationRecord {
   clarificationId: string;
   input: ExecuteSemanticQueryInput;
@@ -40,6 +43,8 @@ export interface ClarificationRecord {
   expiresAt: string;
 }
 export interface PlatformStorePort {
+  getCompiledTemplate(namespace: string, version: number, key: string): CompiledTemplate | undefined;
+  putCompiledTemplate(namespace: string, version: number, key: string, template: CompiledTemplate): void;
   saveClarification(record: ClarificationRecord): void;
   getClarification(clarificationId: string): ClarificationRecord | undefined;
   deleteClarification(clarificationId: string): void;
@@ -786,11 +791,7 @@ export class OntologyPlatform {
       const tables = this.store.listPhysicalTables();
       let compiled;
       try {
-        compiled = this.compiler.compile(
-          intent,
-          snapshot as unknown as LegacySnapshot,
-          tables as unknown as LegacyTable[],
-        );
+        compiled = this.compileQuery(intent, snapshot, tables, input.queryMode === "FIXED_SHAPE");
       } catch (error) {
         throw mapPlanningError(error);
       }
@@ -804,7 +805,7 @@ export class OntologyPlatform {
           ...shape,
           filters: shape.filters.map((filter) => ({
             ...filter,
-            value: typeof filter.value,
+            value: Array.isArray(filter.value) ? filter.value.map(value => typeof value) : typeof filter.value,
           })),
         },
         ontologyVersion: version,
@@ -939,6 +940,40 @@ export class OntologyPlatform {
       };
     }
   }
+  private compileQuery(intent: AnalysisIntent, snapshot: OntologySnapshotV3, tables: PhysicalTable[], cache: boolean): CompiledTemplate & { parameters: unknown[] } {
+    const compile = () => this.compiler.compile(intent, snapshot as unknown as LegacySnapshot, tables as unknown as LegacyTable[]);
+    // Time expressions and advanced parameter layouts require full resolution.
+    // Only the validated DIRECT filter layout is rebound from this template format.
+    if (!cache || intent.timeRange || intent.timeGrain || intent.timeComparisons?.length || intent.windowCalculations?.length || intent.derivedMeasures?.length || intent.groupSelections?.length || intent.periodConditions?.length || intent.hierarchyFilters?.length || intent.filterExpression || intent.aggregateFilters?.length || intent.aggregateFilterExpression || intent.filters.some(filter => filter.kind !== "DIRECT")) return compile();
+    const key = digest({
+      format: "selectdb-direct-template-v1",
+      snapshot: snapshot.contentDigest,
+      tables,
+      intent: { ...intent, filters: intent.filters.map(filter => ({ ...filter, value: Array.isArray(filter.value) ? filter.value.map(value => typeof value) : typeof filter.value })) },
+    });
+    const template = this.store.getCompiledTemplate(snapshot.namespace, snapshot.version, key);
+    const parameters: unknown[] = [];
+    for (const filter of intent.filters) {
+      if (["IS_NULL", "NOT_NULL"].includes(filter.operator)) continue;
+      if (filter.operator === "IN") {
+        const values = Array.isArray(filter.value) ? filter.value : filter.value == null ? [] : [filter.value];
+        if (!values.length) throw new Error("IN 筛选条件不能为空");
+        parameters.push(...values);
+      } else {
+        if (filter.value == null || Array.isArray(filter.value)) throw new Error(`${filter.operator} 筛选条件缺少单值`);
+        parameters.push(filter.value);
+      }
+    }
+    if (template) return { ...template, ir: { ...template.ir, filters: template.ir.filters.map((filter, index) => ({ kind: "DIRECT", propertyId: filter.propertyId, operator: filter.operator, value: intent.filters[index]?.value })) }, parameters };
+    const compiled = compile();
+    // Persist structure only; current business values stay in the execution input.
+    this.store.putCompiledTemplate(snapshot.namespace, snapshot.version, key, {
+      sql: compiled.sql,
+      ir: { ...compiled.ir, filters: compiled.ir.filters.map(filter => ({ kind: "DIRECT", propertyId: filter.propertyId, operator: filter.operator })) },
+    });
+    return compiled;
+  }
+
   async continueSemanticQuery(
     clarificationId: string,
     selections: Record<string, string>,

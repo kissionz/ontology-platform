@@ -56,3 +56,7 @@ npm run restore -- --source /secure/ontology-2026-09-04.sqlite --force
 ## 持续验证
 
 GitHub Actions 在 main 推送和 Pull Request 时使用 Node.js 24、Python 3.12 执行 build、单元/契约/集成测试及 Chromium E2E，失败时保存浏览器证据 7 天。CI 使用测试夹具；需要本机参考 SQLite 的测试会在文件不存在时跳过，SelectDB 实际连接和业务结果仍需环境验收。
+
+## 编译模板缓存
+
+普通 FIXED_SHAPE 的 DIRECT 筛选查询将 SQL 结构保存到 `compiled_query_templates`。缓存键包含本体摘要、版本、物理表 Schema 和参数形状；动态参数值只在执行时绑定。服务重启后可以复用模板。时间表达式与高级计算仍重新编译，以重新解析时间边界和参数顺序。该表可以在维护窗口清空，后续请求会自动重建。

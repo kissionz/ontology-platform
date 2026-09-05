@@ -1,9 +1,11 @@
 import { existsSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { buildApp } from "../apps/api/src/server.js";
 import type { QueryExecutorPort } from "../packages/application/src/index.js";
 import { physicalTables, validSnapshot } from "../tests/fixtures-v3.js";
 
-const databasePath = "/private/tmp/ontology-platform-e2e.sqlite";
+const databasePath = path.join(tmpdir(), "ontology-platform-e2e.sqlite");
 for (const suffix of ["", "-wal", "-shm"])
   if (existsSync(`${databasePath}${suffix}`))
     unlinkSync(`${databasePath}${suffix}`);

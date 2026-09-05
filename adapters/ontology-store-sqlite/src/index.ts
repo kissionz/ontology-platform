@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { AxiomAssertion, InferredAssertion, OntologySnapshotV3, PhysicalTable, QueryIR, Scope } from "../../../packages/contracts/src/index.js";
 
-import type { ClarificationRecord } from "../../../packages/application/src/index.js";
+import type { ClarificationRecord, CompiledTemplate } from "../../../packages/application/src/index.js";
 
 const MIGRATIONS = [
 `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
@@ -28,7 +28,8 @@ CREATE INDEX IF NOT EXISTS semantic_sessions_version ON semantic_sessions(namesp
 CREATE INDEX IF NOT EXISTS ontology_versions_digest ON ontology_versions(namespace,content_digest);`,
 `CREATE TABLE IF NOT EXISTS ontology_version_metadata (namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, published_by TEXT NOT NULL, change_summary TEXT NOT NULL, PRIMARY KEY(namespace,ontology_version));`,
 `CREATE TABLE IF NOT EXISTS semantic_clarifications (clarification_id TEXT PRIMARY KEY, namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, payload TEXT NOT NULL, expires_at TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS semantic_clarifications_expiry ON semantic_clarifications(expires_at);`
+CREATE INDEX IF NOT EXISTS semantic_clarifications_expiry ON semantic_clarifications(expires_at);`,
+`CREATE TABLE IF NOT EXISTS compiled_query_templates (namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, cache_key TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(namespace,ontology_version,cache_key));`
 ] as const;
 
 export interface DraftRecord { namespace: string; draftId: string; baseVersion?: number; revision: number; snapshot: OntologySnapshotV3; updatedAt: string }
@@ -114,6 +115,14 @@ export class SqlitePlatformStore {
   searchValues(namespace:string,version:number,query:string,limit=20){ const value=`%${normalize(query)}%`; return this.db.prepare("SELECT object_id objectId,property_id propertyId,display_value displayValue,frequency FROM property_value_index WHERE namespace=? AND ontology_version=? AND normalized_value LIKE ? ORDER BY CASE WHEN normalized_value=? THEN 0 ELSE 1 END,frequency DESC,display_value LIMIT ?").all(namespace,version,value,normalize(query),limit) as Array<{objectId:string;propertyId:string;displayValue:string;frequency:number}>; }
   saveIndexStatus(namespace:string,version:number,objectId:string,propertyId:string,status:string,distinctValues:number,coveredRows:number,error?:string):void { this.db.prepare("INSERT INTO property_value_index_status(namespace,ontology_version,object_id,property_id,status,distinct_values,covered_rows,error,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(namespace,ontology_version,property_id) DO UPDATE SET status=excluded.status,distinct_values=excluded.distinct_values,covered_rows=excluded.covered_rows,error=excluded.error,updated_at=excluded.updated_at").run(namespace,version,objectId,propertyId,status,distinctValues,coveredRows,error??null,new Date().toISOString()); }
   getIndexStatus(namespace:string,version:number){ return this.db.prepare("SELECT CASE WHEN SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END)>0 THEN 'failed' WHEN SUM(CASE WHEN status='building' THEN 1 ELSE 0 END)>0 THEN 'building' WHEN SUM(CASE WHEN status='partial' THEN 1 ELSE 0 END)>0 THEN 'partial' WHEN SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END)>0 THEN 'ready' ELSE 'empty' END status,COUNT(*) properties,COALESCE(SUM(distinct_values),0) valuesCount,COALESCE(SUM(covered_rows),0) coveredRows,SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failedProperties,SUM(CASE WHEN status='partial' THEN 1 ELSE 0 END) partialProperties,MAX(updated_at) updatedAt FROM property_value_index_status WHERE namespace=? AND ontology_version=?").get(namespace,version) as Record<string,unknown>; }
+  getCompiledTemplate(namespace: string, version: number, key: string): CompiledTemplate | undefined {
+    const row = this.db.prepare("SELECT payload FROM compiled_query_templates WHERE namespace=? AND ontology_version=? AND cache_key=?").get(namespace, version, key) as { payload: string } | undefined;
+    return row ? JSON.parse(row.payload) as CompiledTemplate : undefined;
+  }
+  putCompiledTemplate(namespace: string, version: number, key: string, template: CompiledTemplate): void {
+    this.db.prepare("INSERT OR REPLACE INTO compiled_query_templates(namespace,ontology_version,cache_key,payload,created_at) VALUES(?,?,?,?,?)")
+      .run(namespace, version, key, JSON.stringify(template), new Date().toISOString());
+  }
   putShape(namespace:string,version:number,fingerprint:string,ir:QueryIR,parameterSchema:unknown):void { this.db.prepare("INSERT OR REPLACE INTO query_shape_cache(namespace,ontology_version,fingerprint,ir_template,parameter_schema,created_at) VALUES(?,?,?,?,?,?)").run(namespace,version,fingerprint,JSON.stringify(ir),JSON.stringify(parameterSchema),new Date().toISOString()); }
   getShape(namespace:string,version:number,fingerprint:string):QueryIR|undefined { const row=this.db.prepare("SELECT ir_template value FROM query_shape_cache WHERE namespace=? AND ontology_version=? AND fingerprint=?").get(namespace,version,fingerprint) as {value:string}|undefined; return row?JSON.parse(row.value) as QueryIR:undefined; }
   createApiClient(record:ApiClientRecord):void { this.db.prepare("INSERT INTO api_clients(client_id,name,scopes,status,key_hash,rate_limit,rotated_at,created_at) VALUES(?,?,?,?,?,?,?,?)").run(record.clientId,record.name,JSON.stringify(record.scopes),record.status,record.keyHash,record.rateLimit,record.rotatedAt,new Date().toISOString()); }
