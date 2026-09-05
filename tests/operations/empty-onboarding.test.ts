@@ -6,7 +6,7 @@ describe("empty installation onboarding", () => {
   it("configures and scans a source, creates and resumes a first draft, then publishes v1", async () => {
     const app = buildApp({ databasePath: ":memory:", apiKey: "test-key", queryGateway: {
       async testConnection() { return { status: "ready", databaseVersion: "fixture", elapsedMs: 0 }; },
-      async scanSchema() { return physicalTables().map(table => ({ name: table.name, type: table.type, columns: table.columns })); },
+      async scanSchema() { return physicalTables().map(table => ({ name: table.name, type: table.type, comment: "测试表注释", columns: table.columns })); },
       async execute() { return { columns: [], rows: [], rowCount: 0, truncated: false }; },
       async close() {},
     } });
@@ -17,6 +17,8 @@ describe("empty installation onboarding", () => {
       expect((await app.inject({ method: "POST", url: "/v1/data-sources/selectdb:test", headers })).statusCode).toBe(200);
       const scanned = await app.inject({ method: "POST", url: "/v1/data-sources/selectdb/schema:scan", headers });
       expect(scanned.statusCode).toBe(200);
+      expect(scanned.json().data.tables[0].description).toBe("测试表注释");
+      expect((await app.inject({ method: "GET", url: "/v1/data-sources/selectdb", headers })).json().data.tables[0].description).toBe("测试表注释");
       const created = await app.inject({ method: "POST", url: "/v1/namespaces/retail/drafts", headers, payload: {} });
       expect(created.statusCode).toBe(200);
       const draft = created.json().data;

@@ -1,11 +1,12 @@
 import type { AxiomAssertion, DimensionHierarchy, InferredAssertion, Metric, OntologyObject, OntologyRelation, OntologySnapshotV3, ProofStep } from "../../contracts/src/index.js";
 
-export const KERNEL_VERSION = "1.0.0";
+export const KERNEL_VERSION = "1.1.0";
 export interface ValidationIssue { level: "ERROR" | "WARNING"; code: string; message: string; subjectId?: string; references: string[] }
 export interface KernelResult { valid: boolean; issues: ValidationIssue[]; axioms: AxiomAssertion[]; inferences: InferredAssertion[]; inferenceDigest: string }
 
 export const AXIOM_CATALOG = [
   ["IDENTITY_ENTITY_SINGLE", "IDENTITY"], ["IDENTITY_ID_UNIQUE", "IDENTITY"], ["GRAIN_REQUIRED", "GRAIN"],
+  ["IDENTITY_EVENT_MAX_ONE", "IDENTITY"], ["RELATIONSHIP_REFERENCES_REQUIRED", "RELATION"],
   ["GRAIN_PROPERTIES_VALID", "GRAIN"], ["NUMBER_SPEC_REQUIRED", "TYPE"], ["RATIO_NON_ADDITIVE", "METRIC_ALGEBRA"],
   ["SEMI_ADDITIVE_TIME", "METRIC_ALGEBRA"], ["METRIC_SINGLE_FACT", "METRIC_ALGEBRA"], ["METRIC_DEPENDENCY_ACYCLIC", "METRIC_ALGEBRA"],
   ["RELATION_TARGET_ID", "RELATION"], ["RELATION_DIRECTIONAL_PATH", "RELATION"], ["RELATION_CARDINALITY_FANOUT", "RELATION"],
@@ -20,6 +21,8 @@ export function instantiateAxioms(snapshot: Pick<OntologySnapshotV3, "objects" |
   const axioms: AxiomAssertion[] = [];
   for (const object of snapshot.objects) {
     if (object.objectType === "ENTITY") axioms.push(assertion("IDENTITY_ENTITY_SINGLE", "IDENTITY", "OBJECT", object.id, [object.id], { objectType: object.objectType }, "ERROR"));
+    if (object.objectType === "EVENT") axioms.push(assertion("IDENTITY_EVENT_MAX_ONE", "IDENTITY", "OBJECT", object.id, [object.id], {}, "ERROR"));
+    if (object.objectType === "RELATIONSHIP") axioms.push(assertion("RELATIONSHIP_REFERENCES_REQUIRED", "RELATION", "OBJECT", object.id, [object.id], {}, "ERROR"));
     if (["EVENT", "SNAPSHOT", "AGGREGATE", "RELATIONSHIP"].includes(object.objectType)) axioms.push(assertion("GRAIN_REQUIRED", "GRAIN", "OBJECT", object.id, [object.id], { grainPropertyIds: object.grainPropertyIds }, "ERROR"));
     if (object.grainPropertyIds.length) axioms.push(assertion("GRAIN_PROPERTIES_VALID", "GRAIN", "OBJECT", object.id, [object.id, ...object.grainPropertyIds], { grainPropertyIds: object.grainPropertyIds }, "ERROR"));
     for (const property of object.properties) {

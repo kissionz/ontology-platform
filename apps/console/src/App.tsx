@@ -1,6 +1,11 @@
 import { axiomTitle, axiomDescription, chineseParameters, term } from "./axiom-copy.js";
 import { CONTRACT_SCHEMAS } from "../../../packages/contracts/src/index.js";
 import { NewObjectForm } from "./NewObjectForm.js";
+import { ObjectDefinitionEditor } from "./ObjectDefinitionEditor.js";
+import { CatalogDefinitionEditor } from "./CatalogDefinitionEditor.js";
+import { objectRemovalOperations } from "./modeling.js";
+import type { OntologySnapshotV3, OntologyRelation, OntologyProperty, PhysicalTable } from "../../../packages/contracts/src/index.js";
+import type { DraftPatchOperation } from "../../../packages/application/src/index.js";
 import {
   useEffect,
   useMemo,
@@ -28,6 +33,7 @@ import {
   SquaresFourIcon as SquaresFour,
   TreeStructureIcon as TreeStructure,
   WarningCircleIcon as WarningCircle,
+  TrashIcon as Trash,
 } from "@phosphor-icons/react";
 
 type Page = "overview" | "ontology" | "logic" | "versions" | "data" | "system";
@@ -189,6 +195,7 @@ export function App() {
       "",
   );
   const navigate = (next: Page, params: Record<string, string> = {}) => {
+    if (!window.dispatchEvent(new Event("ontology:navigate", { cancelable: true }))) return;
     history.pushState(null, "", `?${new URLSearchParams({ page: next, ...params })}`);
     setPage(next);
   };
@@ -665,7 +672,7 @@ function GraphView({
                 markerEnd="url(#arrow)"
               />
               <title>
-                {edge.label} · {edge.cardinality}
+                {edge.label} · {term(edge.cardinality ?? "")}
               </title>
             </g>
           ) : null;
@@ -688,7 +695,7 @@ function GraphView({
                 {node.label}
               </text>
               <text className="node-type" x="17" y="39">
-                {node.objectType} · {node.propertyCount} 属性
+                {term(node.objectType ?? node.kind)} · {node.propertyCount} 属性
               </text>
             </g>
           );
@@ -735,7 +742,7 @@ function Inspector({ object, snapshot, initialTab = "properties" }: { object?: O
         <div className="meta-grid">
           <div>
             <span>对象类型</span>
-            <strong>{object.objectType}</strong>
+            <strong>{term(object.objectType)}</strong>
           </div>
           <div>
             <span>状态</span>
@@ -755,10 +762,10 @@ function Inspector({ object, snapshot, initialTab = "properties" }: { object?: O
         {([["properties", `属性 ${object.properties.length}`], ["metrics", "指标"], ["relations", "关系"], ["axioms", "公理"]] as const).map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}
       </div>
       <div className="inspector-body" role="tabpanel">
-        {tab === "properties" && object.properties.map(p => <div className="property-row" key={p.id}><div><strong>{p.label}</strong><small>{p.name} · {p.dataType}</small></div><span className="property-type">{p.meaning}</span></div>)}
+        {tab === "properties" && object.properties.map(p => <div className="property-row" key={p.id}><div><strong>{p.label}</strong><small>{p.name} · {p.dataType}</small></div><span className="property-type">{term(p.meaning)}</span></div>)}
         {tab === "metrics" && snapshot?.metrics.filter(metric => metric.objectId === object.id).map(metric => <div className="inspector-definition" key={metric.id}><strong>{metric.label}</strong><p>{metric.description}</p><code>{metric.expression}</code></div>)}
-        {tab === "relations" && snapshot?.relations.filter(relation => relation.sourceObjectId === object.id || relation.targetObjectId === object.id).map(relation => <div className="inspector-definition" key={relation.id}><strong>{relation.name}</strong><p>{relation.sourceObjectId} → {relation.targetObjectId}</p><small>{relation.cardinality} · {relation.direction}</small></div>)}
-        {tab === "axioms" && snapshot?.axiomAssertions.filter(axiom => axiom.subjectId === object.id || axiom.sourceDefinitionIds.includes(object.id) || object.properties.some(property => property.id === axiom.subjectId)).map(axiom => <div className="inspector-definition" key={axiom.id}><strong>{axiom.axiomCode}</strong><p>{axiom.subjectId}</p><small>{axiom.enforcement}</small></div>)}
+        {tab === "relations" && snapshot?.relations.filter(relation => relation.sourceObjectId === object.id || relation.targetObjectId === object.id).map(relation => <div className="inspector-definition" key={relation.id}><strong>{relation.name}</strong><p>{relation.sourceObjectId} → {relation.targetObjectId}</p><small>{term(relation.cardinality)} · {term(relation.direction)}</small></div>)}
+        {tab === "axioms" && snapshot?.axiomAssertions.filter(axiom => axiom.subjectId === object.id || axiom.sourceDefinitionIds.includes(object.id) || object.properties.some(property => property.id === axiom.subjectId)).map(axiom => <div className="inspector-definition" key={axiom.id}><strong>{axiomTitle(axiom.axiomCode)}</strong><p>{axiomDescription(axiom.axiomCode)}</p><small>{term(axiom.enforcement)}</small></div>)}
       </div>
     </aside>
   );
@@ -767,10 +774,10 @@ function Inspector({ object, snapshot, initialTab = "properties" }: { object?: O
 function Ontology({ apiKey }: { apiKey: string }) {
   const [route, setRoute] = useState(() => new URLSearchParams(location.search));
   const snap = useApi<Snapshot>(`/v1/namespaces/retail/ontology?version=${route.get("version") ?? "latest"}`, apiKey);
+  const sources = useApi<any>("/v1/data-sources/selectdb", apiKey);
   const [selected, setSelected] = useState<string>();
   const [draft, setDraft] = useState<any>();
   const [editing, setEditing] = useState(false);
-  const [description, setDescription] = useState("");
   const [catalogTab, setCatalogTab] = useState<"objects" | "metrics" | "dimensionHierarchies">("objects");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [definitionId, setDefinitionId] = useState("");
@@ -778,11 +785,16 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [objectForm, setObjectForm] = useState<any>();
   const [batchPatch, setBatchPatch] = useState("[]");
   const [goldenCaseJson, setGoldenCaseJson] = useState("[]");
-  const [objectType, setObjectType] = useState("");
   const [changeSummary, setChangeSummary] = useState("更新本体业务语义");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [addingObject, setAddingObject] = useState(false);
+  const [newTableId, setNewTableId] = useState("");
+  const [pendingTable, setPendingTable] = useState("");
+  const [tableSearch, setTableSearch] = useState("");
+  const [pendingDelete, setPendingDelete] = useState("");
+  const [relationEdits, setRelationEdits] = useState<DraftPatchOperation[]>([]);
+  const [showReport, setShowReport] = useState(false);
   useEffect(() => {
     const draftId = route.get("draft") ?? (route.has("version") ? null : sessionStorage.getItem("ontology-active-draft"));
     if (!draftId) return;
@@ -811,9 +823,9 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const object: ObjectDef | undefined = snapshot?.objects.find((o) => o.id === selected);
   useEffect(
     () => {
-      setDescription(object?.description ?? "");
       setObjectForm(object ? structuredClone(object) : undefined);
-      setObjectType(object?.objectType ?? "");
+      setRelationEdits([]);
+      setBatchPatch("[]");
     },
     [object?.id, object?.description, draft?.revision],
   );
@@ -828,6 +840,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
       setDraft(result);
       setEditing(true);
       setMessage("草稿已创建");
+      return result;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -838,7 +851,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
     if (!draft || !object) return;
     setBusy(true);
     try {
-      const updated = { ...objectForm, description, objectType };
+      const updated = objectForm;
       const result = await api<any>(
         `/v1/namespaces/retail/drafts/${draft.draftId}`,
         apiKey,
@@ -846,7 +859,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
           method: "PATCH",
           body: JSON.stringify({
             revision: draft.revision,
-            operations: [{ op: "UPSERT_OBJECT", value: updated }, ...JSON.parse(batchPatch)],
+            operations: [{ op: "UPSERT_OBJECT", value: updated }, ...relationEdits, ...JSON.parse(batchPatch)],
           }),
         },
       );
@@ -865,6 +878,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const validate = async () => {
     if (!draft) return;
     setBusy(true);
+    setShowReport(true);
     try {
       const result = await api<any>(
         `/v1/namespaces/retail/drafts/${draft.draftId}/validate`,
@@ -932,6 +946,54 @@ function Ontology({ apiKey }: { apiKey: string }) {
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
+  const tables: PhysicalTable[] = sources.data?.tables ?? draft?.physicalTables ?? [];
+  const availableTables = tables.filter(table => !snapshot?.objects.some(item => item.sourceTableId === table.id));
+  const visibleTables = availableTables.filter(table => `${table.name} ${table.description ?? ""}`.toLocaleLowerCase().includes(tableSearch.toLocaleLowerCase()));
+  const dirty = Boolean(editing && ((object && objectForm && (JSON.stringify(objectForm) !== JSON.stringify(object) || relationEdits.length || batchPatch.trim() !== "[]")) || (catalogTab !== "objects" && definitionJson !== JSON.stringify(definition ?? {}, null, 2))));
+  const canLeaveObject = () => {
+    if (!dirty) return true;
+    if (!window.confirm("当前定义有未保存修改，是否放弃这些修改？")) return false;
+    setObjectForm(object ? structuredClone(object) : undefined); setRelationEdits([]); setBatchPatch("[]"); setDefinitionJson(JSON.stringify(definition ?? {}, null, 2));
+    return true;
+  };
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
+    const beforeNavigate = (event: Event) => { if (!canLeaveObject()) event.preventDefault(); };
+    window.addEventListener("beforeunload", beforeUnload);
+    window.addEventListener("ontology:navigate", beforeNavigate);
+    return () => { window.removeEventListener("beforeunload", beforeUnload); window.removeEventListener("ontology:navigate", beforeNavigate); };
+  }, [dirty, object, definition, relationEdits, batchPatch]);
+  const liveRelations = new Map((snapshot?.relations ?? []).map(relation => [relation.id, relation as OntologyRelation]));
+  relationEdits.forEach(operation => { if (operation.op === "UPSERT_RELATION") liveRelations.set(operation.value.id, operation.value); else if (operation.op === "REMOVE_RELATION") liveRelations.delete(operation.id); });
+  const editorSnapshot = { ...snapshot, relations: [...liveRelations.values()] } as OntologySnapshotV3;
+  const changeReference = (property: OntologyProperty, targetId: string) => {
+    if (!objectForm) return;
+    const existing = [...liveRelations.values()].find(relation => relation.sourceObjectId === objectForm.id && relation.sourcePropertyId === property.id);
+    const target = snapshot?.objects.find(item => item.id === targetId);
+    const targetProperty = target?.properties.find(item => item.meaning === "ID");
+    if (!targetId && existing) setRelationEdits(current => [...current.filter(operation => !("value" in operation ? operation.value.id === existing.id : operation.id === existing.id)), { op: "REMOVE_RELATION", id: existing.id }]);
+    if (target && targetProperty) {
+      const relation: OntologyRelation = { id: existing?.id ?? `r_${crypto.randomUUID()}`, name: `${objectForm.label}关联${target.label}`, sourceObjectId: objectForm.id, targetObjectId: target.id, sourcePropertyId: property.id, targetPropertyId: targetProperty.id, type: "REFERENCE", cardinality: "MANY_TO_ONE", direction: "SOURCE_TO_TARGET", joinExpression: `${objectForm.name}.${property.sourceColumn} = ${target.name}.${targetProperty.sourceColumn}`, required: false, enabled: true, fanoutRisk: "NONE", status: "DRAFT" };
+      setRelationEdits(current => [...current.filter(operation => !("value" in operation ? operation.value.id === relation.id : operation.id === relation.id)), { op: "UPSERT_RELATION", value: relation }]);
+    }
+  };
+  const beginAdd = async () => {
+    if (!pendingTable || !canLeaveObject()) return;
+    if (!draft && !await createDraft()) return;
+    setNewTableId(pendingTable); setAddingObject(true); setCatalogTab("objects"); setPendingTable(""); setMessage("");
+  };
+  const removalOperations = pendingDelete && snapshot ? objectRemovalOperations(snapshot as OntologySnapshotV3, pendingDelete) : [];
+  const definitionNames = new Map([...(snapshot?.objects ?? []), ...(snapshot?.metrics ?? []), ...(snapshot?.dimensionHierarchies ?? [])].map(item => [item.id, item.label]));
+  snapshot?.relations.forEach(item => definitionNames.set(item.id, item.name));
+  const removeObject = async () => {
+    if (!draft || !pendingDelete) return;
+    setBusy(true);
+    try {
+      const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "PATCH", body: JSON.stringify({ revision: draft.revision, operations: removalOperations }) });
+      setDraft(result); setSelected(result.snapshot.objects[0]?.id); setPendingDelete(""); setAddingObject(false); setMessage("对象已从草稿删除，发布后生效");
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
   if (!snapshot && snap.error?.payload?.error?.code === "ONTOLOGY_VERSION_NOT_FOUND" && (snap.error.payload.error.details?.availableVersions as unknown[] | undefined)?.length === 0) return (
     <main className="content"><section className="state-panel">
       <CirclesThreePlus size={28} /><h2>创建第一个本体</h2>
@@ -942,266 +1004,70 @@ function Ontology({ apiKey }: { apiKey: string }) {
     </section></main>
   );
   return (
-    <PageState
-      loading={!draft && snap.loading}
-      error={draft ? undefined : snap.error}
-      onRetry={snap.reload}
-    >
-      <main className="content no-scroll">
-        <section className="three-column">
-          <aside className="panel catalog-panel">
-            <PanelHeader
-              title="本体目录"
-              subtitle={`${draft ? "草稿" : "已发布"} v${snapshot?.version}`}
-            >
-              <Badge tone="success">{snapshot?.objects.length} 对象</Badge>
-            </PanelHeader>
-            <div className="catalog-tabs">
-              {([["objects", "对象"], ["metrics", "指标"], ["dimensionHierarchies", "层级"]] as const).map(([id, label]) => <button key={id} className={catalogTab === id ? "active" : ""} onClick={() => { setCatalogTab(id); setDefinitionId(snapshot?.[id]?.[0]?.id ?? ""); }}>{label}</button>)}
-            </div>
-            {editing && <button className="secondary-button" disabled={busy} onClick={() => { setAddingObject(true); setCatalogTab("objects"); }}>添加对象</button>}
+    <PageState loading={!draft && snap.loading} error={draft ? undefined : snap.error} onRetry={snap.reload}>
+      <main className="content ontology-workspace">
+        <section className="ontology-stats" aria-label="本体统计">
+          <Stat label="业务对象" value={snapshot?.objects.length ?? 0} icon={CirclesThreePlus} />
+          <Stat label="对象关系" value={snapshot?.relations.length ?? 0} icon={GitBranch} />
+          <Stat label="业务指标" value={snapshot?.metrics.length ?? 0} icon={SquaresFour} />
+          <Stat label="维度层级" value={snapshot?.dimensionHierarchies.length ?? 0} icon={TreeStructure} />
+          <Stat label={draft ? "草稿版本" : "当前版本"} value={`v${snapshot?.version ?? 1}`} icon={Check} />
+        </section>
+        <section className="ontology-columns">
+          <aside className="panel model-catalog">
+            <PanelHeader title="对象目录" subtitle="业务语义"><Badge tone={editing ? "warning" : "success"}>{editing ? "草稿待发布" : "已发布"}</Badge></PanelHeader>
+            <div className="catalog-tabs">{([["objects", "对象"], ["metrics", "指标"], ["dimensionHierarchies", "层级"]] as const).map(([id, label]) => <button key={id} className={catalogTab === id ? "active" : ""} onClick={() => { if (!canLeaveObject()) return; setCatalogTab(id); setAddingObject(false); setDefinitionId(snapshot?.[id]?.[0]?.id ?? ""); }}>{label}</button>)}</div>
             <input className="catalog-search" aria-label="搜索本体目录" placeholder="搜索名称或标识" value={catalogSearch} onChange={event => setCatalogSearch(event.target.value)} />
             <div className="catalog-list">
-              {catalogTab === "objects" && snapshot?.objects.filter(o => `${o.label} ${o.name}`.includes(catalogSearch)).map((o: ObjectDef) => (
-                <button
-                  key={o.id}
-                  className={`catalog-item ${selected === o.id ? "active" : ""}`}
-                  onClick={() => { setSelected(o.id); setAddingObject(false); }}
-                >
-                  <span className="catalog-icon">
-                    <CirclesThreePlus size={17} />
-                  </span>
-                  <span>
-                    <strong>{o.label}</strong>
-                    <small>
-                      {o.objectType} · {o.properties.length} 个属性
-                    </small>
-                  </span>
-                  <CaretRight size={13} />
-                </button>
-              ))}
+              {catalogTab === "objects" && snapshot?.objects.filter(item => `${item.label} ${item.name}`.toLocaleLowerCase().includes(catalogSearch.toLocaleLowerCase())).map(item => <div className={`model-catalog-row ${selected === item.id && !addingObject ? "active" : ""}`} key={item.id}>
+                <button className="catalog-item" onClick={() => { if (!canLeaveObject()) return; setSelected(item.id); setAddingObject(false); }}><span className="catalog-icon"><CirclesThreePlus size={17} /></span><span><strong>{item.label}</strong><small>{item.name} · {item.properties.length} 个属性</small></span><CaretRight size={13} /></button>
+                {editing && <button className="icon-button delete-object" aria-label={`删除对象 ${item.label}`} title={`删除对象 ${item.label}`} disabled={busy} onClick={() => { if (canLeaveObject()) setPendingDelete(item.id); }}><Trash size={15} /></button>}
+              </div>)}
               {catalogTab !== "objects" && snapshot?.[catalogTab]?.filter(item => `${item.label} ${item.id}`.includes(catalogSearch)).map(item => <button className={`catalog-item ${definitionId === item.id ? "active" : ""}`} key={item.id} onClick={() => setDefinitionId(item.id)}><span><strong>{item.label}</strong><small>{item.id}</small></span></button>)}
+              {catalogTab === "objects" && !snapshot?.objects.length && <p className="model-empty-copy">从右侧选择待建模表，创建第一个业务对象。</p>}
             </div>
           </aside>
-          <section className="panel detail-panel">
-            <PanelHeader
-              title="对象定义"
-              subtitle={
-                editing ? "草稿编辑，保存后立即运行公理校验" : "已发布口径只读"
-              }
-            >
-              {editing ? (
-                <>
-                  <button className="secondary-button" disabled={busy} onClick={validate}>校验草稿</button>
-                  <button className="primary-button" disabled={busy || !object || addingObject} onClick={save}>
-                    <FloppyDisk size={15} /> 保存对象
-                  </button>
-                  <button className="primary-button" disabled={busy || !draft?.validation?.valid || draft.validation.revision !== draft.revision} onClick={publish}>发布版本</button>
-                </>
-              ) : (
-                <button
-                  className="secondary-button"
-                  disabled={busy}
-                  onClick={createDraft}
-                >
-                  <Plus size={15} />
-                  在草稿中编辑
-                </button>
-              )}
-            </PanelHeader>
-            {editing && catalogTab === "objects" && (addingObject || !snapshot?.objects.length) && <>
-              <NewObjectForm tables={draft.physicalTables ?? []} busy={busy} onCreate={addObject} onRefresh={() => void refreshDraft()} onCancel={snapshot?.objects.length ? () => setAddingObject(false) : undefined} />
-              {message && <div className="inline-notice" role="status">{message}</div>}
-            </>}
-            {editing && <section className="validation-report" aria-label="发布校验报告">
-              <details>
-                <summary>Golden Cases · 编译回归用例</summary>
-                <p>填写查询形状及预期对象、指标、关系或 SQL 片段。校验执行编译与 SQL Guard，业务结果需连接 SelectDB 验收。</p>
-                <textarea className="definition-editor" aria-label="Golden Cases 定义" value={goldenCaseJson} onChange={event => { setGoldenCaseJson(event.target.value); setDraft((current: any) => ({ ...current, validation: undefined })); }} />
-              </details>
-              {draft.validation?.revision === draft.revision ? <div>
-                <strong>revision {draft.revision} · {draft.validation.valid ? "校验通过" : "校验未通过"}</strong>
-                <p>Golden Cases：{draft.validation.goldenCases?.status === "PASSED" ? "全部通过" : draft.validation.goldenCases?.status === "FAILED" ? "存在失败" : "未配置"} · {draft.validation.goldenCases?.results?.length ?? 0} 条用例</p>
-                <small>{draft.validation.goldenCases?.checkedAt} · {draft.validation.goldenCases?.reportId}</small>
-                <p className="validation-digest">内容摘要：{draft.validation.digests?.content}</p>
-                {draft.validation.issues?.map((issue: any, index: number) => <p key={index}>{issue.code} · {issue.message}</p>)}
-                {draft.validation.goldenCases?.results?.map((result: any, index: number) => <p key={index}>{result.passed ? "通过" : "失败"} · {result.label}{result.issues.length ? `：${result.issues.join("；")}` : ""}</p>)}
-              </div> : <p>保存变更后运行“校验草稿”，查看当前 revision 的发布报告。</p>}
-            </section>}
-            {catalogTab !== "objects" && <div className="detail-content"><h2>{definition?.label ?? "选择定义"}</h2><textarea className="definition-editor" aria-label="指标或层级定义" readOnly={!editing} value={definitionJson} onChange={event => setDefinitionJson(event.target.value)} />{editing && <button className="primary-button" disabled={busy} onClick={saveDefinition}>保存定义</button>}{message && <div className="inline-notice">{message}</div>}</div>}
-            {catalogTab === "objects" && object && !addingObject && (
-              <div className="detail-content">
-                <div className="detail-title">
-                  <div>
-                    <h2>{object.label}</h2>
-                    {editing ? (
-                      <textarea
-                        className="description-editor"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                      />
-                    ) : (
-                      <p>{object.description}</p>
-                    )}
-                  </div>
-                  <Badge tone="purple">{object.objectType}</Badge>
-                </div>
-                {message && <div className="inline-notice">{message}</div>}
-                <div className="detail-section">
-                  <h3>基本定义</h3>
-                  <div className="definition-grid">
-                    <Field label="机器标识" value={object.name} code />
-                    {editing && objectForm ? <label className="definition-field editable-field"><span>来源表</span><select aria-label="对象来源表" value={objectForm.sourceTableId} onChange={event => setObjectForm({ ...objectForm, sourceTableId: event.target.value })}>{!(draft.physicalTables ?? []).some((table: any) => table.id === objectForm.sourceTableId) && <option value={objectForm.sourceTableId}>{objectForm.sourceTableId}（未扫描）</option>}{draft.physicalTables?.map((table: any) => <option key={table.id} value={table.id}>{table.database}.{table.name}</option>)}</select></label> : <Field label="来源表" value={object.sourceTableId} code />}
-                    {editing && objectForm ? <><label className="definition-field editable-field"><span>业务名称</span><input value={objectForm.label} onChange={e => setObjectForm({ ...objectForm, label: e.target.value })} /></label><label className="definition-field editable-field"><span>粒度属性 ID（逗号分隔）</span><input value={objectForm.grainPropertyIds.join(",")} onChange={e => setObjectForm({ ...objectForm, grainPropertyIds: e.target.value.split(",").map(id => id.trim()).filter(Boolean) })} /></label><label className="definition-field editable-field"><span>业务粒度</span><input value={objectForm.grain} onChange={e => setObjectForm({ ...objectForm, grain: e.target.value })} /></label></> : <Field label="业务粒度" value={object.grain} />}
-                    {editing && objectForm ? <label className="definition-field editable-field"><span>默认时间字段</span><select aria-label="默认时间字段" value={objectForm.defaultTimePropertyId ?? ""} onChange={event => setObjectForm({ ...objectForm, defaultTimePropertyId: event.target.value || undefined })}><option value="">未配置</option>{objectForm.properties.filter((property: Property) => property.meaning === "TIME").map((property: Property) => <option key={property.id} value={property.id}>{property.label}</option>)}</select></label> : <Field label="默认时间字段" value={object.properties.find(property => property.id === object.defaultTimePropertyId)?.label ?? "未配置"} />}
-                    {editing && (
-                      <label className="definition-field editable-field">
-                        <span>对象类型</span>
-                        <select value={objectType} onChange={(event) => setObjectType(event.target.value)}>
-                          {[
-                            "ENTITY",
-                            "EVENT",
-                            "SNAPSHOT",
-                            "AGGREGATE",
-                            "RELATIONSHIP",
-                          ].map((value) => <option key={value}>{value}</option>)}
-                        </select>
-                      </label>
-                    )}
-                  </div>
-                </div>
-                {editing && (
-                  <label className="publish-summary">
-                    <span>发布变更说明</span>
-                    <input value={changeSummary} onChange={(event) => setChangeSummary(event.target.value)} />
-                  </label>
-                )}
-                {editing && objectForm && <details className="batch-editor"><summary>物理字段映射</summary><p>可选字段来自已扫描的来源表，数据类型随字段映射更新。</p><div className="mapping-fields">{objectForm.properties.map((property: Property) => {
-                  const columns: Array<{ name: string; dataType: string }> = draft.physicalTables?.find((table: any) => table.id === objectForm.sourceTableId)?.columns ?? [];
-                  return <label className="definition-field editable-field" key={property.id}><span>{property.label}</span><select aria-label={`${property.label}物理字段`} value={property.sourceColumn} onChange={event => { const column = columns.find(item => item.name === event.target.value); if (column) setObjectForm({ ...objectForm, properties: objectForm.properties.map((item: Property) => item.id === property.id ? { ...item, sourceColumn: column.name, dataType: column.dataType } : item) }); }}>{!columns.some(column => column.name === property.sourceColumn) && <option value={property.sourceColumn}>{property.sourceColumn}（未匹配）</option>}{columns.map(column => <option key={column.name} value={column.name}>{column.name} · {column.dataType}</option>)}</select></label>;
-                })}</div></details>}
-                {editing && <details className="batch-editor"><summary>关联指标、关系与层级批量变更</summary><p>输入 Draft Patch operations，与当前对象在同一次保存中提交。</p><textarea className="definition-editor" aria-label="关联定义批量变更" value={batchPatch} onChange={event => setBatchPatch(event.target.value)} /></details>}
-                <div className="detail-section">
-                  <h3>属性</h3>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>属性</th>
-                        <th>语义</th>
-                        <th>数据类型</th>
-                        <th>可见性</th>
-                        <th>聚合语义</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(editing ? objectForm?.properties ?? object.properties : object.properties).map((p: Property) => (
-                        <tr key={p.id}>
-                          <td>
-                            <strong>{p.label}</strong>
-                            <br />
-                            <code>{p.name}</code>
-                          </td>
-                          <td>{editing ? <select aria-label={`${p.label}语义`} value={p.meaning} onChange={e => setObjectForm({ ...objectForm, properties: objectForm.properties.map((item: Property) => item.id === p.id ? { ...item, meaning: e.target.value } : item) })}>{["ID", "CODE", "NAME", "ENTITY_REFERENCE", "CATEGORY", "TIME", "NUMBER", "BOOLEAN", "GEOGRAPHY", "TEXT"].map(value => <option key={value}>{value}</option>)}</select> : p.meaning}</td>
-                          <td>{p.dataType}</td>
-                          <td>{editing ? <select aria-label={`${p.label}可见性`} value={p.visibility} onChange={e => setObjectForm({ ...objectForm, properties: objectForm.properties.map((item: Property) => item.id === p.id ? { ...item, visibility: e.target.value } : item) })}>{["ANALYTICAL", "DETAIL_ONLY", "HIDDEN"].map(value => <option key={value}>{value}</option>)}</select> : p.visibility}</td>
-                          <td>
-                            {p.numericSpec
-                              ? `${p.numericSpec.defaultAggregation} · ${p.numericSpec.aggregationBehavior}`
-                              : "–"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+          <section className="panel model-definition">
+            <PanelHeader title={addingObject || !snapshot?.objects.length ? "新建对象" : catalogTab === "objects" ? object?.label ?? "选择对象" : definition?.label ?? "选择定义"} subtitle={catalogTab === "objects" ? "对象定义" : catalogTab === "metrics" ? "指标定义" : "层级定义"}><Badge tone={editing ? "warning" : "success"}>{editing ? "草稿" : "已发布"}</Badge></PanelHeader>
+            {message && <div className="model-notice" role="status">{message}</div>}
+            {pendingDelete && <div className="model-delete-confirm" role="alertdialog" aria-label="确认删除对象">
+              <strong>删除“{snapshot?.objects.find(item => item.id === pendingDelete)?.label}”？</strong>
+              <p>将从当前草稿移除该对象及 {removalOperations.length - 1} 个相关定义。发布版本保持可查。</p>
+              {removalOperations.length > 1 && <ul>{removalOperations.filter(operation => operation.op !== "REMOVE_OBJECT").map(operation => { const id = "id" in operation ? operation.id : ""; return <li key={id}>{definitionNames.get(id) ?? id}</li>; })}</ul>}
+              <div className="source-actions"><button className="danger-button" disabled={busy} onClick={() => void removeObject()}>确认删除对象</button><button className="secondary-button" disabled={busy} onClick={() => setPendingDelete("")}>取消删除</button></div>
+            </div>}
+            {editing && catalogTab === "objects" && (addingObject || !snapshot?.objects.length) ? <NewObjectForm key={newTableId} initialTableId={newTableId} tables={availableTables} busy={busy} onCreate={addObject} onRefresh={() => { sources.reload(); void refreshDraft(); }} onCancel={snapshot?.objects.length ? () => setAddingObject(false) : undefined} /> : catalogTab === "objects" && object && objectForm ? <ObjectDefinitionEditor key={`${object.id}:${editing}`} value={editing ? objectForm : object} snapshot={editorSnapshot} tables={tables} editing={editing} busy={busy} dirty={dirty} onChange={setObjectForm} onSave={() => void save()} onReference={changeReference} advancedRelations={<details className="model-advanced"><summary>高级关联定义</summary><p className="model-help">用于复杂关系、指标与层级的批量变更，随对象一起保存。</p><textarea className="definition-editor" aria-label="关联定义批量变更" value={batchPatch} onChange={event => setBatchPatch(event.target.value)} /></details>} /> : catalogTab !== "objects" ? <CatalogDefinitionEditor key={catalogTab} kind={catalogTab} json={definitionJson} editing={editing} busy={busy} objects={snapshot?.objects ?? []} onChange={setDefinitionJson} onSave={() => void saveDefinition()} /> : <p className="model-empty-copy">选择对象查看业务定义。</p>}
           </section>
-          <aside className="panel side-panel">
-            <PanelHeader title="语义关联" subtitle="当前对象的治理内容" />
-            <div className="side-section">
-              <h3>
-                业务指标{" "}
-                <span>
-                  {
-                    snapshot?.metrics.filter(
-                      (m: any) => m.objectId === object?.id,
-                    ).length
-                  }
-                </span>
-              </h3>
-              {snapshot?.metrics
-                .filter((m: any) => m.objectId === object?.id)
-                .map((m: any) => (
-                  <div className="metric-card" key={m.id}>
-                    <span className="catalog-icon">
-                      <SquaresFour size={15} />
-                    </span>
-                    <div>
-                      <strong>{m.label}</strong>
-                      <small>
-                        {m.metricType} · {m.expression}
-                      </small>
-                    </div>
-                  </div>
-                ))}
+          <aside className="panel model-pending">
+            <PanelHeader title="待建模表" subtitle="增量建模"><Badge>{availableTables.length}</Badge></PanelHeader>
+            <p className="model-empty-copy">选择物理表，配置对象类型和业务语义。</p>
+            <input className="catalog-search" aria-label="筛选待建模表" placeholder="筛选表名称或注释" value={tableSearch} onChange={event => setTableSearch(event.target.value)} />
+            <div className="pending-table-list">{visibleTables.map(table => <label key={table.id} className={pendingTable === table.id ? "active" : ""}><input type="radio" name="pending-table" checked={pendingTable === table.id} onChange={() => setPendingTable(table.id)} /><span><strong title={table.name}>{table.name}</strong>{table.description && <small>{table.description}</small>}</span></label>)}{!visibleTables.length && <p className="model-empty-copy">{availableTables.length ? "没有匹配的数据表" : "暂无待建模表"}</p>}</div>
+            {sources.error && !tables.length && <p className="model-empty-copy">扫描表暂不可用，请在数据源页面检查连接。</p>}
+            <div className="model-pending-actions">
+              <button className="secondary-button" disabled={busy || !pendingTable} onClick={() => void beginAdd()}><Plus size={15} />从所选表添加对象</button>
+              <a className="text-button" href="?page=data">管理数据源与扫描表</a>
+              {!editing ? <button className="primary-button" disabled={busy} onClick={createDraft}>在草稿中编辑</button> : <>
+                <label className="model-field"><span>发布变更说明</span><input value={changeSummary} onChange={event => setChangeSummary(event.target.value)} /></label>
+                <button className="secondary-button" disabled={busy || dirty} onClick={validate}>校验草稿</button>
+                <button className="primary-button" disabled={busy || dirty || !draft?.validation?.valid || draft.validation.revision !== draft.revision} onClick={publish}>发布版本</button>
+                {dirty && <small className="model-help">请先保存对象修改，再校验和发布。</small>}
+                <details className="model-validation" open={showReport} onToggle={event => setShowReport(event.currentTarget.open)}>
+                  <summary>发布检查与回归用例</summary>
+                  <section className="validation-report" aria-label="发布校验报告">
+                    <details><summary>Golden Cases · 编译回归用例</summary><p>填写查询形状及预期结果，用于发布前的编译回归检查。</p><textarea className="definition-editor" aria-label="Golden Cases 定义" value={goldenCaseJson} onChange={event => { setGoldenCaseJson(event.target.value); setDraft((current: any) => ({ ...current, validation: undefined })); }} /></details>
+                    {draft.validation?.revision === draft.revision ? <div><strong>revision {draft.revision} · {draft.validation.valid ? "校验通过" : "校验未通过"}</strong><p>Golden Cases：{draft.validation.goldenCases?.status === "PASSED" ? "全部通过" : draft.validation.goldenCases?.status === "FAILED" ? "存在失败" : "未配置"} · {draft.validation.goldenCases?.results?.length ?? 0} 条用例</p><small>{draft.validation.goldenCases?.checkedAt}</small>{draft.validation.issues?.map((issue: any, index: number) => <p key={index}>{axiomTitle(issue.code)} · {issue.message}</p>)}{draft.validation.goldenCases?.results?.map((result: any, index: number) => <p key={index}>{result.passed ? "通过" : "失败"} · {result.label}{result.issues.length ? `：${result.issues.join("；")}` : ""}</p>)}</div> : <p>保存变更后校验草稿，查看发布报告。</p>}
+                  </section>
+                </details>
+              </>}
             </div>
-            <div className="side-section">
-              <h3>对象关系</h3>
-              {snapshot?.relations
-                .filter(
-                  (r: any) =>
-                    r.sourceObjectId === object?.id ||
-                    r.targetObjectId === object?.id,
-                )
-                .map((r: any) => (
-                  <div className="relation-card" key={r.id}>
-                    <span className="catalog-icon">
-                      <ListChecks size={15} />
-                    </span>
-                    <div>
-                      <strong>{r.name}</strong>
-                      <small>
-                        {r.cardinality} · {r.direction}
-                      </small>
-                    </div>
-                  </div>
-                ))}
-            </div>
-            {draft && (
-              <div className="side-section">
-                <h3>受影响公理</h3>
-                {snapshot?.axiomAssertions
-                  .filter((axiom) =>
-                    axiom.subjectId === object?.id ||
-                    axiom.sourceDefinitionIds.includes(object?.id ?? ""),
-                  )
-                  .map((axiom) => (
-                    <div className="inference-card" key={axiom.id}>
-                      <Check size={16} />
-                      <div><strong>{axiom.axiomCode}</strong><small>{axiom.enforcement}</small></div>
-                    </div>
-                  ))}
-                {draft.validation?.issues?.map((issue: any) => (
-                  <div
-                    className="inference-card"
-                    key={`${issue.code}:${issue.subjectId}`}
-                  >
-                    <WarningCircle size={16} />
-                    <div>
-                      <strong>{issue.code}</strong>
-                      <small>{issue.message}</small>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </aside>
         </section>
       </main>
     </PageState>
   );
 }
+
 function Field({
   label,
   value,
@@ -1539,8 +1405,15 @@ function DataPage({ apiKey }: { apiKey: string }) {
     setAction("执行中…");
     try {
       const data = await api<any>(path, apiKey, { method: "POST", body: "{}" });
-      setAction(JSON.stringify(data));
-      if (path.includes("schema:scan")) setSchema(data.tables ?? []);
+      if (path.includes("schema:scan")) {
+        setSchema(data.tables ?? []);
+        setAction(`扫描完成，共发现 ${data.tables?.length ?? 0} 张表。`);
+      } else if (path.endsWith(":test")) {
+        const version = data.version ?? data.databaseVersion;
+        setAction(`连接成功${version ? ` · ${version}` : ""}`);
+      } else {
+        setAction(`索引重建完成：${data.properties ?? 0} 个属性，${data.valuesCount ?? 0} 个值，${data.failedProperties ?? 0} 项失败。`);
+      }
       source.reload();
       index.reload();
     } catch (error) {
@@ -1549,11 +1422,11 @@ function DataPage({ apiKey }: { apiKey: string }) {
   };
   const saveConfig = async () => {
     try {
-      const data = await api<any>("/v1/data-sources/selectdb", apiKey, {
+      await api<any>("/v1/data-sources/selectdb", apiKey, {
         method: "PUT",
         body: JSON.stringify({ ...config, password: config.password || undefined }),
       });
-      setAction(JSON.stringify(data));
+      setAction("连接配置已保存。");
       source.reload();
     } catch (error) {
       setAction(error instanceof Error ? error.message : String(error));
@@ -1670,8 +1543,8 @@ function DataPage({ apiKey }: { apiKey: string }) {
           </div>
           <section className="panel schema-panel">
             <PanelHeader
-              title="物理 Schema"
-              subtitle="已扫描表、字段与版本指纹"
+              title="数据表"
+              subtitle={`${schema.length} 张表${config.database ? ` · ${config.database}` : ""}`}
             >
               <button
                 className="primary-button"
@@ -1682,9 +1555,9 @@ function DataPage({ apiKey }: { apiKey: string }) {
               </button>
             </PanelHeader>
             {schema.length ? (
-              <div className="schema-results">{schema.map((table) => <div className="schema-table" key={table.id}><div><strong>{table.database}.{table.name}</strong><Badge>{table.status}</Badge></div><code>{table.fingerprint}</code><small>{table.columns.map((column: any) => `${column.name}:${column.dataType}`).join(" · ")}</small></div>)}</div>
+              <div className="schema-results">{schema.map((table) => <div className="schema-table" key={table.id}><strong>{table.name}</strong>{table.description?.trim() && <small>{table.description}</small>}</div>)}</div>
             ) : (
-              <div className="state-panel compact-state"><Database size={24} /><h2>扫描后显示表与字段指纹</h2><p>完成扫描后，可以将物理字段绑定到本体属性。</p></div>
+              <div className="state-panel compact-state"><Database size={24} /><h2>扫描后显示数据表</h2><p>保存连接并扫描，查看表名称和注释。</p></div>
             )}
           </section>
         </section>

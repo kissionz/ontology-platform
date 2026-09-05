@@ -31,6 +31,7 @@ const gateway = {
     return physicalTables().map((table) => ({
       name: table.name,
       type: table.type,
+      comment: table.name === "orders" ? "订单明细" : undefined,
       columns: table.columns.map(({ name, dataType, nullable }) => ({
         name,
         dataType,

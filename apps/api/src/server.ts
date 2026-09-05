@@ -62,6 +62,7 @@ export interface AppOptions {
       Array<{
         name: string;
         type: "TABLE" | "VIEW";
+        comment?: string;
         columns: Array<{ name: string; dataType: string; nullable: boolean }>;
       }>
     >;
@@ -446,6 +447,7 @@ export function buildApp(options: AppOptions = {}) {
         catalog: String(config?.catalog ?? "internal"),
         database: String(config?.database ?? ""),
         name: table.name,
+        description: table.comment,
         type: table.type,
         status: "UNMODELED" as const,
         columns: table.columns.map((column) => ({

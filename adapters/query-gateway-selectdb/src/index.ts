@@ -12,10 +12,10 @@ export class SelectDbGateway implements QueryExecutorPort {
   private getPool():Pool { if(!this.config)throw new PlatformException({code:"DATA_SOURCE_NOT_CONFIGURED",message:"SelectDB 数据源未配置",stage:"execution",retryable:false,action:"设置 SELECTDB_HOST、SELECTDB_USER、SELECTDB_PASSWORD 和 SELECTDB_DATABASE"},503);if(!this.pool){const options:PoolOptions={host:this.config.host,port:this.config.port,user:this.config.username,password:this.config.password,database:this.config.database,waitForConnections:true,connectionLimit:this.config.connectionLimit??5,enableKeepAlive:true,multipleStatements:false};if(this.config.tls)options.ssl={rejectUnauthorized:true};this.pool=mysql.createPool(options);}return this.pool; }
   async execute(sql:string,parameters:unknown[],maxRows:number,timeoutMs:number):Promise<QueryResult>{const guarded=guardReadOnlySql(sql,maxRows);const started=performance.now();try{const [rows,fields]=await this.getPool().query({sql:guarded.sql,values:parameters,timeout:timeoutMs});const list=Array.isArray(rows)?rows as Array<Record<string,unknown>>:[];return {columns:fields.map(field=>field.name),rows:list,rowCount:list.length,truncated:list.length>=maxRows,executionMs:Math.round(performance.now()-started)};}catch(error){if(error instanceof PlatformException)throw error;const message=error instanceof Error?error.message:"SelectDB 查询失败";throw new PlatformException({code:/timeout/i.test(message)?"QUERY_TIMEOUT":"DATA_SOURCE_UNAVAILABLE",message,stage:"execution",retryable:/timeout|ECONNRESET|PROTOCOL_CONNECTION_LOST/i.test(message)},/timeout/i.test(message)?504:503);}}
   async testConnection(){const started=performance.now();const [rows]=await this.getPool().query("SELECT VERSION() AS version");return {ok:true,version:String((rows as Array<Record<string,unknown>>)[0]?.version??"unknown"),latencyMs:Math.round(performance.now()-started),testedAt:new Date().toISOString()};}
-  async scanSchema(database=this.config?.database):Promise<Array<{name:string;type:"TABLE"|"VIEW";columns:Array<{name:string;dataType:string;nullable:boolean;comment?:string}>}>> {
+  async scanSchema(database=this.config?.database):Promise<Array<{name:string;type:"TABLE"|"VIEW";comment?:string;columns:Array<{name:string;dataType:string;nullable:boolean;comment?:string}>}>> {
     if (!database) throw new PlatformException({code:"DATA_SOURCE_NOT_CONFIGURED",message:"缺少 database 配置",stage:"schema",retryable:false},503);
     const [rows] = await this.getPool().query(`
-      SELECT c.TABLE_NAME AS tableName, t.TABLE_TYPE AS tableType,
+      SELECT c.TABLE_NAME AS tableName, t.TABLE_TYPE AS tableType, t.TABLE_COMMENT AS tableComment,
              c.COLUMN_NAME AS columnName, c.COLUMN_TYPE AS dataType,
              c.IS_NULLABLE AS nullable, c.COLUMN_COMMENT AS comment
       FROM information_schema.COLUMNS AS c
@@ -24,10 +24,10 @@ export class SelectDbGateway implements QueryExecutorPort {
       WHERE c.TABLE_SCHEMA = ?
       ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION
     `, [database]);
-    const map = new Map<string,{name:string;type:"TABLE"|"VIEW";columns:Array<{name:string;dataType:string;nullable:boolean;comment?:string}>}>();
+    const map = new Map<string,{name:string;type:"TABLE"|"VIEW";comment?:string;columns:Array<{name:string;dataType:string;nullable:boolean;comment?:string}>}>();
     for (const row of rows as Array<Record<string,unknown>>) {
       const name = String(row.tableName);
-      const table = map.get(name) ?? {name,type:String(row.tableType).includes("VIEW")?"VIEW":"TABLE",columns:[]};
+      const table = map.get(name) ?? {name,type:String(row.tableType).includes("VIEW")?"VIEW":"TABLE",...(row.tableComment ? {comment:String(row.tableComment)} : {}),columns:[]};
       table.columns.push({name:String(row.columnName),dataType:String(row.dataType),nullable:row.nullable==="YES",...(row.comment?{comment:String(row.comment)}:{})});
       map.set(name,table);
     }

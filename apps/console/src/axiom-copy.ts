@@ -1,5 +1,6 @@
 const terminology: Record<string, string> = {
-  OBJECT: "对象", PROPERTY: "属性", ENTITY: "实体", EVENT: "事件", SNAPSHOT: "快照", AGGREGATE: "汇总对象", RELATIONSHIP: "关联对象", METRIC: "指标", RELATION: "关系", HIERARCHY: "层级",
+  OBJECT: "对象", PROPERTY: "属性", ENTITY: "业务实体", EVENT: "业务事件", SNAPSHOT: "状态快照", AGGREGATE: "汇总结果", RELATIONSHIP: "关联关系", METRIC: "指标", RELATION: "关系", HIERARCHY: "层级",
+  GENERAL: "一般数字", REFERENCE: "实体引用", COMPOSITION: "组成关系", ASSOCIATION: "业务关联", EVENT_PARTICIPATION: "事件参与", OWNED: "独占归属", SHARED: "共享归属",
   IDENTITY: "身份", GRAIN: "粒度", TYPE: "类型", METRIC_ALGEBRA: "度量代数", VISIBILITY: "可见性",
   DRAFT_VALIDATION: "草稿校验", PUBLISH_VALIDATION: "发布校验", SEMANTIC_PLANNING: "语义规划", QUERY_COMPILATION: "查询编译",
   ERROR: "错误", WARNING: "警告", INVARIANT: "约束", FACT: "已知事实", AXIOM: "适用公理", DERIVATION: "推导结论",
@@ -12,6 +13,8 @@ const terminology: Record<string, string> = {
 };
 const rules: Record<string, [string, string]> = {
   IDENTITY_ENTITY_SINGLE: ["实体具有唯一身份", "实体必须恰好声明一个唯一标识属性，用于区分不同的业务实体。"],
+  IDENTITY_EVENT_MAX_ONE: ["事件最多有一个唯一标识", "事件允许没有独立标识，但最多只能声明一个唯一标识属性，并需要明确行级粒度。"],
+  RELATIONSHIP_REFERENCES_REQUIRED: ["关联对象连接至少两个实体", "关联对象需要至少两个实体引用属性，表达多个业务实体之间的联系。"],
   IDENTITY_ID_UNIQUE: ["标识属性唯一且可分析", "唯一标识属性必须声明唯一性，并允许用于分析关联。"],
   GRAIN_REQUIRED: ["业务粒度必须明确", "事件、快照、汇总和关联对象必须说明每条记录代表什么，并指定粒度属性。"],
   GRAIN_PROPERTIES_VALID: ["粒度属性有效", "所有粒度属性都必须属于当前对象，并且允许参与分析。"],
