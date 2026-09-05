@@ -382,6 +382,9 @@ button { cursor: pointer; }
 button.version-row { width: 100%; border: 0; background: transparent; text-align: left; }
 .state-panel { display:flex; min-height:320px; flex-direction:column; align-items:center; justify-content:center; gap:10px; border:1px solid var(--border); border-radius:10px; background:white; color:var(--muted); text-align:center; }
 .state-panel h2 { margin:0; color:var(--ink); font-size:16px; }.state-panel p { max-width:60ch; margin:0; font-size:11px; line-height:1.6; }.state-panel code { border-radius:6px; background:#f2f4f7; padding:8px; font:10px "IBM Plex Mono",monospace; }
+.connect-platform { min-height:400px; padding:28px; }
+.connect-platform .api-key-field { width:min(420px,100%); margin:10px 0 0; text-align:left; }
+.connect-platform [role="alert"] { color:var(--ink); }
 .skeleton-state div { width:min(720px,70%); height:54px; border-radius:8px; background:linear-gradient(90deg,#f2f4f7,#fafbfc,#f2f4f7); background-size:200% 100%; animation:skeleton 1.4s ease-in-out infinite; }
 @keyframes skeleton { to { background-position:-200% 0; } }
 .state-inline { display:grid; height:100%; place-items:center; color:var(--muted); font-size:11px; }.muted-copy { color:var(--muted); font-size:10px; }

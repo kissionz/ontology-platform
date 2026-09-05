@@ -19,7 +19,7 @@ npm run build
 npm start
 ```
 
-首次启动自动生成管理员 API Key 和凭据加密密钥，保存在 `.data/ontology-platform.sqlite.keys.json`，后续启动复用。在另一个终端运行以下命令查看管理员 API Key，再填入控制台“系统”的 API Key 输入框：
+首次启动自动生成管理员 API Key 和凭据加密密钥，保存在 `.data/ontology-platform.sqlite.keys.json`，后续启动复用。在另一个终端进入同一份项目目录，运行以下命令查看管理员 API Key，再填入控制台首次打开时的“连接本体平台”页面。验证通过后进入工作台，也可在“系统”中更新密钥：
 
 ```bash
 npm run keys:show

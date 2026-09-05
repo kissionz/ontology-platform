@@ -51,7 +51,28 @@ test("U01-U12 console workflow uses the real HTTP contracts", async ({ page }) =
 
   await page.getByLabel("API Key").fill("");
   await page.getByRole("button", { name: "概览", exact: true }).click();
-  await expect(page.getByText("当前凭据无权访问")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "连接本体平台" })).toBeVisible();
+});
+
+test("first visit guides key setup, rejects invalid keys and retains a valid session", async ({ browser }) => {
+  const page = await browser.newPage();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "连接本体平台" })).toBeVisible();
+  await expect(page.getByText("npm run keys:show", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "连接平台", exact: true })).toBeDisabled();
+  await page.getByLabel("API Key").fill("wrong-key");
+  await page.getByRole("button", { name: "连接平台", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("密钥无效或已停用");
+  expect(await page.evaluate(() => sessionStorage.getItem("ontology-api-key"))).toBeNull();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: `${tmpdir()}/ontology-platform-connect-1280.png`, fullPage: true });
+  await page.getByLabel("API Key").fill("  e2e-key  ");
+  await page.getByRole("button", { name: "连接平台", exact: true }).click();
+  await expect(page.getByText("本体图谱", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("ontology-api-key"))).toBe("e2e-key");
+  await page.reload();
+  await expect(page.getByText("本体图谱", { exact: true })).toBeVisible();
+  await page.close();
 });
 
 test("confirmed desktop widths do not clip the workspace", async ({ page }) => {

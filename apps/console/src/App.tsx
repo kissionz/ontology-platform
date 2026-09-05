@@ -197,6 +197,7 @@ export function App() {
     return () => window.removeEventListener("popstate", restorePage);
   }, []);
   const setApiKey = (value: string) => {
+    value = value.trim();
     setApiKeyState(value);
     if (value) sessionStorage.setItem("ontology-api-key", value);
     else sessionStorage.removeItem("ontology-api-key");
@@ -206,7 +207,9 @@ export function App() {
       <Nav page={page} onNavigate={navigate} />
       <section className="workspace">
         <Topbar page={page} />
-        {page === "overview" ? (
+        {!apiKey ? (
+          <ConnectPlatform onConnect={setApiKey} />
+        ) : page === "overview" ? (
           <Overview apiKey={apiKey} />
         ) : page === "ontology" ? (
           <Ontology apiKey={apiKey} />
@@ -221,6 +224,41 @@ export function App() {
         )}
       </section>
     </div>
+  );
+}
+function ConnectPlatform({ onConnect }: { onConnect: (key: string) => void }) {
+  const [key, setKey] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <main className="content">
+      <form className="state-panel connect-platform" onSubmit={async event => {
+        event.preventDefault();
+        if (!key.trim() || pending) return;
+        setPending(true);
+        setError("");
+        try {
+          await api("/v1/namespaces/retail/versions", key.trim());
+          onConnect(key.trim());
+        } catch (failure) {
+          const status = (failure as { status?: number }).status;
+          setError(status === 401 ? "密钥无效或已停用，请使用当前服务生成的密钥。" : status === 403 ? "此密钥没有当前命名空间的访问权限，请联系管理员。" : "暂时无法连接服务，请确认服务已启动后重试。");
+        } finally { setPending(false); }
+      }}>
+        <Key size={28} />
+        <h2>连接本体平台</h2>
+        <p>在正在运行服务的项目目录中执行以下命令，查看自动生成的管理员密钥。</p>
+        <code>npm run keys:show</code>
+        <p>将输出的密钥填入下方。每份独立部署使用各自的密钥。</p>
+        <label className="api-key-field">
+          <span>API Key</span>
+          <input aria-label="API Key" type="password" autoComplete="off" required value={key} disabled={pending} placeholder="粘贴自动生成的密钥" onChange={event => { setKey(event.target.value); setError(""); }} />
+        </label>
+        {error && <p role="alert">{error}</p>}
+        <button className="primary-button" type="submit" disabled={pending || !key.trim()}>{pending ? "正在验证密钥…" : "连接平台"}</button>
+        <small>密钥仅保存在当前浏览器会话中。</small>
+      </form>
+    </main>
   );
 }
 function Nav({
@@ -358,7 +396,9 @@ function PageState({
               : "内容加载失败"}
           </h2>
           <p>{error.message}</p>
-          {error.payload?.error?.action && (
+          {error.status === 401 || error.status === 403 ? (
+            <a className="secondary-button" href="?page=system">前往系统更新 API Key</a>
+          ) : error.payload?.error?.action && (
             <small>{error.payload.error.action}</small>
           )}
           <button className="secondary-button" onClick={onRetry}>
