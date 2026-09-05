@@ -729,7 +729,7 @@ export class OntologyPlatform {
           if (!ref) throw new PlatformException({ code: "SESSION_VERSION_MISMATCH", message: `短引用 ${id} 不属于当前会话`, stage: "session", retryable: false }, 409);
           return ref;
         };
-        shape = bindShape({ ...input.queryShape, rootObjectId: resolveRef(input.queryShape.rootObjectId), measureIds: input.queryShape.measureIds.map(resolveRef), dimensionPropertyIds: input.queryShape.dimensionPropertyIds.map(resolveRef), filters: input.queryShape.filters.map(f => ({ ...f, propertyId: resolveRef(f.propertyId) })), sort: input.queryShape.sort.map(s => ({ ...s, entityId: resolveRef(s.entityId) })) }, input.parameters ?? {});
+        shape = bindShape(resolveShapeReferences(input.queryShape, resolveRef), input.parameters ?? {});
       } else {
         if (!input.question?.trim())
           throw new PlatformException(
@@ -779,11 +779,11 @@ export class OntologyPlatform {
       const intent = shapeToIntent(shape, snapshot);
       if (input.question) {
         const time = input.question.match(/(?:今年|本年|去年)\d{1,2}月|\d{4}年(?:\d{1,2}月)?|(?:近|最近)\d{1,3}个?(?:天|月|年)|今天|昨天|本周|上周|本月|这个月|上月|本季度|上季度|今年|本年|去年/);
-        if (time) intent.timeRange = { expression: time[0] };
+        if (time && !intent.timeRange) intent.timeRange = { expression: time[0] };
         const grain = input.question.match(/(?:按|每|分)(天|日|周|月|季度|年)/);
-        if (grain) intent.timeGrain = { unit: ({ 天: "DAY", 日: "DAY", 周: "WEEK", 月: "MONTH", 季度: "QUARTER", 年: "YEAR" } as const)[grain[1] as "天"] };
+        if (grain && !intent.timeGrain) intent.timeGrain = { unit: ({ 天: "DAY", 日: "DAY", 周: "WEEK", 月: "MONTH", 季度: "QUARTER", 年: "YEAR" } as const)[grain[1] as "天"] };
         const comparison = input.question.includes("同比") ? "YEAR_OVER_YEAR" : input.question.includes("环比") ? "PREVIOUS_PERIOD" : undefined;
-        if (comparison) {
+        if (comparison && !intent.timeComparisons?.length) {
           if (!intent.timeRange) throw new PlatformException({ code: "VALUE_NOT_FOUND", message: "时间比较需要明确的时间范围", stage: "binding", retryable: false, action: "提供今年、本月或明确年月" }, 422);
           intent.timeComparisons = shape.measureIds.map(measureId => ({ id: `comparison_${measureId}`, label: `${snapshot.metrics.find(m => m.id === measureId)?.label ?? measureId}${comparison === "YEAR_OVER_YEAR" ? "同比" : "环比"}`, measureId, comparison, output: "GROWTH_RATE" }));
         }
@@ -801,13 +801,7 @@ export class OntologyPlatform {
       );
       const guarded = guardReadOnlySql(compiled.sql, pageSize);
       const fingerprint = digest({
-        shape: {
-          ...shape,
-          filters: shape.filters.map((filter) => ({
-            ...filter,
-            value: Array.isArray(filter.value) ? filter.value.map(value => typeof value) : typeof filter.value,
-          })),
-        },
+        shape: queryStructure(shape),
         ontologyVersion: version,
         timeRange: compiled.ir.timeRange,
         timeGrain: compiled.ir.timeGrain,
@@ -1289,33 +1283,33 @@ function autoShape(
     },
   };
 }
-function bindShape(
-  shape: FixedQueryShape,
-  parameters: Record<string, unknown>,
-): FixedQueryShape {
-  return {
-    ...shape,
-    filters: shape.filters.map((filter) => {
-      if (typeof filter.value === "string" && filter.value.startsWith("$")) {
-        const name = filter.value.slice(1);
-        if (!(name in parameters))
-          throw new PlatformException(
-            {
-              code: "INVALID_REQUEST",
-              message: `缺少查询参数 ${name}`,
-              stage: "planning",
-              retryable: false,
-            },
-            400,
-          );
-        return {
-          ...filter,
-          value: parameters[name] as string | number | (string | number)[],
-        };
-      }
-      return filter;
-    }),
+function queryStructure(value: unknown, key = ""): unknown {
+  if (["value", "anchorValue"].includes(key)) return Array.isArray(value) ? value.map(item => typeof item) : typeof value;
+  if (Array.isArray(value)) return value.map(item => queryStructure(item));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, queryStructure(item, name)]));
+  return value;
+}
+function resolveShapeReferences(shape: FixedQueryShape, resolve: (id: string) => string): FixedQueryShape {
+  const referenceKeys = new Set(["rootObjectId", "measureIds", "dimensionPropertyIds", "propertyId", "entityId", "hierarchyId", "measureId", "leftMeasureId", "rightMeasureId", "partitionByPropertyIds", "orderByEntityId", "groupByPropertyIds"]);
+  const visit = (value: unknown, key = ""): unknown => {
+    if (typeof value === "string" && referenceKeys.has(key)) return resolve(value);
+    if (Array.isArray(value)) return value.map(item => visit(item, key));
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, visit(item, name)]));
+    return value;
   };
+  return visit(shape) as FixedQueryShape;
+}
+function bindShape(shape: FixedQueryShape, parameters: Record<string, unknown>): FixedQueryShape {
+  const bind = (filter: FixedQueryShape["filters"][number]) => {
+    if (typeof filter.value !== "string" || !filter.value.startsWith("$")) return filter;
+    const name = filter.value.slice(1);
+    const value = parameters[name];
+    if (!(name in parameters) || !(typeof value === "string" || typeof value === "number" || (Array.isArray(value) && value.every(item => typeof item === "string" || typeof item === "number"))))
+      throw new PlatformException({ code: "INVALID_REQUEST", message: `缺少或无效的查询参数 ${name}`, stage: "planning", retryable: false }, 400);
+    return { ...filter, value: value as string | number | (string | number)[] };
+  };
+  const expression = (item: NonNullable<FixedQueryShape["filterExpression"]>): NonNullable<FixedQueryShape["filterExpression"]> => item.type === "CONDITION" ? { ...item, filter: bind(item.filter) } : item.type === "GROUP" ? { ...item, children: item.children.map(expression) } : { ...item, child: expression(item.child) };
+  return { ...shape, filters: shape.filters.map(bind), ...(shape.filterExpression ? { filterExpression: expression(shape.filterExpression) } : {}) };
 }
 function shapeToIntent(
   shape: FixedQueryShape,
@@ -1332,24 +1326,16 @@ function shapeToIntent(
       },
       422,
     );
+  const filterToIntent = (filter: FixedQueryShape["filters"][number]) => ({
+    kind: "DIRECT" as const, propertyId: filter.propertyId, operator: filter.operator,
+    value: filter.value == null ? undefined : Array.isArray(filter.value) ? filter.value.map(String) : String(filter.value),
+  });
+  const expressionToIntent = (item: NonNullable<FixedQueryShape["filterExpression"]>): NonNullable<AnalysisIntent["filterExpression"]> => item.type === "CONDITION" ? { ...item, filter: filterToIntent(item.filter) } : item.type === "GROUP" ? { ...item, children: item.children.map(expressionToIntent) } : { ...item, child: expressionToIntent(item.child) };
   return {
-    rootObjectId: shape.rootObjectId,
-    measureIds: shape.measureIds,
-    dimensionPropertyIds: shape.dimensionPropertyIds,
-    filters: shape.filters.map((f) => ({
-      kind: "DIRECT" as const,
-      propertyId: f.propertyId,
-      operator: f.operator,
-      value:
-        f.value == null
-          ? undefined
-          : Array.isArray(f.value)
-            ? f.value.map(String)
-            : String(f.value),
-    })),
-    sort: shape.sort,
-    limit: shape.limit,
-    resultKind: "aggregate",
+    ...shape,
+    filters: shape.filters.map(filterToIntent),
+    filterExpression: shape.filterExpression ? expressionToIntent(shape.filterExpression) : undefined,
+    resultKind: shape.resultKind ?? "aggregate",
     title: "Semantic query",
   };
 }

@@ -9,3 +9,21 @@ it("keeps the checked-in OpenAPI document identical to the served contract", () 
   const frozen = JSON.parse(readFileSync("openapi/ontology-platform.v1.yaml", "utf8"));
   expect(frozen).toEqual(createOpenApiDocument());
 });
+
+it("resolves every recursive local reference inside the full OpenAPI document", () => {
+  const document = createOpenApiDocument();
+  let refs = 0;
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== "object") return;
+    for (const [key, item] of Object.entries(value)) {
+      if (key === "$ref" && typeof item === "string" && item.startsWith("#/")) {
+        refs++;
+        const resolved = item.slice(2).split("/").reduce((node: any, segment) => node?.[segment.replace(/~1/g, "/").replace(/~0/g, "~")], document);
+        expect(resolved, item).toBeDefined();
+      } else visit(item);
+    }
+  };
+  visit(document);
+  expect(refs).toBeGreaterThan(10);
+});

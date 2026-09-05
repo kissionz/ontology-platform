@@ -7,7 +7,12 @@ const request = (name: string) => ({ required: true, content: { "application/jso
 const operation = (operationId: string, parameters: ReturnType<typeof pathParameter>[] = []) => ({ operationId, security, parameters, responses: ok });
 
 export function createOpenApiDocument() {
-  const schemas = jsonSchemas();
+  const qualifyRefs = (value: unknown, name: string): unknown => {
+    if (Array.isArray(value)) return value.map(item => qualifyRefs(item, name));
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, key === "$ref" && typeof item === "string" && item.startsWith("#/") ? `#/components/schemas/${name}/${item.slice(2)}` : qualifyRefs(item, name)]));
+    return value;
+  };
+  const schemas = Object.fromEntries(Object.entries(jsonSchemas()).map(([name, schema]) => [name, qualifyRefs(schema, name)]));
   return {
     openapi: "3.1.0",
     info: { title: "Ontology Platform API", version: "1.0.0", description: "独立本体管理、语义解析与安全查询 API" },

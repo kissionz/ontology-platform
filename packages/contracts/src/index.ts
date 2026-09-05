@@ -1,3 +1,5 @@
+import { FixedQueryShapeSchema, QueryFilterSchema, AdvancedQueryFields, TimeGrainSchema, HierarchyFilterSchema, IrFilterExpressionSchema, DirectIrFilterSchema } from "./query-shape.js";
+export * from "./query-shape.js";
 import { z } from "zod";
 
 export const EntityStatusSchema = z.enum(["DRAFT", "VERIFIED", "PUBLISHED", "DEPRECATED"]);
@@ -72,13 +74,15 @@ export const ResolveSemanticContextInputSchema = z.object({
   terms: z.array(z.string()).optional(), purpose: z.enum(["ANSWER", "PLAN", "EXPLAIN", "MODEL"]), projection: z.enum(["compact", "standard", "full"]).optional(),
   include: z.object({ values: z.boolean().optional(), axioms: z.boolean().optional(), inferences: z.boolean().optional(), evidence: z.boolean().optional() }).optional()
 }).strict();
-export const QueryFilterSchema = z.object({ propertyId: z.string(), operator: z.enum(["EQ", "NE", "GT", "GTE", "LT", "LTE", "IN", "CONTAINS", "PREFIX", "IS_NULL", "NOT_NULL"]), value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]).optional() }).strict();
 export const QueryIrSchema = z.object({
+  ...AdvancedQueryFields,
   version: z.literal(3), ontologyVersion: z.number().int(), rootObjectId: z.string(), measureIds: z.array(z.string()), dimensionPropertyIds: z.array(z.string()),
-  filters: z.array(QueryFilterSchema), relationIds: z.array(z.string()), grain: z.string(), resultKind: z.enum(["aggregate", "detail"]),
-  sort: z.array(z.object({ entityId: z.string(), direction: z.enum(["ASC", "DESC"]) })), limit: z.number().int().positive()
+  filters: z.array(DirectIrFilterSchema), filterExpression: IrFilterExpressionSchema.optional(), relationIds: z.array(z.string()), grain: z.string(), resultKind: z.enum(["aggregate", "detail"]),
+  hierarchyFilters: z.array(HierarchyFilterSchema.extend({ objectId: z.string(), nodeIdPropertyId: z.string(), closureObjectId: z.string() })).optional(),
+  timeRange: z.object({ propertyId: z.string(), expression: z.string(), start: z.string(), endExclusive: z.string(), mode: z.enum(["TO_DATE", "FULL_PERIOD", "ROLLING", "COMPLETE_PERIODS"]), periodCount: z.number().int().optional(), periodUnit: TimeGrainSchema.optional(), comparisonRanges: z.array(z.object({ comparison: z.enum(["PREVIOUS_PERIOD", "YEAR_OVER_YEAR"]), start: z.string(), endExclusive: z.string() }).strict()).optional() }).strict().optional(),
+  sort: z.array(z.object({ entityId: z.string(), direction: z.enum(["ASC", "DESC"]) })), limit: z.number().int().positive(),
+  resultContract: z.object({ calculationSource: z.literal("DORIS_SQL"), businessLogicBeforeLimit: z.literal(true), completeness: z.literal("COMPLETE_IF_NOT_TRUNCATED"), expectedPeriodCount: z.number().int().optional(), exhaustiveRequested: z.boolean() }).strict().optional(),
 }).strict();
-export const FixedQueryShapeSchema = z.object({ rootObjectId: z.string(), measureIds: z.array(z.string()), dimensionPropertyIds: z.array(z.string()), filters: z.array(QueryFilterSchema).default([]), sort: z.array(z.object({ entityId: z.string(), direction: z.enum(["ASC", "DESC"]) })).default([]), limit: z.number().int().positive().max(10_000).default(200) }).strict();
 export const ExecuteSemanticQueryInputSchema = z.object({
   queryMode: z.enum(["AUTO", "FIXED_SHAPE", "ANALYSIS"]), namespace: z.string().min(1), ontologyVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(),
   question: z.string().optional(), queryShape: FixedQueryShapeSchema.optional(), parameters: z.record(z.string(), z.unknown()).optional(), sessionId: z.string().optional(),

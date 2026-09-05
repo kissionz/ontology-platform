@@ -1961,18 +1961,21 @@
             "type": "object",
             "properties": {
               "rootObjectId": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               "measureIds": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "dimensionPropertyIds": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "filters": {
@@ -1982,7 +1985,8 @@
                   "type": "object",
                   "properties": {
                     "propertyId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "operator": {
                       "type": "string",
@@ -2034,7 +2038,8 @@
                   "type": "object",
                   "properties": {
                     "entityId": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "direction": {
                       "type": "string",
@@ -2056,6 +2061,488 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 10000
+              },
+              "resultKind": {
+                "type": "string",
+                "enum": [
+                  "aggregate",
+                  "detail"
+                ]
+              },
+              "hierarchyFilters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "hierarchyId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "anchorValue": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "DESCENDANTS",
+                        "ANCESTORS"
+                      ]
+                    },
+                    "includeSelf": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "hierarchyId",
+                    "anchorValue",
+                    "direction"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "filterExpression": {
+                "$ref": "#/components/schemas/ExecuteSemanticQueryInput/$defs/__schema0"
+              },
+              "aggregateFilters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "entityId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "EQ",
+                        "NE",
+                        "GT",
+                        "GTE",
+                        "LT",
+                        "LTE"
+                      ]
+                    },
+                    "value": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "entityId",
+                    "operator",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "aggregateFilterExpression": {
+                "$ref": "#/components/schemas/ExecuteSemanticQueryInput/$defs/__schema1"
+              },
+              "timeRange": {
+                "type": "object",
+                "properties": {
+                  "expression": {
+                    "type": "string"
+                  },
+                  "propertyId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "NONE",
+                      "TODAY",
+                      "YESTERDAY",
+                      "CURRENT_WEEK",
+                      "PREVIOUS_WEEK",
+                      "CURRENT_MONTH",
+                      "PREVIOUS_MONTH",
+                      "CURRENT_QUARTER",
+                      "PREVIOUS_QUARTER",
+                      "CURRENT_YEAR",
+                      "PREVIOUS_YEAR",
+                      "ABSOLUTE_YEAR",
+                      "ABSOLUTE_MONTH",
+                      "CONTEXT_MONTH",
+                      "ROLLING_PERIODS",
+                      "LAST_N_COMPLETE_PERIODS",
+                      "ABSOLUTE_RANGE"
+                    ]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "AUTO",
+                      "ROLLING",
+                      "LAST_N_COMPLETE_PERIODS"
+                    ]
+                  },
+                  "count": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 10000
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "DAY",
+                      "WEEK",
+                      "MONTH",
+                      "QUARTER",
+                      "YEAR"
+                    ]
+                  },
+                  "year": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9999
+                  },
+                  "month": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 12
+                  },
+                  "start": {
+                    "type": "string"
+                  },
+                  "endExclusive": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expression"
+                ],
+                "additionalProperties": false
+              },
+              "timeGrain": {
+                "type": "object",
+                "properties": {
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "DAY",
+                      "WEEK",
+                      "MONTH",
+                      "QUARTER",
+                      "YEAR"
+                    ]
+                  },
+                  "propertyId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "derivedMeasures": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "ADD",
+                        "SUBTRACT",
+                        "MULTIPLY",
+                        "DIVIDE",
+                        "RATIO"
+                      ]
+                    },
+                    "leftMeasureId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "rightMeasureId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "scale": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "operator",
+                    "leftMeasureId",
+                    "rightMeasureId"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "timeComparisons": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "measureId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "comparison": {
+                      "type": "string",
+                      "enum": [
+                        "PREVIOUS_PERIOD",
+                        "YEAR_OVER_YEAR"
+                      ]
+                    },
+                    "output": {
+                      "type": "string",
+                      "enum": [
+                        "PREVIOUS_VALUE",
+                        "DIFFERENCE",
+                        "GROWTH_RATE"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "measureId",
+                    "comparison",
+                    "output"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "windowCalculations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "measureId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "RANK",
+                        "DENSE_RANK",
+                        "RUNNING_SUM",
+                        "MOVING_AVG",
+                        "PERCENT_OF_TOTAL",
+                        "PERCENT_OF_PARTITION"
+                      ]
+                    },
+                    "partitionByPropertyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "orderBy": {
+                      "type": "object",
+                      "properties": {
+                        "entityId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "ASC",
+                            "DESC"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "entityId",
+                        "direction"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "windowSize": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 10000
+                    },
+                    "scale": {
+                      "type": "number"
+                    },
+                    "precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 12
+                    },
+                    "denominatorScope": {
+                      "type": "string",
+                      "const": "AFTER_BUSINESS_FILTERS_BEFORE_TOP_N"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "measureId",
+                    "operator",
+                    "partitionByPropertyIds"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "groupSelections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "TOP_N",
+                        "BOTTOM_N"
+                      ]
+                    },
+                    "partitionByPropertyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "orderByEntityId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "count": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 10000
+                    },
+                    "ties": {
+                      "type": "string",
+                      "enum": [
+                        "INCLUDE",
+                        "EXCLUDE"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "operator",
+                    "partitionByPropertyIds",
+                    "orderByEntityId",
+                    "count",
+                    "ties"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "periodConditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "measureId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "EQ",
+                        "NE",
+                        "GT",
+                        "GTE",
+                        "LT",
+                        "LTE"
+                      ]
+                    },
+                    "value": {
+                      "type": "number"
+                    },
+                    "quantifier": {
+                      "type": "string",
+                      "enum": [
+                        "EVERY",
+                        "ANY",
+                        "AT_LEAST_N"
+                      ]
+                    },
+                    "minimumMatches": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 10000
+                    },
+                    "groupByPropertyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "expectedPeriodCount": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 10000
+                    },
+                    "missingPeriodPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "FAIL",
+                        "IGNORE"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "measureId",
+                    "operator",
+                    "value",
+                    "quantifier",
+                    "groupByPropertyIds",
+                    "missingPeriodPolicy"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -2121,7 +2608,215 @@
           "queryMode",
           "namespace"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "CONDITION"
+                  },
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "propertyId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "EQ",
+                          "NE",
+                          "GT",
+                          "GTE",
+                          "LT",
+                          "LTE",
+                          "IN",
+                          "CONTAINS",
+                          "PREFIX",
+                          "IS_NULL",
+                          "NOT_NULL"
+                        ]
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": [
+                                "string",
+                                "number"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "propertyId",
+                      "operator"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "type",
+                  "filter"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "GROUP"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [
+                      "AND",
+                      "OR"
+                    ]
+                  },
+                  "children": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ExecuteSemanticQueryInput/$defs/__schema0"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "operator",
+                  "children"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "NOT"
+                  },
+                  "child": {
+                    "$ref": "#/components/schemas/ExecuteSemanticQueryInput/$defs/__schema0"
+                  }
+                },
+                "required": [
+                  "type",
+                  "child"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "__schema1": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "CONDITION"
+                  },
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "entityId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "EQ",
+                          "NE",
+                          "GT",
+                          "GTE",
+                          "LT",
+                          "LTE"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "entityId",
+                      "operator",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "type",
+                  "filter"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "GROUP"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [
+                      "AND",
+                      "OR"
+                    ]
+                  },
+                  "children": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ExecuteSemanticQueryInput/$defs/__schema1"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "operator",
+                  "children"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "NOT"
+                  },
+                  "child": {
+                    "$ref": "#/components/schemas/ExecuteSemanticQueryInput/$defs/__schema1"
+                  }
+                },
+                "required": [
+                  "type",
+                  "child"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
       },
       "ContinueSemanticQueryInput": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -3006,6 +3701,492 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "hierarchyFilters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "hierarchyId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "anchorValue": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "DESCENDANTS",
+                    "ANCESTORS"
+                  ]
+                },
+                "includeSelf": {
+                  "type": "boolean"
+                },
+                "objectId": {
+                  "type": "string"
+                },
+                "nodeIdPropertyId": {
+                  "type": "string"
+                },
+                "closureObjectId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "hierarchyId",
+                "anchorValue",
+                "direction",
+                "objectId",
+                "nodeIdPropertyId",
+                "closureObjectId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "filterExpression": {
+            "$ref": "#/components/schemas/QueryIR/$defs/__schema0"
+          },
+          "aggregateFilters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "entityId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "EQ",
+                    "NE",
+                    "GT",
+                    "GTE",
+                    "LT",
+                    "LTE"
+                  ]
+                },
+                "value": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "entityId",
+                "operator",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "aggregateFilterExpression": {
+            "$ref": "#/components/schemas/QueryIR/$defs/__schema1"
+          },
+          "timeRange": {
+            "type": "object",
+            "properties": {
+              "propertyId": {
+                "type": "string"
+              },
+              "expression": {
+                "type": "string"
+              },
+              "start": {
+                "type": "string"
+              },
+              "endExclusive": {
+                "type": "string"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "TO_DATE",
+                  "FULL_PERIOD",
+                  "ROLLING",
+                  "COMPLETE_PERIODS"
+                ]
+              },
+              "periodCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "periodUnit": {
+                "type": "string",
+                "enum": [
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "comparisonRanges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "comparison": {
+                      "type": "string",
+                      "enum": [
+                        "PREVIOUS_PERIOD",
+                        "YEAR_OVER_YEAR"
+                      ]
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "endExclusive": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "comparison",
+                    "start",
+                    "endExclusive"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "propertyId",
+              "expression",
+              "start",
+              "endExclusive",
+              "mode"
+            ],
+            "additionalProperties": false
+          },
+          "timeGrain": {
+            "type": "object",
+            "properties": {
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "propertyId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "unit"
+            ],
+            "additionalProperties": false
+          },
+          "derivedMeasures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "ADD",
+                    "SUBTRACT",
+                    "MULTIPLY",
+                    "DIVIDE",
+                    "RATIO"
+                  ]
+                },
+                "leftMeasureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "rightMeasureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scale": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "operator",
+                "leftMeasureId",
+                "rightMeasureId"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "timeComparisons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "measureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "comparison": {
+                  "type": "string",
+                  "enum": [
+                    "PREVIOUS_PERIOD",
+                    "YEAR_OVER_YEAR"
+                  ]
+                },
+                "output": {
+                  "type": "string",
+                  "enum": [
+                    "PREVIOUS_VALUE",
+                    "DIFFERENCE",
+                    "GROWTH_RATE"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "measureId",
+                "comparison",
+                "output"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "windowCalculations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "measureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "RANK",
+                    "DENSE_RANK",
+                    "RUNNING_SUM",
+                    "MOVING_AVG",
+                    "PERCENT_OF_TOTAL",
+                    "PERCENT_OF_PARTITION"
+                  ]
+                },
+                "partitionByPropertyIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "orderBy": {
+                  "type": "object",
+                  "properties": {
+                    "entityId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "ASC",
+                        "DESC"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entityId",
+                    "direction"
+                  ],
+                  "additionalProperties": false
+                },
+                "windowSize": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
+                },
+                "scale": {
+                  "type": "number"
+                },
+                "precision": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 12
+                },
+                "denominatorScope": {
+                  "type": "string",
+                  "const": "AFTER_BUSINESS_FILTERS_BEFORE_TOP_N"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "measureId",
+                "operator",
+                "partitionByPropertyIds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "groupSelections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "TOP_N",
+                    "BOTTOM_N"
+                  ]
+                },
+                "partitionByPropertyIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "orderByEntityId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "count": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
+                },
+                "ties": {
+                  "type": "string",
+                  "enum": [
+                    "INCLUDE",
+                    "EXCLUDE"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "operator",
+                "partitionByPropertyIds",
+                "orderByEntityId",
+                "count",
+                "ties"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "periodConditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "measureId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "EQ",
+                    "NE",
+                    "GT",
+                    "GTE",
+                    "LT",
+                    "LTE"
+                  ]
+                },
+                "value": {
+                  "type": "number"
+                },
+                "quantifier": {
+                  "type": "string",
+                  "enum": [
+                    "EVERY",
+                    "ANY",
+                    "AT_LEAST_N"
+                  ]
+                },
+                "minimumMatches": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
+                },
+                "groupByPropertyIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "expectedPeriodCount": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
+                },
+                "missingPeriodPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "FAIL",
+                    "IGNORE"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "measureId",
+                "operator",
+                "value",
+                "quantifier",
+                "groupByPropertyIds",
+                "missingPeriodPolicy"
+              ],
+              "additionalProperties": false
+            }
+          },
           "version": {
             "type": "number",
             "const": 3
@@ -3036,7 +4217,8 @@
               "type": "object",
               "properties": {
                 "propertyId": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "operator": {
                   "type": "string",
@@ -3072,6 +4254,13 @@
                       }
                     }
                   ]
+                },
+                "kind": {
+                  "type": "string",
+                  "const": "DIRECT"
+                },
+                "businessValue": {
+                  "type": "string"
                 }
               },
               "required": [
@@ -3124,6 +4313,38 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "resultContract": {
+            "type": "object",
+            "properties": {
+              "calculationSource": {
+                "type": "string",
+                "const": "DORIS_SQL"
+              },
+              "businessLogicBeforeLimit": {
+                "type": "boolean",
+                "const": true
+              },
+              "completeness": {
+                "type": "string",
+                "const": "COMPLETE_IF_NOT_TRUNCATED"
+              },
+              "expectedPeriodCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "exhaustiveRequested": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "calculationSource",
+              "businessLogicBeforeLimit",
+              "completeness",
+              "exhaustiveRequested"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -3139,7 +4360,222 @@
           "sort",
           "limit"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "$defs": {
+          "__schema0": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "CONDITION"
+                  },
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "propertyId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "EQ",
+                          "NE",
+                          "GT",
+                          "GTE",
+                          "LT",
+                          "LTE",
+                          "IN",
+                          "CONTAINS",
+                          "PREFIX",
+                          "IS_NULL",
+                          "NOT_NULL"
+                        ]
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": [
+                                "string",
+                                "number"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "type": "string",
+                        "const": "DIRECT"
+                      },
+                      "businessValue": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "propertyId",
+                      "operator"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "type",
+                  "filter"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "GROUP"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [
+                      "AND",
+                      "OR"
+                    ]
+                  },
+                  "children": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/QueryIR/$defs/__schema0"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "operator",
+                  "children"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "NOT"
+                  },
+                  "child": {
+                    "$ref": "#/components/schemas/QueryIR/$defs/__schema0"
+                  }
+                },
+                "required": [
+                  "type",
+                  "child"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "__schema1": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "CONDITION"
+                  },
+                  "filter": {
+                    "type": "object",
+                    "properties": {
+                      "entityId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": [
+                          "EQ",
+                          "NE",
+                          "GT",
+                          "GTE",
+                          "LT",
+                          "LTE"
+                        ]
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "entityId",
+                      "operator",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "type",
+                  "filter"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "GROUP"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [
+                      "AND",
+                      "OR"
+                    ]
+                  },
+                  "children": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/QueryIR/$defs/__schema1"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "operator",
+                  "children"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "NOT"
+                  },
+                  "child": {
+                    "$ref": "#/components/schemas/QueryIR/$defs/__schema1"
+                  }
+                },
+                "required": [
+                  "type",
+                  "child"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
       }
     }
   }

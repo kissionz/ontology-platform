@@ -30,3 +30,32 @@ npm run start:mcp
 ```
 
 MCP 通过 HTTP SDK 调用同一个平台，沿用客户端 Scope、限流和请求审计。标准输出仅用于 MCP JSON-RPC 消息。
+
+## FIXED_SHAPE 高级计算
+
+`queryShape` 支持 `timeRange`、`timeGrain`、`derivedMeasures`、`timeComparisons`、`windowCalculations`、`groupSelections`、`periodConditions`、`hierarchyFilters`、`filterExpression` 与聚合筛选。语义 ID 来自本体或当前会话；计算结果使用调用方指定的 ID。时间桶排序使用 `__time__`。以下示例中的 ID 需要替换为实际本体 ID：
+
+```json
+{
+  "queryMode": "FIXED_SHAPE",
+  "namespace": "retail",
+  "queryShape": {
+    "rootObjectId": "o_order",
+    "measureIds": ["m_sales"],
+    "dimensionPropertyIds": [],
+    "filters": [],
+    "timeRange": {"expression": "2025年", "kind": "ABSOLUTE_YEAR", "year": 2025},
+    "timeGrain": {"unit": "MONTH"},
+    "windowCalculations": [{
+      "id": "running_sales", "label": "累计销售额", "measureId": "m_sales",
+      "operator": "RUNNING_SUM", "partitionByPropertyIds": [],
+      "orderBy": {"entityId": "__time__", "direction": "ASC"}
+    }],
+    "sort": [{"entityId": "__time__", "direction": "ASC"}],
+    "limit": 100
+  },
+  "options": {"includeQueryIr": true}
+}
+```
+
+`filterExpression` 支持 CONDITION、AND/OR GROUP 和 NOT；条件值可使用 `$参数名`，从 `parameters` 绑定。显式结构化时间条件优先于问题文本。逐期条件、组内排名和占比分母均由 SelectDB SQL 计算，结果截断状态仍通过 completeness 返回。
