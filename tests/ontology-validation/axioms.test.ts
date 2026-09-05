@@ -1,0 +1,12 @@
+import { describe,expect,it } from "vitest";import { runKernel } from "../../packages/domain/src/index.js";import { property,validSnapshot } from "../fixtures-v3.js";
+const codes=(snapshot=validSnapshot())=>runKernel(snapshot).issues.map(i=>i.code);
+describe("A01-A09 ontology axioms",()=>{
+it("A01 rejects ENTITY without ID",()=>{const s=validSnapshot();s.objects[1]!.properties=s.objects[1]!.properties.filter(p=>p.meaning!=="ID");expect(codes(s)).toContain("IDENTITY_ENTITY_SINGLE")});
+it("A02 rejects ENTITY with two IDs and references both",()=>{const s=validSnapshot();s.objects[1]!.properties.push(property("p_store_id2","备用店铺 ID","ID"));const result=runKernel(s);expect(result.issues.find(i=>i.code==="IDENTITY_ENTITY_SINGLE")?.references).toEqual(expect.arrayContaining(["p_store_id","p_store_id2"]));});
+it("A03 rejects non-unique ID",()=>{const s=validSnapshot();s.objects[1]!.properties[0]!.unique=false;expect(codes(s)).toContain("IDENTITY_ID_UNIQUE")});
+it("A04 rejects EVENT without grain",()=>{const s=validSnapshot();s.objects[0]!.grainPropertyIds=[];expect(codes(s)).toContain("GRAIN_REQUIRED")});
+it("A05 rejects ratio default SUM",()=>{const s=validSnapshot();s.objects[0]!.properties.push(property("p_ratio","转化率","NUMBER",{numericSpec:{kind:"RATIO",defaultAggregation:"SUM",aggregationBehavior:"ADDITIVE"}}));expect(codes(s)).toContain("RATIO_NON_ADDITIVE")});
+it("A06 materializes ratio recalculation with NULLIF",()=>{const result=runKernel(validSnapshot());expect(JSON.stringify(result.inferences)).toContain("NULLIF")});
+it("A07 identifies semi-additive time measures",()=>{const s=validSnapshot();s.objects[0]!.properties.push(property("p_balance","余额","NUMBER",{numericSpec:{kind:"CURRENCY",defaultAggregation:"SUM",aggregationBehavior:"SEMI_ADDITIVE"}}));expect(runKernel(s).axioms.some(a=>a.axiomCode==="SEMI_ADDITIVE_TIME")).toBe(true)});
+it("A08 rejects cross-fact derived metric",()=>{const s=validSnapshot();s.metrics[1]!.objectId="o_store";expect(codes(s)).toContain("METRIC_SINGLE_FACT")});
+it("A09 reports the complete derived metric cycle",()=>{const s=validSnapshot();s.metrics[0]!.metricType="DERIVED";s.metrics[0]!.leftMetricId="m_margin";s.metrics[0]!.rightMetricId="m_cost";s.metrics[0]!.calculationOperator="ADD";expect(runKernel(s).issues.find(i=>i.code==="DERIVED_METRIC_CYCLE")?.references).toEqual(expect.arrayContaining(["m_sales","m_margin"]));});});

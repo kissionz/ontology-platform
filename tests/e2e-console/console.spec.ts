@@ -1,0 +1,109 @@
+import { expect, test } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() =>
+    sessionStorage.setItem("ontology-api-key", "e2e-key"),
+  );
+});
+
+test("U01-U12 console workflow uses the real HTTP contracts", async ({ page }) => {
+  const browserErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(message.text());
+  });
+  await page.goto("/");
+  await expect(page.getByText("本体图谱", { exact: true })).toBeVisible();
+  await expect(page.getByText("当前本体版本")).toBeVisible();
+  await page.getByRole("button", { name: /事业部.*ENTITY/ }).click();
+  await expect(page.locator(".inspector h2")).toHaveText("事业部");
+
+  await page.getByRole("button", { name: "本体", exact: true }).click();
+  await page.getByRole("button", { name: /在草稿中编辑/ }).click();
+  await expect(page.getByText("草稿已创建")).toBeVisible();
+  await page.locator(".description-editor").fill("浏览器验收更新的业务定义");
+  await page.getByRole("button", { name: /保存对象/ }).click();
+  await expect(page.getByText(/草稿已保存/)).toBeVisible();
+
+  await page.getByRole("button", { name: "公理", exact: true }).click();
+  await page.getByRole("button", { name: /RATIO_NON_ADDITIVE.*METRIC/ }).click();
+  await expect(page.getByText("重算语义")).toBeVisible();
+  await expect(page.getByText(/NULLIF/).first()).toBeVisible();
+  await expect(page.getByText("推论依据")).toBeVisible();
+
+  await page.getByRole("button", { name: "版本", exact: true }).click();
+  await expect(page.getByText("相对基线的变化")).toBeVisible();
+  await expect(page.getByText("不可变快照", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "数据源", exact: true }).click();
+  await page.getByRole("button", { name: /测试连接/ }).click();
+  await expect(page.getByText(/databaseVersion.*SelectDB 3.x/)).toBeVisible();
+  await page.getByRole("button", { name: /重建索引/ }).click();
+  await expect(page.getByText(/valuesCount/)).toBeVisible();
+
+  await page.getByRole("button", { name: "系统", exact: true }).click();
+  await expect(page.getByText("接口元数据实时读取 OpenAPI")).toBeVisible();
+  await page.getByRole("button", { name: /发送请求/ }).click();
+  await expect(page.locator(".status-code")).toContainText("200 OK");
+  await expect(page.locator(".response-json")).toContainText("contextDigest");
+  await expect(page.locator(".response-json")).not.toContainText("e2e-key");
+  expect(browserErrors).toEqual([]);
+
+  await page.getByLabel("API Key").fill("");
+  await page.getByRole("button", { name: "概览", exact: true }).click();
+  await expect(page.getByText("当前凭据无权访问")).toBeVisible();
+});
+
+test("confirmed desktop widths do not clip the workspace", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("本体图谱", { exact: true })).toBeVisible();
+  for (const [width, height] of [[1600, 1000], [1280, 900]] as const) {
+    await page.setViewportSize({ width, height });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(width);
+    await page.screenshot({
+      path: `/private/tmp/ontology-platform-${width}.png`,
+      fullPage: true,
+    });
+  }
+});
+
+test("draft catalogs, publication and parameterized API debugging are interactive", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "本体", exact: true }).click();
+  await page.getByRole("button", { name: /在草稿中编辑/ }).click();
+  await page.getByRole("button", { name: "指标", exact: true }).click();
+  await expect(page.getByLabel("指标或层级定义")).toContainText('"metricType"');
+  const metric = JSON.parse(await page.getByLabel("指标或层级定义").inputValue());
+  metric.description = "浏览器保存的指标口径";
+  await page.getByLabel("指标或层级定义").fill(JSON.stringify(metric, null, 2));
+  await page.getByRole("button", { name: "保存定义", exact: true }).click();
+  await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
+  await page.getByRole("button", { name: "层级", exact: true }).click();
+  await expect(page.getByLabel("指标或层级定义")).toContainText('"FIXED_LEVELS"');
+  await page.getByRole("button", { name: "发布版本", exact: true }).click();
+  await expect(page.getByText(/v\d+ 已发布/)).toBeVisible();
+  await page.getByRole("button", { name: "系统", exact: true }).click();
+  await page.locator("select.path-box").selectOption("GET /v1/namespaces/{ns}/summary");
+  await page.getByLabel("路径参数 ns").fill("retail");
+  await page.getByRole("button", { name: /发送请求/ }).click();
+  await expect(page.locator(".status-code")).toContainText("200 OK");
+  await expect(page.locator(".response-json")).toContainText('"counts"');
+  await page.getByRole("button", { name: "审计", exact: true }).click();
+  await expect(page.locator(".response-json")).toContainText("HttpRequestCompleted");
+});
+
+test("all six pages fit both confirmed desktop widths", async ({ page }) => {
+  await page.goto("/");
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: width === 1600 ? 1000 : 900 });
+    for (const [label, name] of [["概览", "overview"], ["本体", "ontology"], ["公理", "logic"], ["版本", "versions"], ["数据源", "data"], ["系统", "system"]]) {
+      await page.getByRole("button", { name: label!, exact: true }).click();
+      await expect(page.locator("main.content")).toBeVisible();
+      await expect(page.locator(".skeleton-state")).toHaveCount(0);
+      await expect(page.getByText("内容加载失败", { exact: true })).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: `/private/tmp/ontology-platform-${name}-${width}.png`, fullPage: true });
+    }
+  }
+});

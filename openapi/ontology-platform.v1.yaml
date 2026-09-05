@@ -1,0 +1,3146 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ontology Platform API",
+    "version": "1.0.0",
+    "description": "独立本体管理、语义解析与安全查询 API"
+  },
+  "servers": [
+    {
+      "url": "/v1"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "GetHealth",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/openapi.json": {
+      "get": {
+        "operationId": "GetOpenApiDocument",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/summary": {
+      "get": {
+        "operationId": "GetOntologySummary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/ontology": {
+      "get": {
+        "operationId": "GetOntologySnapshot",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/graph": {
+      "get": {
+        "operationId": "GetOntologyGraph",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/versions": {
+      "get": {
+        "operationId": "ListOntologyVersions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/versions/{version}/diff": {
+      "get": {
+        "operationId": "DiffOntologyVersions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/drafts": {
+      "post": {
+        "operationId": "CreateOntologyDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDraftInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/drafts/{draftId}": {
+      "get": {
+        "operationId": "GetOntologyDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draftId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "PatchOntologyDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draftId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftPatchInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/drafts/{draftId}/validate": {
+      "post": {
+        "operationId": "ValidateOntologyDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draftId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/drafts/{draftId}/publish": {
+      "post": {
+        "operationId": "PublishOntologyDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draftId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishDraftInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/axioms": {
+      "get": {
+        "operationId": "ListAxiomAssertions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/inferences": {
+      "get": {
+        "operationId": "ListInferredAssertions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/inferences/{id}/explanation": {
+      "get": {
+        "operationId": "ExplainInference",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/semantic-context:resolve": {
+      "post": {
+        "operationId": "ResolveOntologyContext",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveSemanticContextInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/semantic-query": {
+      "post": {
+        "operationId": "ExecuteSemanticQuery",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteSemanticQueryInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/semantic-query/clarifications/{clarificationId}:continue": {
+      "post": {
+        "operationId": "ContinueSemanticQuery",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clarificationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinueSemanticQueryInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/data-sources/{sourceId}": {
+      "get": {
+        "operationId": "GetDataSource",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "PutDataSource",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataSourceInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/data-sources/{sourceId}:test": {
+      "post": {
+        "operationId": "TestDataSource",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/data-sources/{sourceId}/schema:scan": {
+      "post": {
+        "operationId": "ScanDataSourceSchema",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sourceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/value-index/status": {
+      "get": {
+        "operationId": "GetValueIndexStatus",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/namespaces/{ns}/value-index:rebuild": {
+      "post": {
+        "operationId": "RebuildValueIndex",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/api-clients": {
+      "get": {
+        "operationId": "ListApiClients",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "CreateApiClient",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/api-clients/{clientId}": {
+      "delete": {
+        "operationId": "RevokeApiClient",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clientId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/audit-events": {
+      "get": {
+        "operationId": "ListAuditEvents",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/metrics": {
+      "get": {
+        "operationId": "GetSystemMetrics",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "OntologySnapshotV3": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "const": 3
+          },
+          "namespace": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "VERIFIED",
+              "PUBLISHED",
+              "DEPRECATED"
+            ]
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "contentDigest": {
+            "type": "string"
+          },
+          "objects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string"
+                },
+                "sourceTableId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "VERIFIED",
+                    "PUBLISHED",
+                    "DEPRECATED"
+                  ]
+                },
+                "objectType": {
+                  "type": "string",
+                  "enum": [
+                    "ENTITY",
+                    "EVENT",
+                    "SNAPSHOT",
+                    "AGGREGATE",
+                    "RELATIONSHIP"
+                  ]
+                },
+                "grainPropertyIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "grain": {
+                  "type": "string"
+                },
+                "identityReviewRequired": {
+                  "type": "boolean"
+                },
+                "defaultTimePropertyId": {
+                  "type": "string"
+                },
+                "defaultFilter": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "owner": {
+                  "type": "string"
+                },
+                "exampleQuestions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "properties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": {
+                        "default": "",
+                        "type": "string"
+                      },
+                      "dataType": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "sourceColumn": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "sensitive": {
+                        "type": "boolean"
+                      },
+                      "meaning": {
+                        "type": "string",
+                        "enum": [
+                          "ID",
+                          "CODE",
+                          "NAME",
+                          "ENTITY_REFERENCE",
+                          "CATEGORY",
+                          "TIME",
+                          "NUMBER",
+                          "BOOLEAN",
+                          "GEOGRAPHY",
+                          "TEXT"
+                        ]
+                      },
+                      "unique": {
+                        "type": "boolean"
+                      },
+                      "valueSearchable": {
+                        "type": "boolean"
+                      },
+                      "numericSpec": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "GENERAL",
+                              "CURRENCY",
+                              "RATIO"
+                            ]
+                          },
+                          "unit": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "defaultAggregation": {
+                            "type": "string",
+                            "enum": [
+                              "SUM",
+                              "AVG",
+                              "MIN",
+                              "MAX",
+                              "NONE"
+                            ]
+                          },
+                          "aggregationBehavior": {
+                            "type": "string",
+                            "enum": [
+                              "ADDITIVE",
+                              "SEMI_ADDITIVE",
+                              "NON_ADDITIVE"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "defaultAggregation",
+                          "aggregationBehavior"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "ANALYTICAL",
+                          "DETAIL_ONLY",
+                          "HIDDEN"
+                        ]
+                      },
+                      "synonyms": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "format": {
+                        "type": "string"
+                      },
+                      "detailOrder": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "defaultDisplay": {
+                        "type": "boolean"
+                      },
+                      "exportable": {
+                        "type": "boolean"
+                      },
+                      "nullDisplay": {
+                        "type": "string"
+                      },
+                      "bindingPriority": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "label",
+                      "description",
+                      "dataType",
+                      "sourceColumn",
+                      "sensitive",
+                      "meaning",
+                      "unique",
+                      "valueSearchable",
+                      "visibility",
+                      "synonyms",
+                      "defaultDisplay",
+                      "exportable",
+                      "bindingPriority"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "synonyms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "bindingPriority": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "label",
+                "description",
+                "sourceTableId",
+                "status",
+                "objectType",
+                "grainPropertyIds",
+                "grain",
+                "exampleQuestions",
+                "properties",
+                "synonyms",
+                "bindingPriority"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sourceObjectId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "targetObjectId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "REFERENCE",
+                    "COMPOSITION",
+                    "ASSOCIATION",
+                    "HIERARCHY",
+                    "EVENT_PARTICIPATION",
+                    "IDENTITY",
+                    "DERIVED"
+                  ]
+                },
+                "cardinality": {
+                  "type": "string",
+                  "enum": [
+                    "ONE_TO_ONE",
+                    "ONE_TO_MANY",
+                    "MANY_TO_ONE",
+                    "MANY_TO_MANY"
+                  ]
+                },
+                "joinExpression": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sourcePropertyId": {
+                  "type": "string"
+                },
+                "targetPropertyId": {
+                  "type": "string"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "BIDIRECTIONAL",
+                    "SOURCE_TO_TARGET",
+                    "TARGET_TO_SOURCE"
+                  ]
+                },
+                "composition": {
+                  "type": "object",
+                  "properties": {
+                    "parentObjectId": {
+                      "type": "string"
+                    },
+                    "childObjectId": {
+                      "type": "string"
+                    },
+                    "ownership": {
+                      "type": "string",
+                      "enum": [
+                        "OWNED",
+                        "SHARED"
+                      ]
+                    },
+                    "aggregationPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "PRE_AGGREGATE_CHILD",
+                        "EXISTS_ONLY"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "parentObjectId",
+                    "childObjectId",
+                    "ownership",
+                    "aggregationPolicy"
+                  ],
+                  "additionalProperties": false
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "fanoutRisk": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "LOW",
+                    "HIGH"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "VERIFIED",
+                    "PUBLISHED",
+                    "DEPRECATED"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "sourceObjectId",
+                "targetObjectId",
+                "type",
+                "cardinality",
+                "joinExpression",
+                "direction",
+                "required",
+                "enabled",
+                "fanoutRisk",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "metricType": {
+                  "type": "string",
+                  "enum": [
+                    "BASE",
+                    "DERIVED"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string"
+                },
+                "objectId": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expression": {
+                  "type": "string"
+                },
+                "definitionMode": {
+                  "type": "string",
+                  "enum": [
+                    "VISUAL",
+                    "SQL"
+                  ]
+                },
+                "sourcePropertyId": {
+                  "type": "string"
+                },
+                "filterExpression": {
+                  "type": "string"
+                },
+                "timePropertyId": {
+                  "type": "string"
+                },
+                "leftMetricId": {
+                  "type": "string"
+                },
+                "rightMetricId": {
+                  "type": "string"
+                },
+                "calculationOperator": {
+                  "type": "string",
+                  "enum": [
+                    "ADD",
+                    "SUBTRACT",
+                    "MULTIPLY",
+                    "DIVIDE",
+                    "RATIO"
+                  ]
+                },
+                "scale": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "aggregation": {
+                  "type": "string",
+                  "enum": [
+                    "SUM",
+                    "COUNT",
+                    "COUNT_DISTINCT",
+                    "AVG",
+                    "MIN",
+                    "MAX",
+                    "CUSTOM"
+                  ]
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "currency",
+                    "number",
+                    "percent"
+                  ]
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "synonyms": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "VERIFIED",
+                    "PUBLISHED",
+                    "DEPRECATED"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "metricType",
+                "name",
+                "label",
+                "description",
+                "objectId",
+                "expression",
+                "definitionMode",
+                "aggregation",
+                "format",
+                "synonyms",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "dimensionHierarchies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "FIXED_LEVELS",
+                    "ADJACENCY_LIST"
+                  ]
+                },
+                "levels": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "objectId": {
+                        "type": "string"
+                      },
+                      "propertyId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "objectId",
+                      "propertyId"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "adjacency": {
+                  "type": "object",
+                  "properties": {
+                    "objectId": {
+                      "type": "string"
+                    },
+                    "nodeIdPropertyId": {
+                      "type": "string"
+                    },
+                    "parentIdPropertyId": {
+                      "type": "string"
+                    },
+                    "labelPropertyId": {
+                      "type": "string"
+                    },
+                    "maxDepth": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "closure": {
+                      "type": "object",
+                      "properties": {
+                        "objectId": {
+                          "type": "string"
+                        },
+                        "ancestorPropertyId": {
+                          "type": "string"
+                        },
+                        "descendantPropertyId": {
+                          "type": "string"
+                        },
+                        "depthPropertyId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "objectId",
+                        "ancestorPropertyId",
+                        "descendantPropertyId",
+                        "depthPropertyId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "objectId",
+                    "nodeIdPropertyId",
+                    "parentIdPropertyId",
+                    "labelPropertyId",
+                    "maxDepth"
+                  ],
+                  "additionalProperties": false
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT",
+                    "VERIFIED",
+                    "PUBLISHED",
+                    "DEPRECATED"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "label",
+                "kind",
+                "levels",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "axiomAssertions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "axiomCode": {
+                  "type": "string"
+                },
+                "kernelVersion": {
+                  "type": "string"
+                },
+                "domain": {
+                  "type": "string",
+                  "enum": [
+                    "IDENTITY",
+                    "GRAIN",
+                    "TYPE",
+                    "METRIC_ALGEBRA",
+                    "RELATION",
+                    "HIERARCHY",
+                    "VISIBILITY"
+                  ]
+                },
+                "subjectType": {
+                  "type": "string",
+                  "enum": [
+                    "OBJECT",
+                    "PROPERTY",
+                    "METRIC",
+                    "RELATION",
+                    "HIERARCHY"
+                  ]
+                },
+                "subjectId": {
+                  "type": "string"
+                },
+                "parameters": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                },
+                "sourceDefinitionIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enforcement": {
+                  "type": "string",
+                  "enum": [
+                    "DRAFT_VALIDATION",
+                    "PUBLISH_VALIDATION",
+                    "SEMANTIC_PLANNING",
+                    "QUERY_COMPILATION"
+                  ]
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "ERROR",
+                    "WARNING",
+                    "INVARIANT"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "axiomCode",
+                "kernelVersion",
+                "domain",
+                "subjectType",
+                "subjectId",
+                "parameters",
+                "sourceDefinitionIds",
+                "enforcement",
+                "severity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inferredAssertions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "predicate": {
+                  "type": "string"
+                },
+                "subjectId": {
+                  "type": "string"
+                },
+                "objectId": {
+                  "type": "string"
+                },
+                "value": {},
+                "ontologyVersion": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "axiomAssertionIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "premiseAssertionIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "proof": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sequence": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "FACT",
+                          "AXIOM",
+                          "DERIVATION"
+                        ]
+                      },
+                      "refId": {
+                        "type": "string"
+                      },
+                      "statement": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sequence",
+                      "kind",
+                      "refId",
+                      "statement"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "materialization": {
+                  "type": "string",
+                  "enum": [
+                    "PUBLISHED",
+                    "ON_DEMAND"
+                  ]
+                },
+                "deterministic": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": [
+                "id",
+                "predicate",
+                "subjectId",
+                "ontologyVersion",
+                "axiomAssertionIds",
+                "premiseAssertionIds",
+                "proof",
+                "materialization",
+                "deterministic"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "inferenceDigest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "namespace",
+          "version",
+          "status",
+          "contentDigest",
+          "objects",
+          "relations",
+          "metrics",
+          "dimensionHierarchies",
+          "axiomAssertions",
+          "inferredAssertions",
+          "inferenceDigest"
+        ],
+        "additionalProperties": false
+      },
+      "ResolveSemanticContextInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ontologyVersion": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "const": "latest"
+              }
+            ]
+          },
+          "question": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "ANSWER",
+              "PLAN",
+              "EXPLAIN",
+              "MODEL"
+            ]
+          },
+          "projection": {
+            "type": "string",
+            "enum": [
+              "compact",
+              "standard",
+              "full"
+            ]
+          },
+          "include": {
+            "type": "object",
+            "properties": {
+              "values": {
+                "type": "boolean"
+              },
+              "axioms": {
+                "type": "boolean"
+              },
+              "inferences": {
+                "type": "boolean"
+              },
+              "evidence": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "namespace",
+          "purpose"
+        ],
+        "additionalProperties": false
+      },
+      "ExecuteSemanticQueryInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "queryMode": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "FIXED_SHAPE",
+              "ANALYSIS"
+            ]
+          },
+          "namespace": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ontologyVersion": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "const": "latest"
+              }
+            ]
+          },
+          "question": {
+            "type": "string"
+          },
+          "queryShape": {
+            "type": "object",
+            "properties": {
+              "rootObjectId": {
+                "type": "string"
+              },
+              "measureIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "dimensionPropertyIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "filters": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "propertyId": {
+                      "type": "string"
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "EQ",
+                        "NE",
+                        "GT",
+                        "GTE",
+                        "LT",
+                        "LTE",
+                        "IN",
+                        "CONTAINS",
+                        "PREFIX",
+                        "IS_NULL",
+                        "NOT_NULL"
+                      ]
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": [
+                              "string",
+                              "number"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "propertyId",
+                    "operator"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sort": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "entityId": {
+                      "type": "string"
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "ASC",
+                        "DESC"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entityId",
+                    "direction"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "limit": {
+                "default": 200,
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "rootObjectId",
+              "measureIds",
+              "dimensionPropertyIds",
+              "filters",
+              "sort",
+              "limit"
+            ],
+            "additionalProperties": false
+          },
+          "parameters": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "pageSize": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10000
+              },
+              "cursor": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "includeResolution": {
+                "type": "boolean"
+              },
+              "includeOntologyContext": {
+                "type": "boolean"
+              },
+              "includeAxioms": {
+                "type": "boolean"
+              },
+              "includeInferenceEvidence": {
+                "type": "boolean"
+              },
+              "includeQueryIr": {
+                "type": "boolean"
+              },
+              "includeSqlPreview": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "queryMode",
+          "namespace"
+        ],
+        "additionalProperties": false
+      },
+      "ContinueSemanticQueryInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "selections": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "selections"
+        ],
+        "additionalProperties": false
+      },
+      "CreateDraftInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "baseVersion": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "const": "latest"
+              }
+            ]
+          },
+          "sourceVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false
+      },
+      "DraftPatchInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "operations": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "UPSERT_OBJECT"
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "sourceTableId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "DRAFT",
+                            "VERIFIED",
+                            "PUBLISHED",
+                            "DEPRECATED"
+                          ]
+                        },
+                        "objectType": {
+                          "type": "string",
+                          "enum": [
+                            "ENTITY",
+                            "EVENT",
+                            "SNAPSHOT",
+                            "AGGREGATE",
+                            "RELATIONSHIP"
+                          ]
+                        },
+                        "grainPropertyIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "grain": {
+                          "type": "string"
+                        },
+                        "identityReviewRequired": {
+                          "type": "boolean"
+                        },
+                        "defaultTimePropertyId": {
+                          "type": "string"
+                        },
+                        "defaultFilter": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "owner": {
+                          "type": "string"
+                        },
+                        "exampleQuestions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "properties": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "label": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "description": {
+                                "default": "",
+                                "type": "string"
+                              },
+                              "dataType": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "sourceColumn": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "sensitive": {
+                                "type": "boolean"
+                              },
+                              "meaning": {
+                                "type": "string",
+                                "enum": [
+                                  "ID",
+                                  "CODE",
+                                  "NAME",
+                                  "ENTITY_REFERENCE",
+                                  "CATEGORY",
+                                  "TIME",
+                                  "NUMBER",
+                                  "BOOLEAN",
+                                  "GEOGRAPHY",
+                                  "TEXT"
+                                ]
+                              },
+                              "unique": {
+                                "type": "boolean"
+                              },
+                              "valueSearchable": {
+                                "type": "boolean"
+                              },
+                              "numericSpec": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "GENERAL",
+                                      "CURRENCY",
+                                      "RATIO"
+                                    ]
+                                  },
+                                  "unit": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  },
+                                  "defaultAggregation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "SUM",
+                                      "AVG",
+                                      "MIN",
+                                      "MAX",
+                                      "NONE"
+                                    ]
+                                  },
+                                  "aggregationBehavior": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ADDITIVE",
+                                      "SEMI_ADDITIVE",
+                                      "NON_ADDITIVE"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "defaultAggregation",
+                                  "aggregationBehavior"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "visibility": {
+                                "type": "string",
+                                "enum": [
+                                  "ANALYTICAL",
+                                  "DETAIL_ONLY",
+                                  "HIDDEN"
+                                ]
+                              },
+                              "synonyms": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "format": {
+                                "type": "string"
+                              },
+                              "detailOrder": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "defaultDisplay": {
+                                "type": "boolean"
+                              },
+                              "exportable": {
+                                "type": "boolean"
+                              },
+                              "nullDisplay": {
+                                "type": "string"
+                              },
+                              "bindingPriority": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "label",
+                              "description",
+                              "dataType",
+                              "sourceColumn",
+                              "sensitive",
+                              "meaning",
+                              "unique",
+                              "valueSearchable",
+                              "visibility",
+                              "synonyms",
+                              "defaultDisplay",
+                              "exportable",
+                              "bindingPriority"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "synonyms": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "bindingPriority": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "label",
+                        "description",
+                        "sourceTableId",
+                        "status",
+                        "objectType",
+                        "grainPropertyIds",
+                        "grain",
+                        "exampleQuestions",
+                        "properties",
+                        "synonyms",
+                        "bindingPriority"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "REMOVE_OBJECT"
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "UPSERT_METRIC"
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "metricType": {
+                          "type": "string",
+                          "enum": [
+                            "BASE",
+                            "DERIVED"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "objectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "expression": {
+                          "type": "string"
+                        },
+                        "definitionMode": {
+                          "type": "string",
+                          "enum": [
+                            "VISUAL",
+                            "SQL"
+                          ]
+                        },
+                        "sourcePropertyId": {
+                          "type": "string"
+                        },
+                        "filterExpression": {
+                          "type": "string"
+                        },
+                        "timePropertyId": {
+                          "type": "string"
+                        },
+                        "leftMetricId": {
+                          "type": "string"
+                        },
+                        "rightMetricId": {
+                          "type": "string"
+                        },
+                        "calculationOperator": {
+                          "type": "string",
+                          "enum": [
+                            "ADD",
+                            "SUBTRACT",
+                            "MULTIPLY",
+                            "DIVIDE",
+                            "RATIO"
+                          ]
+                        },
+                        "scale": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        },
+                        "aggregation": {
+                          "type": "string",
+                          "enum": [
+                            "SUM",
+                            "COUNT",
+                            "COUNT_DISTINCT",
+                            "AVG",
+                            "MIN",
+                            "MAX",
+                            "CUSTOM"
+                          ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "currency",
+                            "number",
+                            "percent"
+                          ]
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "synonyms": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "DRAFT",
+                            "VERIFIED",
+                            "PUBLISHED",
+                            "DEPRECATED"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "metricType",
+                        "name",
+                        "label",
+                        "description",
+                        "objectId",
+                        "expression",
+                        "definitionMode",
+                        "aggregation",
+                        "format",
+                        "synonyms",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "REMOVE_METRIC"
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "UPSERT_RELATION"
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sourceObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targetObjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "REFERENCE",
+                            "COMPOSITION",
+                            "ASSOCIATION",
+                            "HIERARCHY",
+                            "EVENT_PARTICIPATION",
+                            "IDENTITY",
+                            "DERIVED"
+                          ]
+                        },
+                        "cardinality": {
+                          "type": "string",
+                          "enum": [
+                            "ONE_TO_ONE",
+                            "ONE_TO_MANY",
+                            "MANY_TO_ONE",
+                            "MANY_TO_MANY"
+                          ]
+                        },
+                        "joinExpression": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sourcePropertyId": {
+                          "type": "string"
+                        },
+                        "targetPropertyId": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "BIDIRECTIONAL",
+                            "SOURCE_TO_TARGET",
+                            "TARGET_TO_SOURCE"
+                          ]
+                        },
+                        "composition": {
+                          "type": "object",
+                          "properties": {
+                            "parentObjectId": {
+                              "type": "string"
+                            },
+                            "childObjectId": {
+                              "type": "string"
+                            },
+                            "ownership": {
+                              "type": "string",
+                              "enum": [
+                                "OWNED",
+                                "SHARED"
+                              ]
+                            },
+                            "aggregationPolicy": {
+                              "type": "string",
+                              "enum": [
+                                "PRE_AGGREGATE_CHILD",
+                                "EXISTS_ONLY"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "parentObjectId",
+                            "childObjectId",
+                            "ownership",
+                            "aggregationPolicy"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "fanoutRisk": {
+                          "type": "string",
+                          "enum": [
+                            "NONE",
+                            "LOW",
+                            "HIGH"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "DRAFT",
+                            "VERIFIED",
+                            "PUBLISHED",
+                            "DEPRECATED"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "sourceObjectId",
+                        "targetObjectId",
+                        "type",
+                        "cardinality",
+                        "joinExpression",
+                        "direction",
+                        "required",
+                        "enabled",
+                        "fanoutRisk",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "REMOVE_RELATION"
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "UPSERT_HIERARCHY"
+                    },
+                    "value": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "FIXED_LEVELS",
+                            "ADJACENCY_LIST"
+                          ]
+                        },
+                        "levels": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "objectId": {
+                                "type": "string"
+                              },
+                              "propertyId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "objectId",
+                              "propertyId"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "adjacency": {
+                          "type": "object",
+                          "properties": {
+                            "objectId": {
+                              "type": "string"
+                            },
+                            "nodeIdPropertyId": {
+                              "type": "string"
+                            },
+                            "parentIdPropertyId": {
+                              "type": "string"
+                            },
+                            "labelPropertyId": {
+                              "type": "string"
+                            },
+                            "maxDepth": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "closure": {
+                              "type": "object",
+                              "properties": {
+                                "objectId": {
+                                  "type": "string"
+                                },
+                                "ancestorPropertyId": {
+                                  "type": "string"
+                                },
+                                "descendantPropertyId": {
+                                  "type": "string"
+                                },
+                                "depthPropertyId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "objectId",
+                                "ancestorPropertyId",
+                                "descendantPropertyId",
+                                "depthPropertyId"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "objectId",
+                            "nodeIdPropertyId",
+                            "parentIdPropertyId",
+                            "labelPropertyId",
+                            "maxDepth"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "DRAFT",
+                            "VERIFIED",
+                            "PUBLISHED",
+                            "DEPRECATED"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "label",
+                        "kind",
+                        "levels",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "REMOVE_HIERARCHY"
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "additionalProperties": false
+      },
+      "PublishDraftInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "changeSummary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseVersion"
+        ],
+        "additionalProperties": false
+      },
+      "DataSourceInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog": {
+            "type": "string"
+          },
+          "database": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tls": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "username",
+          "catalog",
+          "database",
+          "tls"
+        ],
+        "additionalProperties": false
+      },
+      "QueryIR": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "const": 3
+          },
+          "ontologyVersion": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "rootObjectId": {
+            "type": "string"
+          },
+          "measureIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dimensionPropertyIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "propertyId": {
+                  "type": "string"
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "EQ",
+                    "NE",
+                    "GT",
+                    "GTE",
+                    "LT",
+                    "LTE",
+                    "IN",
+                    "CONTAINS",
+                    "PREFIX",
+                    "IS_NULL",
+                    "NOT_NULL"
+                  ]
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "propertyId",
+                "operator"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "relationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grain": {
+            "type": "string"
+          },
+          "resultKind": {
+            "type": "string",
+            "enum": [
+              "aggregate",
+              "detail"
+            ]
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "entityId": {
+                  "type": "string"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "ASC",
+                    "DESC"
+                  ]
+                }
+              },
+              "required": [
+                "entityId",
+                "direction"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "version",
+          "ontologyVersion",
+          "rootObjectId",
+          "measureIds",
+          "dimensionPropertyIds",
+          "filters",
+          "relationIds",
+          "grain",
+          "resultKind",
+          "sort",
+          "limit"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

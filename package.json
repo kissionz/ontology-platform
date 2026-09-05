@@ -1,0 +1,50 @@
+{
+  "name": "ontology-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "workspaces": ["packages/*", "apps/*", "adapters/*"],
+  "scripts": {
+    "dev": "concurrently -k -n api,console -c blue,cyan \"tsx watch apps/api/src/server.ts\" \"vite --config apps/console/vite.config.ts\"",
+    "build": "tsc -p tsconfig.json && vite build --config apps/console/vite.config.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx apps/api/src/server.ts",
+    "start:mcp": "tsx scripts/start-mcp.ts",
+    "test": "vitest run",
+    "test:phase0": "vitest run tests/contract tests/storage",
+    "test:phase1": "vitest run tests/migration tests/storage",
+    "test:phase2": "vitest run tests/ontology-validation tests/axiom-inference",
+    "test:phase3": "vitest run tests/semantic-runtime",
+    "test:phase4": "vitest run tests/sql-golden",
+    "test:phase5": "vitest run tests/contract tests/mcp tests/integration",
+    "test:phase6": "vitest run tests/console",
+    "test:phase7": "vitest run tests/performance tests/operations",
+    "test:e2e": "playwright test",
+    "ontology:import": "tsx scripts/import-ontology.ts",
+    "backup": "tsx scripts/backup.ts backup",
+    "restore": "tsx scripts/backup.ts restore",
+    "check": "npm run build && npm test && npm run test:e2e"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.2",
+    "@phosphor-icons/react": "^2.1.10",
+    "fastify": "^5.6.1",
+    "mysql2": "^3.15.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.15"
+  }
+}
