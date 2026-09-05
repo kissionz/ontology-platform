@@ -31,7 +31,18 @@ export interface DraftRecord {
   snapshot: OntologySnapshotV3;
   updatedAt: string;
 }
+export interface ClarificationRecord {
+  clarificationId: string;
+  input: ExecuteSemanticQueryInput;
+  version: number;
+  choices: Record<string, string[]>;
+  indexedValues: Array<{ objectId: string; propertyId: string; displayValue: string; frequency: number }>;
+  expiresAt: string;
+}
 export interface PlatformStorePort {
+  saveClarification(record: ClarificationRecord): void;
+  getClarification(clarificationId: string): ClarificationRecord | undefined;
+  deleteClarification(clarificationId: string): void;
   transaction<T>(work: () => T): T;
   latestVersion(namespace: string): number | undefined;
   getSnapshot(
@@ -138,18 +149,10 @@ export type DraftPatchOperation =
 
 export class OntologyPlatform {
   private readonly compiler: QueryIrCompiler;
-  private readonly pendingClarifications = new Map<
-    string,
-    {
-      input: ExecuteSemanticQueryInput;
-      version: number;
-      choices: Record<string, string[]>;
-    }
-  >();
   constructor(
     private readonly store: PlatformStorePort,
     private readonly executor?: QueryExecutorPort,
-    now: () => Date = () => new Date(),
+    private readonly now: () => Date = () => new Date(),
   ) {
     this.compiler = new QueryIrCompiler(now);
   }
@@ -733,7 +736,9 @@ export class OntologyPlatform {
             },
             400,
           );
-        const resolved = autoShape(snapshot, input.question, {}, this.store.matchValues(input.namespace, version, input.question));
+        const allowedProperties = new Set(snapshot.objects.flatMap(object => object.properties.map(property => property.id)));
+        const indexedValues = this.store.matchValues(input.namespace, version, input.question).filter(value => allowedProperties.has(value.propertyId));
+        const resolved = autoShape(snapshot, input.question, {}, indexedValues);
         if (resolved.ambiguities.length) {
           const clarificationId = `clar_${randomUUID()}`;
           const choices = Object.fromEntries(
@@ -742,7 +747,10 @@ export class OntologyPlatform {
               item.candidates.map((candidate) => candidate.id),
             ]),
           );
-          this.pendingClarifications.set(clarificationId, {
+          this.store.saveClarification({
+            clarificationId,
+            indexedValues,
+            expiresAt: new Date(this.now().getTime() + 30 * 60_000).toISOString(),
             input: { ...input, ontologyVersion: version },
             version,
             choices,
@@ -935,8 +943,8 @@ export class OntologyPlatform {
     clarificationId: string,
     selections: Record<string, string>,
   ) {
-    const pending = this.pendingClarifications.get(clarificationId);
-    if (!pending)
+    const pending = this.store.getClarification(clarificationId);
+    if (!pending || pending.expiresAt <= this.now().toISOString())
       throw new PlatformException(
         {
           code: "INVALID_REQUEST",
@@ -957,18 +965,20 @@ export class OntologyPlatform {
           },
           400,
         );
-    this.pendingClarifications.delete(clarificationId);
-    return this.executeSemanticQuery({
+    const resolved = autoShape(
+      visibleSnapshot(this.getSnapshot(pending.input.namespace, pending.version)),
+      pending.input.question ?? "",
+      selections,
+      pending.indexedValues,
+    );
+    const result = await this.executeSemanticQuery({
       ...pending.input,
       queryMode: "FIXED_SHAPE",
       question: pending.input.question,
-      queryShape: autoShape(
-        this.getSnapshot(pending.input.namespace, pending.version),
-        pending.input.question ?? "",
-        selections,
-        this.store.matchValues(pending.input.namespace, pending.version, pending.input.question ?? ""),
-      ).shape,
+      queryShape: resolved.shape,
     });
+    if (result.status === "SUCCEEDED") this.store.deleteClarification(clarificationId);
+    return result;
   }
   private envelope(
     requestId: string,

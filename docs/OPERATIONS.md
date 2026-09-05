@@ -48,3 +48,11 @@ npm run restore -- --source /secure/ontology-2026-09-04.sqlite --force
 写接口支持 `Idempotency-Key`，同一客户端和 key 的并发重复请求复用首次结果，变更载荷返回 `IDEMPOTENCY_CONFLICT`。重试窗口为当前进程内 10 分钟，最多保留 1,000 条；服务重启后客户端应先查询写入结果再决定是否重试。
 
 发布快照、发布元数据、草稿删除与发布审计原子提交。值索引随后异步构建，状态包括 `building`、`ready`、`partial`、`empty`、`failed`。索引错误不影响已发布版本，可修复连接或 Schema 后重新构建。
+
+## 查询澄清恢复
+
+待澄清问题、固定本体版本和原始候选值持久化在 SQLite 的 `semantic_clarifications` 表，有效期为 30 分钟。重启服务后，调用方可用原 `clarificationId` 继续查询；版本发布或索引重建不会改变候选项。无效选择和执行失败保留待办，成功执行后消费。过期记录在下一次创建待办时清理。数据库备份包含这些待办，应按业务查询数据保护。
+
+## 持续验证
+
+GitHub Actions 在 main 推送和 Pull Request 时使用 Node.js 24、Python 3.12 执行 build、单元/契约/集成测试及 Chromium E2E，失败时保存浏览器证据 7 天。CI 使用测试夹具；需要本机参考 SQLite 的测试会在文件不存在时跳过，SelectDB 实际连接和业务结果仍需环境验收。

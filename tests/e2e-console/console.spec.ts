@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
@@ -62,7 +63,7 @@ test("confirmed desktop widths do not clip the workspace", async ({ page }) => {
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(width);
     await page.screenshot({
-      path: `/private/tmp/ontology-platform-${width}.png`,
+      path: `${tmpdir()}/ontology-platform-${width}.png`,
       fullPage: true,
     });
   }
@@ -103,7 +104,7 @@ test("all six pages fit both confirmed desktop widths", async ({ page }) => {
       await expect(page.locator(".skeleton-state")).toHaveCount(0);
       await expect(page.getByText("内容加载失败", { exact: true })).toHaveCount(0);
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      await page.screenshot({ path: `/private/tmp/ontology-platform-${name}-${width}.png`, fullPage: true });
+      await page.screenshot({ path: `${tmpdir()}/ontology-platform-${name}-${width}.png`, fullPage: true });
     }
   }
 });
