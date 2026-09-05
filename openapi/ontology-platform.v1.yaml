@@ -1011,9 +1011,9 @@
                 "purpose": "PLAN",
                 "include": {
                   "values": true,
-                  "axioms": true,
-                  "inferences": true,
-                  "evidence": true
+                  "axioms": false,
+                  "inferences": false,
+                  "evidence": false
                 }
               }
             }
@@ -1074,8 +1074,8 @@
                 "queryMode": "ANALYSIS",
                 "question": "按店铺查看销售额",
                 "options": {
-                  "includeAxioms": true,
-                  "includeInferenceEvidence": true
+                  "includeAxioms": false,
+                  "includeInferenceEvidence": false
                 }
               }
             }
@@ -2762,7 +2762,7 @@
               }
             },
             "additionalProperties": false,
-            "description": "开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；values 需显式开启，其他默认包含。"
+            "description": "开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；全部默认关闭，需显式设为 true；evidence 仅在 inferences 同时开启时返回证明。仅影响响应，平台仍执行公理校验和查询约束。"
           }
         },
         "required": [

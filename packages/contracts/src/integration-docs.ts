@@ -9,6 +9,7 @@ export const MCP_CONFIG = {
 };
 
 export const MCP_NOTES = [
+  "普通调用默认返回业务候选与引用，公理、推论和证明详情需显式开启。响应开关不影响平台内部校验与查询规则。",
   "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
   "Agent 先提取完整业务概念传入 concepts。解析上下文只返回词典候选；优先级 concepts > terms > question。filters、time 数组填写属性名称，筛选值和时间范围由 Agent 确认后放入查询结构。检查 retrieval.status、unmatchedTerms、ambiguities；未命中返回空上下文，不会退回全部本体。",
   "先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。",
@@ -21,7 +22,7 @@ export const MCP_NOTES = [
 ];
 
 export const MCP_EXAMPLES: Record<string, unknown> = {
-  ResolveOntologyContext: { namespace: "retail", ontologyVersion: "latest", question: "按店铺查看销售额", concepts: { metrics: ["销售额"], dimensions: ["店铺"] }, purpose: "PLAN", include: { axioms: true, inferences: true, evidence: true } },
+  ResolveOntologyContext: { namespace: "retail", ontologyVersion: "latest", question: "按店铺查看销售额", concepts: { metrics: ["销售额"], dimensions: ["店铺"] }, purpose: "PLAN", include: { axioms: false, inferences: false, evidence: false } },
   ExecuteSemanticQuery: { namespace: "retail", queryMode: "ANALYSIS", question: "按店铺查看销售额" },
   ContinueSemanticQuery: { clarificationId: "响应中的澄清ID", selections: { "待选择项目ID": "候选项ID" } },
   GetOntologySnapshot: { namespace: "retail", version: "latest" },
@@ -39,6 +40,7 @@ export const SDK_METHODS = [
 ];
 
 export const SDK_NOTES = [
+  "公理、推论和证明详情默认关闭。解释或调试时用 include.axioms、include.inferences、include.evidence 按需开启；执行查询使用 options.includeAxioms 和 options.includeInferenceEvidence。规则始终在平台内执行。",
   "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
   "resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.status：NO_MATCH 时补充术语或同义词，PARTIAL_MATCH 时处理 unmatchedTerms，AMBIGUOUS 时确认候选；MATCHED 也不代表已完成业务意图解析。时间范围、筛选值和最终查询结构由调用方确定。",
   "当前 SDK 随仓库源码交付。TypeScript 入口为 packages/sdk-typescript/src/index.ts；Python 模块为 packages/sdk-python/ontology_platform.py，Python 客户端仅使用标准库。",
@@ -66,7 +68,7 @@ try {
     purpose: "PLAN",
     question: "按店铺查看销售额",
     concepts: { metrics: ["销售额"], dimensions: ["店铺"] },
-    include: { axioms: true, inferences: true, evidence: true },
+    include: { axioms: false, inferences: false, evidence: false },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
   else console.log(response?.status, response?.error);
@@ -92,7 +94,7 @@ try:
         "purpose": "PLAN",
         "question": "按店铺查看销售额",
         "concepts": {"metrics": ["销售额"], "dimensions": ["店铺"]},
-        "include": {"axioms": True, "inferences": True, "evidence": True},
+        "include": {"axioms": False, "inferences": False, "evidence": False},
     })
     if response.get("status") == "SUCCEEDED":
         print(response.get("data"))

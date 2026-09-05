@@ -48,6 +48,8 @@ test("U01-U12 console workflow uses the real HTTP contracts", async ({ page }) =
   await expect(page.getByRole("region", { name: "语义候选摘要" })).toBeVisible();
   await page.getByRole("button", { name: "响应体", exact: true }).click();
   await expect(page.locator(".response-json")).toContainText("contextDigest");
+  await expect(page.locator(".response-json")).toContainText('"axioms": []');
+  await expect(page.locator(".response-json")).toContainText('"inferences": []');
   await expect(page.locator(".response-json")).not.toContainText("e2e-key");
   expect(browserErrors).toEqual([]);
 

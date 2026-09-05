@@ -1606,9 +1606,9 @@ function SystemPage({
         purpose: "ANSWER",
         include: {
           values: true,
-          axioms: true,
-          inferences: true,
-          evidence: true,
+          axioms: false,
+          inferences: false,
+          evidence: false,
         },
       },
       null,

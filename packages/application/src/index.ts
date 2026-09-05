@@ -605,11 +605,11 @@ export class OntologyPlatform {
     const hierarchies = snapshot.dimensionHierarchies.filter(h => h.levels.every(l => objectIds.has(l.objectId) && propertyIds.has(l.propertyId)));
     hierarchies.forEach(h => definitionIds.add(h.id));
     const relevantAxioms = snapshot.axiomAssertions.filter(item => definitionIds.has(item.subjectId) && item.sourceDefinitionIds.every(id => definitionIds.has(id)));
-    const axioms = input.include?.axioms === false ? [] : relevantAxioms;
+    const axioms = input.include?.axioms === true ? relevantAxioms : [];
     axioms.forEach((item, index) => (refs[`A${index + 1}`] = item.id));
     const axiomIds = new Set(relevantAxioms.map(a => a.id));
     const premiseExists = (id: string) => definitionIds.has(id) || axiomIds.has(id) || (id.includes(":") && id.split(":").every(part => definitionIds.has(part)));
-    const inferences = input.include?.inferences === false ? [] : snapshot.inferredAssertions.filter(item =>
+    const inferences = input.include?.inferences !== true ? [] : snapshot.inferredAssertions.filter(item =>
       definitionIds.has(item.subjectId) && (!item.objectId || definitionIds.has(item.objectId)) &&
       item.axiomAssertionIds.every(id => axiomIds.has(id)) && item.premiseAssertionIds.every(premiseExists));
     inferences.forEach((item, index) => (refs[`I${index + 1}`] = item.id));
@@ -633,7 +633,7 @@ export class OntologyPlatform {
       values,
       axioms,
       inferences:
-        input.include?.evidence === false
+        input.include?.evidence !== true
           ? inferences.map(({ proof, ...rest }) => rest)
           : inferences,
       relationPaths: relationPaths(relations),
@@ -694,9 +694,9 @@ export class OntologyPlatform {
           purpose: "PLAN",
           include: {
             values: true,
-            axioms: true,
-            inferences: true,
-            evidence: true,
+            axioms: input.options?.includeAxioms === true,
+            inferences: input.options?.includeInferenceEvidence === true,
+            evidence: input.options?.includeInferenceEvidence === true,
           },
         });
         return this.envelope(
@@ -864,7 +864,7 @@ export class OntologyPlatform {
         30_000,
       );
       const ontologyContext = input.options?.includeOntologyContext || input.options?.includeAxioms || input.options?.includeInferenceEvidence
-        ? this.resolveOntologyContext({ namespace: input.namespace, ontologyVersion: version, question: input.question ?? shape.measureIds.join(" "), purpose: "ANSWER", include: { axioms: true, inferences: true, evidence: true, values: true } }) : undefined;
+        ? this.resolveOntologyContext({ namespace: input.namespace, ontologyVersion: version, question: input.question ?? shape.measureIds.join(" "), purpose: "ANSWER", include: { axioms: input.options?.includeAxioms === true, inferences: input.options?.includeInferenceEvidence === true, evidence: input.options?.includeInferenceEvidence === true, values: true } }) : undefined;
       const usedRelationIds = new Set(compiled.ir.relationIds);
       const queryAxioms = [...new Map([...(ontologyContext?.axioms ?? []), ...snapshot.axiomAssertions.filter(a => usedRelationIds.has(a.subjectId))].map(a => [a.id, a])).values()];
       const queryInferences = [...new Map([...(ontologyContext?.inferences ?? []), ...snapshot.inferredAssertions.filter(i => i.premiseAssertionIds.some(id => usedRelationIds.has(id)))].map(i => [i.id, i])).values()];

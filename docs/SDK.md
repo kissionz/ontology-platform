@@ -1,5 +1,7 @@
 # SDK 接入说明
 
+公理、推论和证明详情默认关闭。解释或调试时用 include.axioms、include.inferences、include.evidence 按需开启；执行查询使用 options.includeAxioms 和 options.includeInferenceEvidence。规则始终在平台内执行。
+
 对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。
 
 resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.status：NO_MATCH 时补充术语或同义词，PARTIAL_MATCH 时处理 unmatchedTerms，AMBIGUOUS 时确认候选；MATCHED 也不代表已完成业务意图解析。时间范围、筛选值和最终查询结构由调用方确定。
@@ -46,7 +48,7 @@ try {
     purpose: "PLAN",
     question: "按店铺查看销售额",
     concepts: { metrics: ["销售额"], dimensions: ["店铺"] },
-    include: { axioms: true, inferences: true, evidence: true },
+    include: { axioms: false, inferences: false, evidence: false },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
   else console.log(response?.status, response?.error);
@@ -76,7 +78,7 @@ try:
         "purpose": "PLAN",
         "question": "按店铺查看销售额",
         "concepts": {"metrics": ["销售额"], "dimensions": ["店铺"]},
-        "include": {"axioms": True, "inferences": True, "evidence": True},
+        "include": {"axioms": False, "inferences": False, "evidence": False},
     })
     if response.get("status") == "SUCCEEDED":
         print(response.get("data"))

@@ -32,7 +32,7 @@ it("prioritizes extracted concepts and excludes neighboring objects and unrelate
 });
 
 it("returns intermediate join definitions and their closed axiom proof dependencies", () => {
-  const context = setup().resolveOntologyContext({ ...base, concepts: { metrics: ["销售额"], dimensions: ["事业部"] } });
+  const context = setup().resolveOntologyContext({ ...base, include: { axioms: true, inferences: true, evidence: true }, concepts: { metrics: ["销售额"], dimensions: ["事业部"] } });
   expect(context.relations.map(r => r.id)).toEqual(["r_order_store", "r_store_dept", "r_dept_bu"]);
   expect(context.inferences.some(i => i.predicate === "RELATION_REACHABLE" && i.subjectId === "o_order" && i.objectId === "o_bu")).toBe(true);
   const ids = new Set([...context.objects.flatMap(o => [o.id, ...o.properties.map(p => p.id)]), ...context.metrics.map(m => m.id), ...context.relations.map(r => r.id), ...context.hierarchies.map(h => h.id)]);
@@ -44,7 +44,7 @@ it("returns intermediate join definitions and their closed axiom proof dependenc
 });
 
 it("includes derived metric operands and their numeric aggregation rules", () => {
-  const context = setup().resolveOntologyContext({ ...base, concepts: { metrics: ["毛利率"] } });
+  const context = setup().resolveOntologyContext({ ...base, include: { axioms: true, inferences: true }, concepts: { metrics: ["毛利率"] } });
   expect(context.metrics.map(m => m.id)).toEqual(expect.arrayContaining(["m_margin", "m_sales", "m_cost"]));
   expect(context.axioms.some(a => a.axiomCode === "RATIO_NON_ADDITIVE" && a.subjectId === "m_margin")).toBe(true);
   expect(context.inferences.some(i => i.subjectId === "m_margin")).toBe(true);
@@ -78,4 +78,52 @@ it("validates bounded, nonblank concept arrays and rejects empty input", () => {
   expect(ResolveSemanticContextInputSchema.safeParse({ ...base, concepts: { metrics: [" "] } }).success).toBe(false);
   expect(ResolveSemanticContextInputSchema.safeParse({ ...base, concepts: { metrics: Array(17).fill("销售额") } }).success).toBe(false);
   expect(() => setup().resolveOntologyContext({ ...base, question: "  " })).toThrow("非空内容");
+});
+
+it("omits evidence by default while keeping the same candidates, definitions and planning constraints", () => {
+  const platform = setup();
+  const input = { ...base, concepts: { metrics: ["毛利率"], dimensions: ["事业部"] } };
+  const minimal = platform.resolveOntologyContext(input);
+  const debug = platform.resolveOntologyContext({ ...input, include: { axioms: true, inferences: true, evidence: true } });
+  expect(minimal.axioms).toEqual([]);
+  expect(minimal.inferences).toEqual([]);
+  expect(Object.keys(minimal.refs).some(key => /^[AI]\d+$/.test(key))).toBe(false);
+  for (const key of ["objects", "metrics", "relations", "candidates", "ambiguities", "relationPaths", "grainSummary", "additivitySummary"] as const) expect(minimal[key]).toEqual(debug[key]);
+  expect(debug.axioms.length).toBeGreaterThan(0);
+  expect(debug.inferences.some(i => "proof" in i && i.proof.length > 0)).toBe(true);
+  const conclusions = platform.resolveOntologyContext({ ...input, include: { inferences: true } });
+  expect(conclusions.inferences.length).toBeGreaterThan(0);
+  expect(conclusions.inferences.every(i => !("proof" in i))).toBe(true);
+  expect(conclusions.axioms).toEqual([]);
+});
+
+it("analysis mode forwards explicit evidence options but defaults to minimal context", async () => {
+  const platform = setup();
+  const input = { namespace: "retail", queryMode: "ANALYSIS" as const, question: "毛利率事业部" };
+  const minimal = await platform.executeSemanticQuery(input);
+  expect(minimal.data).toMatchObject({ context: { axioms: [], inferences: [] } });
+  const debug = await platform.executeSemanticQuery({ ...input, options: { includeAxioms: true, includeInferenceEvidence: true } });
+  expect((debug.data as any).context.axioms.length).toBeGreaterThan(0);
+  expect((debug.data as any).context.inferences.some((i: any) => i.proof.length)).toBe(true);
+});
+
+it("query context stays minimal and invalid aggregation is still blocked before execution", async () => {
+  const { physicalTables } = await import("../fixtures-v3.js");
+  const store = new SqlitePlatformStore(":memory:");
+  let executions = 0;
+  try {
+    const snapshot = validSnapshot();
+    store.savePublished(snapshot); physicalTables().forEach(t => store.putPhysicalTable("selectdb", t));
+    const platform = new OntologyPlatform(store, { execute: async () => { executions++; return { rows: [{ 销售额: 100 }], columns: ["销售额"], rowCount: 1, truncated: false }; } });
+    const input = { namespace: "retail", queryMode: "FIXED_SHAPE" as const, queryShape: { rootObjectId: "o_order", measureIds: ["m_sales"], dimensionPropertyIds: [], filters: [], sort: [] }, options: { includeOntologyContext: true } };
+    const result = await platform.executeSemanticQuery(input);
+    expect(result.status).toBe("SUCCEEDED");
+    expect(result.data).toMatchObject({ ontologyContext: { axioms: [], inferences: [] } });
+    const invalid = validSnapshot("retail", 2);
+    invalid.objects[0]!.properties.find(p => p.id === "p_sales")!.numericSpec!.aggregationBehavior = "NON_ADDITIVE";
+    store.savePublished(finalizeSnapshot(invalid));
+    const blocked = await platform.executeSemanticQuery({ ...input, ontologyVersion: 2 });
+    expect(blocked.status).not.toBe("SUCCEEDED");
+    expect(executions).toBe(1);
+  } finally { store.close(); }
 });

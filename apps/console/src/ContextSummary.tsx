@@ -9,6 +9,6 @@ export function ContextSummary({ context }: { context: any }) {
     {context.retrieval.unmatchedTerms.length > 0 && <div><strong>未命中</strong><ul>{context.retrieval.unmatchedTerms.map((item: any, i: number) => <li key={i}>{roles[item.role]}：{item.term}</li>)}</ul><p>请使用业务名称、编码或已配置的同义词再次检索。</p></div>}
     {context.ambiguities.length > 0 && <div><strong>待确认候选</strong><ul>{context.ambiguities.map((item: any, i: number) => <li key={i}>{item.term}：{item.candidates.map((c: any) => `${c.label}（${c.id}）`).join("、")}</li>)}</ul></div>}
     {context.candidates.length > 0 && <table><thead><tr><th>业务定义</th><th>类型</th><th>匹配依据</th></tr></thead><tbody>{context.candidates.map((item: any) => <tr key={`${item.kind}:${item.id}`}><td>{item.label}<small>{item.id}</small></td><td>{kinds[item.kind]}</td><td>{item.reason}：{item.matchedBy}</td></tr>)}</tbody></table>}
-    <p>已附带 {context.axioms.length} 条公理、{context.inferences.length} 条推论。可在“语义上下文”和“推论证据”中查看详情，“响应体”保留完整 JSON。</p>
+    {Boolean(context.axioms.length || context.inferences.length) && <p>已附带 {context.axioms.length} 条公理、{context.inferences.length} 条推论。可在“语义上下文”和“推论证据”中查看详情，“响应体”保留完整 JSON。</p>}
   </section>;
 }
