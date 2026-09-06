@@ -43,7 +43,7 @@ describe("QueryIrCompiler", () => {
     expect(compiled.sql).toContain(
       "COALESCE(NULLIF(t1.`store_name`, ''), CAST(t0.`store_id` AS STRING)) AS `门店名称`",
     );
-    expect(compiled.sql).toContain("GROUP BY COALESCE(NULLIF(t1.`store_name`, ''), CAST(t0.`store_id` AS STRING)), t0.`store_id`");
+    expect(compiled.sql).toContain("GROUP BY COALESCE(NULLIF(t1.`store_name`, ''), CAST(t0.`store_id` AS STRING)), t1.`store_id`, t0.`store_id`");
     expect(compiled.sql).not.toContain("AS `门店ID`");
   });
 

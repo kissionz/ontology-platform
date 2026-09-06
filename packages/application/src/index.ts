@@ -123,7 +123,7 @@ export interface PlatformStorePort {
   ): void;
   listAudit(limit?: number): unknown[];
   listPhysicalTables(sourceId?: string): PhysicalTable[];
-  matchValues(namespace: string, version: number, question: string): Array<{ objectId: string; propertyId: string; displayValue: string; frequency: number }>;
+  matchValues(namespace: string, version: number, question: string, scope?: import("./context-retrieval.js").ValueScope): Array<{ objectId: string; propertyId: string; displayValue: string; frequency: number }>;
   searchValues(
     namespace: string,
     version: number,
@@ -579,16 +579,14 @@ export class OntologyPlatform {
       );
     const snapshot = visibleSnapshot(this.store.getSnapshot(input.namespace, version)!);
     const sessionId = `ses_${randomUUID()}`;
-    const query = [input.question ?? "", ...(input.terms ?? []), ...Object.values(input.concepts ?? {}).flat()].join(" ").trim();
-    const { objects, metrics, relations, candidates, ambiguities: contextAmbiguities, retrieval } = retrieveContext(snapshot, input);
+    const { objects, metrics, relations, candidates, values, bindings, ambiguities: contextAmbiguities, retrieval } = retrieveContext(snapshot, input,
+      (term, scope) => this.store.matchValues(input.namespace, version, term, scope));
     const objectIds = new Set(objects.map(object => object.id));
     const propertyIds = new Set(
       objects.flatMap((object) =>
         object.properties.map((property) => property.id),
       ),
     );
-    const values = input.include?.values
-      ? this.store.matchValues(input.namespace, version, query).filter(value => propertyIds.has(value.propertyId)) : [];
     const refs: Record<string, string> = {};
     objects.forEach((item, index) => (refs[`O${index + 1}`] = item.id));
     metrics.forEach((item, index) => (refs[`M${index + 1}`] = item.id));
@@ -621,30 +619,38 @@ export class OntologyPlatform {
       refs,
       expiresAt,
     });
+    const detailed = input.projection === "standard" || input.projection === "full";
+    const selectedMetricIds = new Set(candidates.filter(c => c.kind === "metric").map(c => c.id));
+    const selectedObjectIds = new Set(candidates.map(c => c.objectId));
     const semanticContext = {
       namespace: input.namespace,
       ontologyVersion: version,
       purpose: input.purpose,
       projection: input.projection ?? "compact",
-      objects: projectObjects(objects, input.projection ?? "compact"),
-      metrics,
-      relations,
-      hierarchies,
+      objects: detailed ? projectObjects(objects, input.projection!) : objects.filter(o => selectedObjectIds.has(o.id)).map(o => ({ id: o.id, name: o.name, label: o.label, objectType: o.objectType })),
+      metrics: detailed ? metrics : metrics.filter(m => selectedMetricIds.has(m.id)).map(m => ({ id: m.id, name: m.name, label: m.label, objectId: m.objectId, description: m.description, aggregation: m.aggregation, format: m.format, unit: m.unit })),
+      relations: detailed ? relations : [],
+      hierarchies: detailed ? hierarchies : [],
       values,
       axioms,
       inferences:
         input.include?.evidence !== true
           ? inferences.map(({ proof, ...rest }) => rest)
           : inferences,
-      relationPaths: relationPaths(relations),
-      grainSummary: objects.map((o) => ({
+      relationPaths: detailed ? relationPaths(relations) : [],
+      grainSummary: (detailed ? objects : []).map((o) => ({
         objectId: o.id,
         grain: o.grain,
         grainPropertyIds: o.grainPropertyIds,
       })),
-      additivitySummary: numericSummary(objects),
-      refs,
+      additivitySummary: detailed ? numericSummary(objects) : [],
+      refs: detailed ? refs : Object.fromEntries(Object.entries(refs).filter(([key, id]) => /^[AI]/.test(key) || candidates.some(c => c.id === id || c.objectId === id || c.propertyId === id || (c.kind === "value" && `${c.propertyId}:${c.displayValue}` === id)))),
       candidates,
+      bindings: bindings.map(({ selected, candidates: alternatives, ...binding }) => ({ ...binding,
+        ...(selected ? { selected: { kind: selected.kind, id: selected.id, objectId: selected.objectId, ...(selected.propertyId ? { propertyId: selected.propertyId } : {}) },
+          ...(selected.kind === "value" ? { filter: { propertyId: selected.propertyId!, operator: "EQ", value: selected.displayValue! } } : {}) } : {}),
+        ...(alternatives ? { candidateReferences: alternatives.map(c => ({ id: c.id, propertyId: c.propertyId })) } : {}),
+      })),
       ambiguities: contextAmbiguities,
       retrieval,
     };
@@ -864,7 +870,7 @@ export class OntologyPlatform {
         30_000,
       );
       const ontologyContext = input.options?.includeOntologyContext || input.options?.includeAxioms || input.options?.includeInferenceEvidence
-        ? this.resolveOntologyContext({ namespace: input.namespace, ontologyVersion: version, question: input.question ?? shape.measureIds.join(" "), purpose: "ANSWER", include: { axioms: input.options?.includeAxioms === true, inferences: input.options?.includeInferenceEvidence === true, evidence: input.options?.includeInferenceEvidence === true, values: true } }) : undefined;
+        ? this.resolveOntologyContext({ namespace: input.namespace, ontologyVersion: version, question: input.question ?? shape.measureIds.join(" "), purpose: "ANSWER", projection: input.options?.includeAxioms || input.options?.includeInferenceEvidence ? "standard" : "compact", include: { axioms: input.options?.includeAxioms === true, inferences: input.options?.includeInferenceEvidence === true, evidence: input.options?.includeInferenceEvidence === true, values: true } }) : undefined;
       const usedRelationIds = new Set(compiled.ir.relationIds);
       const queryAxioms = [...new Map([...(ontologyContext?.axioms ?? []), ...snapshot.axiomAssertions.filter(a => usedRelationIds.has(a.subjectId))].map(a => [a.id, a])).values()];
       const queryInferences = [...new Map([...(ontologyContext?.inferences ?? []), ...snapshot.inferredAssertions.filter(i => i.premiseAssertionIds.some(id => usedRelationIds.has(id)))].map(i => [i.id, i])).values()];

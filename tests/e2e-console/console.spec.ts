@@ -423,6 +423,28 @@ test("context retrieval presents candidates and no-match feedback before raw JSO
   await expect(page.locator(".response-json")).toContainText('"NO_MATCH"');
 });
 
+test("unified context shows object name bindings and keeps SQL construction details opt-in", async ({ page }) => {
+  await page.goto("/?page=system");
+  const body = { namespace: "retail", ontologyVersion: 1, purpose: "PLAN", terms: ["毛利率", { term: "事业部", role: "dimensions" }] };
+  await page.getByLabel("请求体", { exact: true }).fill(JSON.stringify(body));
+  await page.getByRole("button", { name: "发送请求", exact: true }).click();
+  await expect(page.getByRole("region", { name: "语义候选摘要" })).toContainText("事业部");
+  await page.getByRole("button", { name: "响应体", exact: true }).click();
+  const raw = page.locator(".response-json");
+  await expect(raw).toContainText('"propertyId": "p_bu_name"');
+  await expect(raw).toContainText('"status": "BOUND"');
+  await expect(raw).toContainText('"relations": []');
+  await expect(raw).not.toContainText('"expression"');
+  await page.screenshot({ path: `${tmpdir()}/ontology-unified-context.png`, fullPage: true });
+  await page.getByLabel("请求体", { exact: true }).fill(JSON.stringify({ ...body, projection: "standard" }));
+  const response = page.waitForResponse(r => r.request().method() === "POST" && r.url().includes("resolve"));
+  await page.getByRole("button", { name: "发送请求", exact: true }).click();
+  await response;
+  await page.getByRole("button", { name: "响应体", exact: true }).click();
+  await expect(raw).toContainText('"expression"');
+  await expect(raw).toContainText('"r_order_store"');
+});
+
 test("metric editor builds field metrics, property compositions and SQL templates", async ({ page }) => {
   await page.goto("/?page=ontology");
   await page.getByRole("button", { name: /在草稿中编辑/ }).click();

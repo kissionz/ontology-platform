@@ -270,7 +270,7 @@
 
 `POST /v1/semantic-context:resolve`
 
-检索业务定义候选。推荐 Agent 提取 concepts（指标、维度、筛选字段、时间字段）；平台按完整名称、编码或同义词匹配，并补充连接路径及公理。question 单独使用时仅做词典匹配。接口不调用模型、不执行数据查询。
+统一检索对象、属性、指标和业务值。对象与主名称属性归并，明确指定范围优先，在可用关联范围内按匹配程度和业务优先级绑定；并列候选需要澄清。默认返回业务绑定摘要，由平台构造 SQL。question 单独使用时仅做词典匹配。接口不调用模型、不执行数据查询。
 
 所需权限：semantic:read
 
@@ -279,27 +279,23 @@
 | namespace | body | 是 | 本体命名空间，例如 retail。 |
 | ontologyVersion | body | 否 | 发布版本号或 latest；省略时选择最新发布版本。 |
 | question | body | 否 | 保留用户原问题。未传 concepts 或非空 terms 时才用于完整词典词的包含匹配，不进行自然语言意图或时间解析。 |
-| terms | body | 否 | 完整业务术语数组，最多 32 项；按名称、编码或同义词精确匹配。优先级 concepts > terms > question。 |
-| concepts | body | 否 | Agent 提取的业务概念：metrics 命名指标或对象度量字段的名称/编码、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
+| terms | body | 否 | 统一词条数组，最多 32 项；每项为字符串，或 {term, role?, object?, property?}。role 可为 metrics/dimensions/filters/time/values/terms，object/property 可使用 ID 或名称，明确指定后只在该范围查找。优先级 terms > concepts > question。 |
+| concepts | body | 否 | 兼容分类入口：metrics 指标/度量、dimensions 对象/属性、filters 属性名或 {object?, property?, value}、values 业务值、time 时间字段，每类最多 16 项。建议使用 terms 统一检索；分组维度不自动限制未指定范围的筛选值。 |
 | purpose | body | 是 | 用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。 |
-| projection | body | 否 | 已选对象字段详细程度：compact（默认）、standard、full；均只包含相关属性，不会扩展检索范围。敏感字段边界始终生效。 |
-| include | body | 否 | 开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；全部默认关闭，需显式设为 true；evidence 仅在 inferences 同时开启时返回证明。仅影响响应，平台仍执行公理校验和查询约束。 |
+| projection | body | 否 | compact（默认）供平台执行 SQL 的调用方使用，返回绑定摘要，省略公式、依赖指标、关系和层级详情。standard/full 供解释或外部构造 SQL 使用；始终受可见性和本次候选范围约束。 |
+| include | body | 否 | values 默认参与统一值匹配，false 可关闭。axioms 公理、inferences 推论、evidence 证明过程默认关闭，需显式设为 true；evidence 仅在 inferences 同时开启时返回证明。公理与证明开关仅影响响应，平台仍执行公理校验和查询约束。 |
 
-返回：data 包含 sessionId、ontologyVersion、objects、metrics、relations、values、axioms、inferences、refs、ambiguities 和 contextDigest。retrieval.status 为 MATCHED、PARTIAL_MATCH、NO_MATCH 或 AMBIGUOUS；未命中项位于 unmatchedTerms，candidates 包含匹配原因，ambiguities 由调用方确认。会话固定版本，有效期 30 分钟。
+返回：data 包含 bindings（逐词 BOUND/AMBIGUOUS/UNMATCHED）、candidates（类型、归属、可用用途、简要匹配依据）、values（可用筛选条件）、sessionId、ontologyVersion 和 refs。compact 仅返回对象与直接指标摘要；公式依赖、完整关系和层级仅在 standard/full 返回。retrieval.status 为 MATCHED、PARTIAL_MATCH、NO_MATCH 或 AMBIGUOUS；未命中项位于 unmatchedTerms，candidates 包含匹配原因，ambiguities 由调用方确认。会话固定版本，有效期 30 分钟。
 
 ```json
 {
   "namespace": "retail",
   "ontologyVersion": "latest",
-  "question": "按店铺查看销售额",
-  "concepts": {
-    "metrics": [
-      "销售额"
-    ],
-    "dimensions": [
-      "店铺"
-    ]
-  },
+  "question": "今年线上渠道销售额",
+  "terms": [
+    "线上渠道",
+    "销售额"
+  ],
   "purpose": "PLAN",
   "include": {
     "values": true,

@@ -87,6 +87,7 @@ export function validateSnapshot(snapshot: Pick<OntologySnapshotV3, "objects" | 
     }
   }
   issues.push(...validateRelations(snapshot));
+  for (const object of snapshot.objects) if (object.primaryNamePropertyId && !object.properties.some(p => p.id === object.primaryNamePropertyId && p.meaning === "NAME" && p.visibility === "ANALYTICAL" && !p.sensitive)) issues.push(issue("IDENTITY_ENTITY_SINGLE", `${object.label} 的主名称属性必须是可分析、非敏感的名称属性`, object.id, [object.primaryNamePropertyId]));
   for (const metric of snapshot.metrics) {
     const object = objectById.get(metric.objectId);
     if (!object) issues.push(issue("METRIC_SINGLE_FACT", `${metric.label} 的事实对象不存在`, metric.id, [metric.objectId]));

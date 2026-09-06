@@ -1,10 +1,12 @@
 # MCP 接入说明
 
+compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
+
 普通调用默认返回业务候选与引用，公理、推论和证明详情需显式开启。响应开关不影响平台内部校验与查询规则。
 
 对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。
 
-Agent 先提取完整业务概念传入 concepts。解析上下文只返回词典候选；优先级 concepts > terms > question。filters、time 数组填写属性名称，筛选值和时间范围由 Agent 确认后放入查询结构。检查 retrieval.status、unmatchedTerms、ambiguities；未命中返回空上下文，不会退回全部本体。
+Agent 提取完整业务词放入 terms，平台同时检索对象、属性、指标和值。词条可写成 {term, role, object, property} 明确用途和范围；相同语义归并，优先级相同的不同候选需澄清。先检查 bindings 和 retrieval，再将确定的 ID 和 values[].filter 填入查询结构。
 
 先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。
 
@@ -45,20 +47,20 @@ ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读�
 
 ## ResolveOntologyContext · 解析语义上下文
 
-检索业务定义候选。推荐 Agent 提取 concepts（指标、维度、筛选字段、时间字段）；平台按完整名称、编码或同义词匹配，并补充连接路径及公理。question 单独使用时仅做词典匹配。接口不调用模型、不执行数据查询。 所需权限：semantic:read。
+统一检索对象、属性、指标和业务值。对象与主名称属性归并，明确指定范围优先，在可用关联范围内按匹配程度和业务优先级绑定；并列候选需要澄清。默认返回业务绑定摘要，由平台构造 SQL。question 单独使用时仅做词典匹配。接口不调用模型、不执行数据查询。 所需权限：semantic:read。
 
 | 参数 | 必填 | 说明 |
 | --- | --- | --- |
 | namespace | 是 | 本体命名空间，例如 retail。 |
 | ontologyVersion | 否 | 发布版本号或 latest；省略时选择最新发布版本。 |
 | question | 否 | 保留用户原问题。未传 concepts 或非空 terms 时才用于完整词典词的包含匹配，不进行自然语言意图或时间解析。 |
-| terms | 否 | 完整业务术语数组，最多 32 项；按名称、编码或同义词精确匹配。优先级 concepts > terms > question。 |
-| concepts | 否 | Agent 提取的业务概念：metrics 命名指标或对象度量字段的名称/编码、dimensions 维度属性名称、filters 筛选属性名称、time 时间属性名称，均为字符串数组，每类最多 16 项。不要把今年等时间表达式或筛选值放入字段名数组。concepts、terms、question 至少一项非空；提供 concepts 时只按 concepts 检索。 |
+| terms | 否 | 统一词条数组，最多 32 项；每项为字符串，或 {term, role?, object?, property?}。role 可为 metrics/dimensions/filters/time/values/terms，object/property 可使用 ID 或名称，明确指定后只在该范围查找。优先级 terms > concepts > question。 |
+| concepts | 否 | 兼容分类入口：metrics 指标/度量、dimensions 对象/属性、filters 属性名或 {object?, property?, value}、values 业务值、time 时间字段，每类最多 16 项。建议使用 terms 统一检索；分组维度不自动限制未指定范围的筛选值。 |
 | purpose | 是 | 用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。 |
-| projection | 否 | 已选对象字段详细程度：compact（默认）、standard、full；均只包含相关属性，不会扩展检索范围。敏感字段边界始终生效。 |
-| include | 否 | 开关：values 值匹配、axioms 公理、inferences 推论、evidence 证明过程；全部默认关闭，需显式设为 true；evidence 仅在 inferences 同时开启时返回证明。仅影响响应，平台仍执行公理校验和查询约束。 |
+| projection | 否 | compact（默认）供平台执行 SQL 的调用方使用，返回绑定摘要，省略公式、依赖指标、关系和层级详情。standard/full 供解释或外部构造 SQL 使用；始终受可见性和本次候选范围约束。 |
+| include | 否 | values 默认参与统一值匹配，false 可关闭。axioms 公理、inferences 推论、evidence 证明过程默认关闭，需显式设为 true；evidence 仅在 inferences 同时开启时返回证明。公理与证明开关仅影响响应，平台仍执行公理校验和查询约束。 |
 
-返回说明：工具结果 包含 sessionId、ontologyVersion、objects、metrics、relations、values、axioms、inferences、refs、ambiguities 和 contextDigest。retrieval.status 为 MATCHED、PARTIAL_MATCH、NO_MATCH 或 AMBIGUOUS；未命中项位于 unmatchedTerms，candidates 包含匹配原因，ambiguities 由调用方确认。会话固定版本，有效期 30 分钟。
+返回说明：工具结果 包含 bindings（逐词 BOUND/AMBIGUOUS/UNMATCHED）、candidates（类型、归属、可用用途、简要匹配依据）、values（可用筛选条件）、sessionId、ontologyVersion 和 refs。compact 仅返回对象与直接指标摘要；公式依赖、完整关系和层级仅在 standard/full 返回。retrieval.status 为 MATCHED、PARTIAL_MATCH、NO_MATCH 或 AMBIGUOUS；未命中项位于 unmatchedTerms，candidates 包含匹配原因，ambiguities 由调用方确认。会话固定版本，有效期 30 分钟。
 
 调用参数示例：
 
@@ -66,15 +68,11 @@ ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读�
 {
   "namespace": "retail",
   "ontologyVersion": "latest",
-  "question": "按店铺查看销售额",
-  "concepts": {
-    "metrics": [
-      "销售额"
-    ],
-    "dimensions": [
-      "店铺"
-    ]
-  },
+  "question": "今年线上渠道销售额",
+  "terms": [
+    "线上渠道",
+    "销售额"
+  ],
   "purpose": "PLAN",
   "include": {
     "axioms": false,

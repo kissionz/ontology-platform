@@ -113,7 +113,7 @@ it("publishing a required relationship changes actual query rows and emits the g
     expect((after.data as any).sqlPreview.sql).toContain("INNER JOIN");
     expect((after.data as any).axioms.some((a: any) => a.subjectId === relation.id && a.parameters.required === true)).toBe(true);
     expect((await execute(1)).data).toMatchObject({ rows: (before.data as any).rows });
-    const context = platform.resolveOntologyContext({ namespace: "retail", purpose: "PLAN", terms: ["订单", "店铺"], ontologyVersion: 2 });
+    const context = platform.resolveOntologyContext({ namespace: "retail", purpose: "PLAN", projection: "standard", terms: ["订单", "店铺"], ontologyVersion: 2 });
     expect(context.relationPaths.find(p => p.relationIds.includes(relation.id))).toMatchObject({ from: "o_order", to: "o_store", safe: true, required: true });
     const invalid = platform.createDraft("retail");
     platform.applyDraftPatch("retail", invalid.draftId, invalid.revision, [{ op: "UPSERT_RELATION", value: { ...relation, type: "IDENTITY" } }]);

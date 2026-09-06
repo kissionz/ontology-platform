@@ -103,6 +103,11 @@ function resolvePreferredDisplayProperty(
     selected.object.grainPropertyIds.includes(selected.property.id);
   if (!identityLike) return selected.property;
 
+  const primaryNameId = (selected.object as unknown as OntologySnapshotV3["objects"][number]).primaryNamePropertyId;
+  if (primaryNameId) {
+    const primary = selected.object.properties.find(p => p.id === primaryNameId && p.meaning === "NAME" && p.visibility === "ANALYTICAL" && !p.sensitive);
+    if (primary) return primary;
+  }
   const candidateObjectIds = new Set<string>();
   for (const relation of ontology.relations) {
     if (relation.sourcePropertyId === propertyId) {
@@ -317,6 +322,10 @@ export class QueryIrCompiler {
       );
       selectParts.push(`${expression} AS ${quoteIdentifier(binding.property.label)}`);
       groupParts.push(expression);
+      if (binding.property.meaning === "NAME" && binding.object.objectType === "ENTITY") for (const id of binding.object.grainPropertyIds) {
+        const identity = binding.object.properties.find(p => p.id === id);
+        if (identity) groupParts.push(qualifiedColumn(aliases.get(binding.object.id)!, identity));
+      }
       const fallback = displayFallbacks.get(binding.property.id);
       if (fallback) {
         groupParts.push(qualifiedColumn(aliases.get(fallback.object.id)!, fallback.property));

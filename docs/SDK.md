@@ -1,5 +1,7 @@
 # SDK 接入说明
 
+compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
+
 公理、推论和证明详情默认关闭。解释或调试时用 include.axioms、include.inferences、include.evidence 按需开启；执行查询使用 options.includeAxioms 和 options.includeInferenceEvidence。规则始终在平台内执行。
 
 对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。
@@ -47,7 +49,7 @@ try {
     ontologyVersion: "latest",
     purpose: "PLAN",
     question: "按店铺查看销售额",
-    concepts: { metrics: ["销售额"], dimensions: ["店铺"] },
+    terms: ["销售额", { term: "店铺", role: "dimensions" }],
     include: { axioms: false, inferences: false, evidence: false },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
@@ -77,7 +79,7 @@ try:
         "ontologyVersion": "latest",
         "purpose": "PLAN",
         "question": "按店铺查看销售额",
-        "concepts": {"metrics": ["销售额"], "dimensions": ["店铺"]},
+        "terms": ["销售额", {"term": "店铺", "role": "dimensions"}],
         "include": {"axioms": False, "inferences": False, "evidence": False},
     })
     if response.get("status") == "SUCCEEDED":

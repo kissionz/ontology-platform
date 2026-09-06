@@ -9,9 +9,10 @@ export const MCP_CONFIG = {
 };
 
 export const MCP_NOTES = [
+  "compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。",
   "普通调用默认返回业务候选与引用，公理、推论和证明详情需显式开启。响应开关不影响平台内部校验与查询规则。",
   "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
-  "Agent 先提取完整业务概念传入 concepts。解析上下文只返回词典候选；优先级 concepts > terms > question。filters、time 数组填写属性名称，筛选值和时间范围由 Agent 确认后放入查询结构。检查 retrieval.status、unmatchedTerms、ambiguities；未命中返回空上下文，不会退回全部本体。",
+  "Agent 提取完整业务词放入 terms，平台同时检索对象、属性、指标和值。词条可写成 {term, role, object, property} 明确用途和范围；相同语义归并，优先级相同的不同候选需澄清。先检查 bindings 和 retrieval，再将确定的 ID 和 values[].filter 填入查询结构。",
   "先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。",
   "使用支持 stdio 的 MCP 客户端，配置中的项目路径须替换为本机绝对路径。通过标准输入输出交换逐行 JSON-RPC；当前启动器不提供独立的远程 MCP HTTP 入口。",
   "ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读取同一数据文件旁自动生成的密钥；自定义数据文件时设置 ONTOLOGY_DB_PATH，或用 ONTOLOGY_KEYS_PATH 指定密钥文件。",
@@ -22,7 +23,7 @@ export const MCP_NOTES = [
 ];
 
 export const MCP_EXAMPLES: Record<string, unknown> = {
-  ResolveOntologyContext: { namespace: "retail", ontologyVersion: "latest", question: "按店铺查看销售额", concepts: { metrics: ["销售额"], dimensions: ["店铺"] }, purpose: "PLAN", include: { axioms: false, inferences: false, evidence: false } },
+  ResolveOntologyContext: { namespace: "retail", ontologyVersion: "latest", question: "今年线上渠道销售额", terms: ["线上渠道", "销售额"], purpose: "PLAN", include: { axioms: false, inferences: false, evidence: false } },
   ExecuteSemanticQuery: { namespace: "retail", queryMode: "ANALYSIS", question: "按店铺查看销售额" },
   ContinueSemanticQuery: { clarificationId: "响应中的澄清ID", selections: { "待选择项目ID": "候选项ID" } },
   GetOntologySnapshot: { namespace: "retail", version: "latest" },
@@ -40,6 +41,7 @@ export const SDK_METHODS = [
 ];
 
 export const SDK_NOTES = [
+  "compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。",
   "公理、推论和证明详情默认关闭。解释或调试时用 include.axioms、include.inferences、include.evidence 按需开启；执行查询使用 options.includeAxioms 和 options.includeInferenceEvidence。规则始终在平台内执行。",
   "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
   "resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.status：NO_MATCH 时补充术语或同义词，PARTIAL_MATCH 时处理 unmatchedTerms，AMBIGUOUS 时确认候选；MATCHED 也不代表已完成业务意图解析。时间范围、筛选值和最终查询结构由调用方确定。",
@@ -67,7 +69,7 @@ try {
     ontologyVersion: "latest",
     purpose: "PLAN",
     question: "按店铺查看销售额",
-    concepts: { metrics: ["销售额"], dimensions: ["店铺"] },
+    terms: ["销售额", { term: "店铺", role: "dimensions" }],
     include: { axioms: false, inferences: false, evidence: false },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
@@ -93,7 +95,7 @@ try:
         "ontologyVersion": "latest",
         "purpose": "PLAN",
         "question": "按店铺查看销售额",
-        "concepts": {"metrics": ["销售额"], "dimensions": ["店铺"]},
+        "terms": ["销售额", {"term": "店铺", "role": "dimensions"}],
         "include": {"axioms": False, "inferences": False, "evidence": False},
     })
     if response.get("status") == "SUCCEEDED":

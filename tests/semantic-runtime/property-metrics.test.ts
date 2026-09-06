@@ -20,7 +20,7 @@ it("executes property measures independently and composes their aggregates with 
       const rows = data.prepare(sql).all(...parameters as string[]) as Record<string, unknown>[];
       return { rows, columns: Object.keys(rows[0] ?? {}), rowCount: rows.length, truncated: false };
     } });
-    const context = platform.resolveOntologyContext({ namespace: "retail", purpose: "PLAN", include: { axioms: true, inferences: true }, concepts: { metrics: ["m_cost_share"] } });
+    const context = platform.resolveOntologyContext({ namespace: "retail", purpose: "PLAN", projection: "standard", include: { axioms: true, inferences: true }, concepts: { metrics: ["m_cost_share"] } });
     expect(context.metrics.map(m => m.id)).toEqual(expect.arrayContaining(["m_cost_share", "p_sales", "p_cost"]));
     expect(context.axioms.some(a => a.subjectId === "p_sales" && a.axiomCode === "NUMBER_SPEC_REQUIRED")).toBe(true);
     expect(context.inferences.find(i => i.subjectId === "m_cost_share")?.premiseAssertionIds).toEqual(["p_cost", "p_sales"]);

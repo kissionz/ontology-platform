@@ -9,6 +9,7 @@ export function visibleSnapshot(input: OntologySnapshotV3): OntologySnapshotV3 {
   snapshot.objects = snapshot.objects.map(o => ({ ...o,
     properties: o.properties.filter(p => !hidden.has(p.id)),
     grainPropertyIds: o.grainPropertyIds.filter(id => !hidden.has(id)),
+    ...(o.primaryNamePropertyId && hidden.has(o.primaryNamePropertyId) ? { primaryNamePropertyId: undefined } : {}),
     ...(o.defaultTimePropertyId && hidden.has(o.defaultTimePropertyId) ? { defaultTimePropertyId: undefined } : {}),
     ...(refersToHidden(o.defaultFilter) ? { defaultFilter: undefined } : {}),
   }));

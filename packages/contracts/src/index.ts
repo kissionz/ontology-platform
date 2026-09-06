@@ -17,12 +17,12 @@ export const OntologyPropertySchema = z.object({
   dataType: z.string().min(1), sourceColumn: z.string().min(1), sensitive: z.boolean(), meaning: PropertyMeaningSchema,
   unique: z.boolean(), valueSearchable: z.boolean(), numericSpec: NumericPropertySpecSchema.optional(),
   visibility: PropertyVisibilitySchema, synonyms: z.array(z.string()), format: z.string().optional(), detailOrder: z.number().int().positive().optional(),
-  defaultDisplay: z.boolean(), exportable: z.boolean(), nullDisplay: z.string().optional(), bindingPriority: z.number().int().min(0).max(100)
+  inheritBindingPriority: z.boolean().optional(), defaultDisplay: z.boolean(), exportable: z.boolean(), nullDisplay: z.string().optional(), bindingPriority: z.number().int().min(0).max(100)
 }).strict();
 export const OntologyObjectSchema = z.object({
   id: z.string().min(1), name: z.string().min(1), label: z.string().min(1), description: z.string(), sourceTableId: z.string().min(1),
   status: EntityStatusSchema, objectType: ObjectTypeSchema, grainPropertyIds: z.array(z.string()), grain: z.string(),
-  identityReviewRequired: z.boolean().optional(), defaultTimePropertyId: z.string().optional(), defaultFilter: z.string().optional(),
+  primaryNamePropertyId: z.string().optional(), identityReviewRequired: z.boolean().optional(), defaultTimePropertyId: z.string().optional(), defaultFilter: z.string().optional(),
   category: z.string().optional(), owner: z.string().optional(), exampleQuestions: z.array(z.string()), properties: z.array(OntologyPropertySchema),
   synonyms: z.array(z.string()), bindingPriority: z.number().int().min(0).max(100)
 }).strict();
@@ -69,10 +69,15 @@ export const OntologySnapshotV3Schema = z.object({
   axiomAssertions: z.array(AxiomAssertionSchema), inferredAssertions: z.array(InferredAssertionSchema), inferenceDigest: z.string()
 }).strict();
 
+export const SemanticSearchTermSchema = z.union([z.string().trim().min(1), z.object({
+  term: z.string().trim().min(1), role: z.enum(["metrics", "dimensions", "filters", "time", "values", "terms"]).optional(),
+  object: z.string().trim().min(1).optional(), property: z.string().trim().min(1).optional()
+}).strict()]);
+export const SemanticFilterTermSchema = z.union([z.string().trim().min(1), z.object({ value: z.string().trim().min(1), object: z.string().trim().min(1).optional(), property: z.string().trim().min(1).optional() }).strict()]);
 export const ResolveSemanticContextInputSchema = z.object({
   namespace: z.string().min(1), ontologyVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(), question: z.string().optional(),
-  terms: z.array(z.string().trim().min(1)).max(32).optional(),
-  concepts: z.object({ metrics: z.array(z.string().trim().min(1)).max(16).optional(), dimensions: z.array(z.string().trim().min(1)).max(16).optional(), filters: z.array(z.string().trim().min(1)).max(16).optional(), time: z.array(z.string().trim().min(1)).max(16).optional() }).strict().optional(), purpose: z.enum(["ANSWER", "PLAN", "EXPLAIN", "MODEL"]), projection: z.enum(["compact", "standard", "full"]).optional(),
+  terms: z.array(SemanticSearchTermSchema).max(32).optional(),
+  concepts: z.object({ values: z.array(z.string().trim().min(1)).max(16).optional(), metrics: z.array(z.string().trim().min(1)).max(16).optional(), dimensions: z.array(z.string().trim().min(1)).max(16).optional(), filters: z.array(SemanticFilterTermSchema).max(16).optional(), time: z.array(z.string().trim().min(1)).max(16).optional() }).strict().optional(), purpose: z.enum(["ANSWER", "PLAN", "EXPLAIN", "MODEL"]), projection: z.enum(["compact", "standard", "full"]).optional(),
   include: z.object({ values: z.boolean().optional(), axioms: z.boolean().optional(), inferences: z.boolean().optional(), evidence: z.boolean().optional() }).optional()
 }).strict();
 export const QueryIrSchema = z.object({

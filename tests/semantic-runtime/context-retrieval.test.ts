@@ -22,17 +22,17 @@ it("does not return the entire ontology on no match or a shared Chinese characte
   }
 });
 
-it("prioritizes extracted concepts and excludes neighboring objects and unrelated properties", () => {
-  const context = setup().resolveOntologyContext({ ...base, question: "各事业部毛利率和成本额", terms: ["事业部"], concepts: { metrics: ["销售额"] } });
+it("prioritizes explicit unified terms and excludes unrelated question definitions", () => {
+  const context = setup().resolveOntologyContext({ ...base, question: "各事业部毛利率和成本额", terms: [{ term: "销售额", role: "metrics" }], concepts: { dimensions: ["事业部"] }, projection: "standard" });
   expect(context.objects.map(o => o.id)).toEqual(["o_order"]);
   expect(context.metrics.map(m => m.id)).toEqual(["m_sales"]);
   expect(context.objects[0]!.properties.map(p => p.id)).toEqual(["p_order_id", "p_order_date", "p_sales"]);
   expect(context.relations).toEqual([]);
-  expect(context.candidates).toEqual([expect.objectContaining({ kind: "metric", matchedBy: "销售额", role: "metrics", reason: "业务名称命中" })]);
+  expect(context.candidates).toEqual([expect.objectContaining({ kind: "metric", matchedBy: "销售额", role: "metrics", reason: expect.stringContaining("业务名称命中") })]);
 });
 
 it("returns intermediate join definitions and their closed axiom proof dependencies", () => {
-  const context = setup().resolveOntologyContext({ ...base, include: { axioms: true, inferences: true, evidence: true }, concepts: { metrics: ["销售额"], dimensions: ["事业部"] } });
+  const context = setup().resolveOntologyContext({ ...base, projection: "standard", include: { axioms: true, inferences: true, evidence: true }, concepts: { metrics: ["销售额"], dimensions: ["事业部"] } });
   expect(context.relations.map(r => r.id)).toEqual(["r_order_store", "r_store_dept", "r_dept_bu"]);
   expect(context.inferences.some(i => i.predicate === "RELATION_REACHABLE" && i.subjectId === "o_order" && i.objectId === "o_bu")).toBe(true);
   const ids = new Set([...context.objects.flatMap(o => [o.id, ...o.properties.map(p => p.id)]), ...context.metrics.map(m => m.id), ...context.relations.map(r => r.id), ...context.hierarchies.map(h => h.id)]);
@@ -44,7 +44,7 @@ it("returns intermediate join definitions and their closed axiom proof dependenc
 });
 
 it("includes derived metric operands and their numeric aggregation rules", () => {
-  const context = setup().resolveOntologyContext({ ...base, include: { axioms: true, inferences: true }, concepts: { metrics: ["毛利率"] } });
+  const context = setup().resolveOntologyContext({ ...base, projection: "standard", include: { axioms: true, inferences: true }, concepts: { metrics: ["毛利率"] } });
   expect(context.metrics.map(m => m.id)).toEqual(expect.arrayContaining(["m_margin", "m_sales", "m_cost"]));
   expect(context.axioms.some(a => a.axiomCode === "RATIO_NON_ADDITIVE" && a.subjectId === "m_margin")).toBe(true);
   expect(context.inferences.some(i => i.subjectId === "m_margin")).toBe(true);
@@ -62,16 +62,16 @@ it("reports synonyms with multiple definitions as ambiguous without selecting on
 
 it("separates metric, dimension, filter and time fields and reports partial matches", () => {
   const context = setup().resolveOntologyContext({ ...base, concepts: { metrics: ["销售额"], dimensions: ["店铺"], filters: ["事业部"], time: ["业务日期", "今年"] } });
-  expect(context.candidates.filter(c => c.role === "dimensions").map(c => c.id)).toEqual(["p_store_name"]);
-  expect(context.candidates.filter(c => c.role === "filters").map(c => c.id)).toEqual(["p_bu_name"]);
-  expect(context.retrieval).toMatchObject({ status: "PARTIAL_MATCH", unmatchedTerms: [{ role: "time", term: "今年" }] });
+  expect(context.candidates.filter(c => c.role === "dimensions").map(c => c.propertyId)).toEqual(["p_store_name"]);
+  expect(context.candidates.filter(c => c.role === "filters").map(c => c.propertyId)).toEqual(["p_bu_name"]);
+  expect(context.retrieval).toMatchObject({ status: "PARTIAL_MATCH", unmatchedTerms: [{ role: "time", term: "今年", reason: "指定范围内未命中" }] });
 });
 
 it("preserves complete business terms and direct object ID matching", () => {
   const context = setup().resolveOntologyContext({ ...base, question: "事业部成本额", terms: ["o_order"] });
   expect(context.objects.map(o => o.id)).toEqual(["o_order"]);
   expect(context.metrics).toEqual([]);
-  expect(context.retrieval.mode).toBe("TERMS");
+  expect(context.retrieval.mode).toBe("UNIFIED");
 });
 
 it("validates bounded, nonblank concept arrays and rejects empty input", () => {
