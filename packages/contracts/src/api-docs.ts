@@ -44,3 +44,32 @@ export const REQUEST_DOCS: Record<string, { fields: Record<string, string>; exam
 };
 
 export const PATH_DESCRIPTIONS: Record<string, string> = { ns: "本体命名空间，例如 retail。", sourceId: "数据源标识，控制台默认使用 selectdb。", version: "目标发布版本号，从版本列表取得，不能填写 latest。", draftId: "创建或读取草稿返回的 draftId。", id: "该版本推论列表中的推论 ID。", clarificationId: "NEEDS_CLARIFICATION 响应中的澄清 ID。", clientId: "客户端列表或创建响应中的 clientId。" };
+
+export const QUERY_FIELD_DESCRIPTIONS: Record<string, string> = {
+  "intent.metrics":"要计算的指标或度量业务名称。按字段默认聚合或指标定义计算。",
+  "intent.dimensions":"分组对象或属性名称；对象自动使用主名称属性。",
+  "intent.filters":"业务值筛选数组，多个条件同时成立（AND）。",
+  "intent.filters[].value":"要匹配的业务值；通过已发布版本的值索引查找。",
+  "intent.filters[].object":"可选对象名称或 ID，限定值检索范围。",
+  "intent.filters[].property":"可选属性名称或 ID，限定值检索范围。",
+  "intent.time":"时间筛选，先筛选再汇总，不自动增加时间分组。",
+  "intent.time.field":"时间属性名称或 ID，例如业务日期。",
+  "intent.time.period":"由平台按服务器时间计算的时间周期。",
+  "intent.sort":"对已选择的指标或维度排序。",
+  "intent.sort[].field":"已选择的指标或维度名称，必须能唯一绑定。",
+  "intent.sort[].direction":"ASC 升序；DESC 降序。",
+  "intent.limit":"结果行数限制，默认 200。",
+  "pagination.pageSize":"每页返回行数，上限 10000。",
+  "pagination.cursor":"上一页 completeness.nextCursor；保持原本体版本及查询条件。",
+  "options.includeQueryIr":"返回编译中间表示，供 Query IR 标签页展示；默认关闭。",
+  "options.includeSqlPreview":"返回 SQL 和脱敏参数，供 SQL 标签页展示；默认关闭，开启后仍执行查询。",
+  "options.includeResolution":"返回绑定与解析详情；默认关闭。",
+  "options.includeOntologyContext":"附带语义上下文；默认关闭。",
+  "options.includeAxioms":"返回公理实例；默认关闭，平台始终执行规则校验。",
+  "options.includeInferenceEvidence":"返回推论与证据；默认关闭。",
+  "queryShape.rootObjectId":"查询事实或主对象的稳定 ID。",
+  "queryShape.measureIds":"指标或可用度量属性 ID。",
+  "queryShape.dimensionPropertyIds":"分组属性 ID。",
+  "queryShape.filters":"直接属性筛选，多个条件按 AND 组合。",
+  "queryShape.resultKind":"aggregate 汇总；detail 明细。使用 FIXED_SHAPE 及对应可用查询结构。"
+};

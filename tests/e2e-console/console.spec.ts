@@ -184,7 +184,8 @@ test("all six pages fit both confirmed desktop widths", async ({ page }) => {
 
 test("API reference covers every endpoint and provides MCP and SDK guides", async ({ page }) => {
   await page.goto("/?page=system");
-  const selector = page.getByLabel("选择 API 接口");
+  await page.getByRole("button", { name: "API 说明", exact: true }).click();
+  const selector = page.getByLabel("选择文档接口");
   await expect(selector.locator("option")).toHaveCount(29);
   const values = await selector.locator("option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
   for (const value of values) {
@@ -193,12 +194,13 @@ test("API reference covers every endpoint and provides MCP and SDK guides", asyn
     await expect(page.getByLabel("当前 API 说明")).toContainText("所需权限");
   }
   await selector.selectOption("POST /v1/semantic-query");
-  await page.getByText("参数说明（10）", { exact: true }).click();
+  await expect(page.getByText("业务响应字段", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("当前 API 说明")).toContainText("sqlPreview");
   await expect(page.getByLabel("当前 API 说明")).toContainText("FIXED_SHAPE");
   await page.getByText("请求示例与完整结构", { exact: true }).click();
   await page.getByRole("button", { name: "填入请求示例", exact: true }).click();
   await expect(page.getByLabel("请求体", { exact: true })).toHaveValue(/"INTENT"/);
-  await selector.selectOption("GET /v1/namespaces/{ns}/summary");
+  await page.getByLabel("选择 API 接口").selectOption("GET /v1/namespaces/{ns}/summary");
   await page.getByLabel("查询参数 version").fill("1");
   const request = page.waitForResponse(r => r.url().includes("/summary?version=1"));
   await page.getByRole("button", { name: "发送请求", exact: true }).click();
@@ -488,4 +490,29 @@ test("business intent executes from the API console in one request", async ({ pa
   await expect(page.locator(".response-json")).toContainText('"businessSummary"');
   await expect(page.locator(".response-json")).toContainText('"rows"');
   await expect(page.locator(".response-json")).not.toContainText('"sqlPreview"');
+});
+
+
+test("debugger loads each operation example and keeps documentation separate", async ({page, request}) => {
+  const apiDocument = await (await request.get('/v1/system/openapi.json')).json();
+  await page.goto('/?page=system');
+  await expect(page.getByLabel('当前 API 说明')).toHaveCount(0);
+  for (const [path, methods] of Object.entries(apiDocument.paths)) for (const [method, operation] of Object.entries(methods as any)) {
+    await page.getByLabel('选择 API 接口').selectOption(`${method.toUpperCase()} /v1${path}`);
+    const content = (operation as any).requestBody?.content?.['application/json'];
+    if (content) await expect(page.getByLabel('请求体',{exact:true})).toHaveValue(JSON.stringify(content.example,null,2));
+    else await expect(page.getByLabel('请求体',{exact:true})).toHaveCount(0);
+  }
+  await page.getByLabel('选择 API 接口').selectOption('POST /v1/semantic-query');
+  await page.getByLabel('请求体',{exact:true}).fill('{}');
+  await page.getByRole('button',{name:'重置请求示例',exact:true}).click();
+  await expect(page.getByLabel('请求体',{exact:true})).toHaveValue(/"INTENT"/);
+  await page.getByRole('button',{name:'查看 API 说明',exact:true}).click();
+  await page.getByText('响应示例',{exact:true}).click();
+  await expect(page.getByLabel('当前 API 说明')).toContainText('NEEDS_CLARIFICATION');
+  for (const width of [1600,1280]) {
+    await page.setViewportSize({width,height:1000});
+    await page.screenshot({path:`${tmpdir()}/ontology-api-docs-${width}.png`,fullPage:true});
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
 });

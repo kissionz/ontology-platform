@@ -18,6 +18,29 @@
         "description": "查看服务版本、组件配置状态和服务器时间；组件显示已配置不代表数据库连接测试通过。",
         "security": [],
         "x-required-scopes": "无需认证",
+        "x-envelope-fields": [],
+        "x-response-fields": [
+          {
+            "path": "status",
+            "type": "string",
+            "description": "服务状态。"
+          },
+          {
+            "path": "version / kernelVersion",
+            "type": "string",
+            "description": "服务与公理内核版本。"
+          },
+          {
+            "path": "components",
+            "type": "object",
+            "description": "组件配置状态，不代表数据库可连接。"
+          },
+          {
+            "path": "time",
+            "type": "string",
+            "description": "服务器时间。"
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -46,6 +69,34 @@
         "description": "获取当前服务提供的 OpenAPI 3.1 文档，包含接口、参数、请求结构和中文说明。",
         "security": [],
         "x-required-scopes": "无需认证",
+        "x-envelope-fields": [],
+        "x-response-fields": [
+          {
+            "path": "openapi",
+            "type": "string",
+            "description": "OpenAPI 版本。"
+          },
+          {
+            "path": "info",
+            "type": "object",
+            "description": "服务标题与版本。"
+          },
+          {
+            "path": "servers[]",
+            "type": "object[]",
+            "description": "API 根地址。"
+          },
+          {
+            "path": "paths",
+            "type": "object",
+            "description": "各接口操作、参数、示例和响应说明。"
+          },
+          {
+            "path": "components.schemas",
+            "type": "object",
+            "description": "请求及领域结构的 JSON Schema。"
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -78,6 +129,115 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "ontologyVersion / status",
+            "type": "number / string",
+            "description": "实际版本和发布状态。"
+          },
+          {
+            "path": "counts",
+            "type": "object",
+            "description": "对象、关系、指标、公理等数量。"
+          },
+          {
+            "path": "contentDigest",
+            "type": "string",
+            "description": "定义摘要。"
+          },
+          {
+            "path": "valueIndex",
+            "type": "object",
+            "description": "值索引状态。"
+          },
+          {
+            "path": "defaultObject",
+            "type": "object / null",
+            "description": "默认对象。"
+          },
+          {
+            "path": "graph",
+            "type": "object",
+            "description": "概览图谱。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -139,6 +299,135 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "schemaVersion",
+            "type": "number",
+            "description": "快照格式版本，当前为 3。"
+          },
+          {
+            "path": "namespace / version / status",
+            "type": "string / number / string",
+            "description": "命名空间、发布版本与状态。"
+          },
+          {
+            "path": "objects[]",
+            "type": "object[]",
+            "description": "对象定义；含 id、label、objectType、properties、grainPropertyIds、primaryNamePropertyId。"
+          },
+          {
+            "path": "objects[].properties[]",
+            "type": "object[]",
+            "description": "属性定义：id、label、meaning、sourceColumn、visibility、numericSpec、valueSearchable。"
+          },
+          {
+            "path": "relations[]",
+            "type": "object[]",
+            "description": "对象及属性连接、方向、基数、启用状态和关系策略。"
+          },
+          {
+            "path": "metrics[]",
+            "type": "object[]",
+            "description": "指标定义及聚合、公式、源属性或依赖指标。"
+          },
+          {
+            "path": "dimensionHierarchies[]",
+            "type": "object[]",
+            "description": "层级定义、层次和字段映射。"
+          },
+          {
+            "path": "axiomAssertions[] / inferredAssertions[]",
+            "type": "object[]",
+            "description": "固化公理和推论。"
+          },
+          {
+            "path": "contentDigest / inferenceDigest",
+            "type": "string",
+            "description": "定义与推论摘要。"
+          },
+          {
+            "path": "publishedAt",
+            "type": "string（可选）",
+            "description": "发布时间。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -212,6 +501,100 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "ontologyVersion",
+            "type": "number",
+            "description": "版本。"
+          },
+          {
+            "path": "nodes[]",
+            "type": "object[]",
+            "description": "图节点：标识、标签和类型。"
+          },
+          {
+            "path": "edges[]",
+            "type": "object[]",
+            "description": "图连线：源、目标及关系信息。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -288,6 +671,110 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "[].version / [].status",
+            "type": "number / string",
+            "description": "版本及发布状态，按版本倒序。"
+          },
+          {
+            "path": "[].publishedAt / [].publishedBy",
+            "type": "string",
+            "description": "发布时间与发布人。"
+          },
+          {
+            "path": "[].changeSummary",
+            "type": "string",
+            "description": "变更说明。"
+          },
+          {
+            "path": "[].objectCount / [].relationCount / [].metricCount",
+            "type": "number",
+            "description": "定义数量。"
+          },
+          {
+            "path": "[].contentDigest / [].inferenceDigest",
+            "type": "string",
+            "description": "版本摘要。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -339,6 +826,95 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "baseVersion",
+            "type": "number",
+            "description": "实际比较基线。"
+          },
+          {
+            "path": "objects / relations / metrics / hierarchies / axioms / inferences",
+            "type": "object",
+            "description": "每类包含 added、changed、removed，用于展示增删改。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -409,6 +985,120 @@
           }
         ],
         "x-required-scopes": "ontology:draft",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "draftId",
+            "type": "string",
+            "description": "后续草稿操作使用的 ID。"
+          },
+          {
+            "path": "baseVersion",
+            "type": "number",
+            "description": "草稿基线，用于发布并发校验。"
+          },
+          {
+            "path": "revision",
+            "type": "number",
+            "description": "每次修改递增；修改请求提交最新值。"
+          },
+          {
+            "path": "snapshot",
+            "type": "object",
+            "description": "当前草稿，结构同本体快照。"
+          },
+          {
+            "path": "physicalTables[]",
+            "type": "object[]",
+            "description": "已扫描的物理表及字段。"
+          },
+          {
+            "path": "validation",
+            "type": "object（修改后）",
+            "description": "valid 和 issues；保存成功仍需关注校验问题。"
+          },
+          {
+            "path": "goldenReport",
+            "type": "object（可选）",
+            "description": "编译回归结果、运行时间和关联 revision。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -474,6 +1164,120 @@
           }
         ],
         "x-required-scopes": "ontology:draft",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "draftId",
+            "type": "string",
+            "description": "后续草稿操作使用的 ID。"
+          },
+          {
+            "path": "baseVersion",
+            "type": "number",
+            "description": "草稿基线，用于发布并发校验。"
+          },
+          {
+            "path": "revision",
+            "type": "number",
+            "description": "每次修改递增；修改请求提交最新值。"
+          },
+          {
+            "path": "snapshot",
+            "type": "object",
+            "description": "当前草稿，结构同本体快照。"
+          },
+          {
+            "path": "physicalTables[]",
+            "type": "object[]",
+            "description": "已扫描的物理表及字段。"
+          },
+          {
+            "path": "validation",
+            "type": "object（修改后）",
+            "description": "valid 和 issues；保存成功仍需关注校验问题。"
+          },
+          {
+            "path": "goldenReport",
+            "type": "object（可选）",
+            "description": "编译回归结果、运行时间和关联 revision。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -532,6 +1336,120 @@
           }
         ],
         "x-required-scopes": "ontology:draft",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "draftId",
+            "type": "string",
+            "description": "后续草稿操作使用的 ID。"
+          },
+          {
+            "path": "baseVersion",
+            "type": "number",
+            "description": "草稿基线，用于发布并发校验。"
+          },
+          {
+            "path": "revision",
+            "type": "number",
+            "description": "每次修改递增；修改请求提交最新值。"
+          },
+          {
+            "path": "snapshot",
+            "type": "object",
+            "description": "当前草稿，结构同本体快照。"
+          },
+          {
+            "path": "physicalTables[]",
+            "type": "object[]",
+            "description": "已扫描的物理表及字段。"
+          },
+          {
+            "path": "validation",
+            "type": "object（修改后）",
+            "description": "valid 和 issues；保存成功仍需关注校验问题。"
+          },
+          {
+            "path": "goldenReport",
+            "type": "object（可选）",
+            "description": "编译回归结果、运行时间和关联 revision。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -621,6 +1539,115 @@
           }
         ],
         "x-required-scopes": "ontology:draft",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "valid",
+            "type": "boolean",
+            "description": "是否通过公理校验。"
+          },
+          {
+            "path": "issues[]",
+            "type": "object[]",
+            "description": "校验问题：规则、位置及说明。"
+          },
+          {
+            "path": "axiomAssertions[] / inferencePreview[]",
+            "type": "object[]",
+            "description": "公理和推论预览。"
+          },
+          {
+            "path": "goldenCases",
+            "type": "object",
+            "description": "查询编译回归报告；只编译，不执行业务数据查询。"
+          },
+          {
+            "path": "draftId / revision",
+            "type": "string / number",
+            "description": "被校验的草稿及修订号。"
+          },
+          {
+            "path": "digests",
+            "type": "object",
+            "description": "content 和 inference 摘要。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -693,6 +1720,135 @@
           }
         ],
         "x-required-scopes": "ontology:publish",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "schemaVersion",
+            "type": "number",
+            "description": "快照格式版本，当前为 3。"
+          },
+          {
+            "path": "namespace / version / status",
+            "type": "string / number / string",
+            "description": "命名空间、发布版本与状态。"
+          },
+          {
+            "path": "objects[]",
+            "type": "object[]",
+            "description": "对象定义；含 id、label、objectType、properties、grainPropertyIds、primaryNamePropertyId。"
+          },
+          {
+            "path": "objects[].properties[]",
+            "type": "object[]",
+            "description": "属性定义：id、label、meaning、sourceColumn、visibility、numericSpec、valueSearchable。"
+          },
+          {
+            "path": "relations[]",
+            "type": "object[]",
+            "description": "对象及属性连接、方向、基数、启用状态和关系策略。"
+          },
+          {
+            "path": "metrics[]",
+            "type": "object[]",
+            "description": "指标定义及聚合、公式、源属性或依赖指标。"
+          },
+          {
+            "path": "dimensionHierarchies[]",
+            "type": "object[]",
+            "description": "层级定义、层次和字段映射。"
+          },
+          {
+            "path": "axiomAssertions[] / inferredAssertions[]",
+            "type": "object[]",
+            "description": "固化公理和推论。"
+          },
+          {
+            "path": "contentDigest / inferenceDigest",
+            "type": "string",
+            "description": "定义与推论摘要。"
+          },
+          {
+            "path": "publishedAt",
+            "type": "string（可选）",
+            "description": "发布时间。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -768,6 +1924,110 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "[].id / [].axiomCode",
+            "type": "string",
+            "description": "公理实例 ID 和规则编码。"
+          },
+          {
+            "path": "[].subjectId / [].subjectType",
+            "type": "string",
+            "description": "约束对象及类型。"
+          },
+          {
+            "path": "[].parameters",
+            "type": "object",
+            "description": "规则参数。"
+          },
+          {
+            "path": "[].enforcement / [].severity",
+            "type": "string",
+            "description": "生效阶段与严重性。"
+          },
+          {
+            "path": "[].sourceDefinitionIds[]",
+            "type": "string[]",
+            "description": "生成此公理的定义 ID。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -829,6 +2089,115 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "[].id / predicate",
+            "type": "string",
+            "description": "推论标识和推论类型。"
+          },
+          {
+            "path": "[].subjectId / objectId",
+            "type": "string",
+            "description": "关联定义标识，objectId 可选。"
+          },
+          {
+            "path": "[].value",
+            "type": "any",
+            "description": "推论结论。"
+          },
+          {
+            "path": "[].axiomAssertionIds[] / premiseAssertionIds[]",
+            "type": "string[]",
+            "description": "公理与前提引用。"
+          },
+          {
+            "path": "[].proof[]",
+            "type": "object[]",
+            "description": "证明步骤，包含事实、公理、推导。"
+          },
+          {
+            "path": "[].ontologyVersion",
+            "type": "number",
+            "description": "推论所属版本。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -890,6 +2259,115 @@
           }
         ],
         "x-required-scopes": "ontology:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "id / predicate",
+            "type": "string",
+            "description": "推论标识和推论类型。"
+          },
+          {
+            "path": "subjectId / objectId",
+            "type": "string",
+            "description": "关联定义标识，objectId 可选。"
+          },
+          {
+            "path": "value",
+            "type": "any",
+            "description": "推论结论。"
+          },
+          {
+            "path": "axiomAssertionIds[] / premiseAssertionIds[]",
+            "type": "string[]",
+            "description": "公理与前提引用。"
+          },
+          {
+            "path": "proof[]",
+            "type": "object[]",
+            "description": "证明步骤，包含事实、公理、推导。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number",
+            "description": "推论所属版本。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -960,6 +2438,150 @@
           }
         ],
         "x-required-scopes": "semantic:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "sessionId / expiresAt",
+            "type": "string",
+            "description": "固定版本会话及过期时间。"
+          },
+          {
+            "path": "ontologyVersion / projection",
+            "type": "number / string",
+            "description": "实际版本与投影模式。"
+          },
+          {
+            "path": "bindings[]",
+            "type": "object[]",
+            "description": "term、role、status；BOUND 返回 selected，值绑定还返回 filter；AMBIGUOUS 返回 candidateReferences。"
+          },
+          {
+            "path": "bindings[].selected",
+            "type": "object",
+            "description": "kind、id、objectId、propertyId；对象维度使用主名称属性。"
+          },
+          {
+            "path": "candidates[]",
+            "type": "object[]",
+            "description": "候选类型、业务标签、所属对象及属性、匹配原因、优先级和可用用途。"
+          },
+          {
+            "path": "values[]",
+            "type": "object[]",
+            "description": "匹配值及归属，filter 可用于 EQ 筛选。"
+          },
+          {
+            "path": "retrieval",
+            "type": "object",
+            "description": "status、unmatchedTerms、notice；MATCHED、PARTIAL_MATCH、NO_MATCH、AMBIGUOUS。"
+          },
+          {
+            "path": "ambiguities[]",
+            "type": "object[]",
+            "description": "待澄清词条、原因与候选。"
+          },
+          {
+            "path": "objects[] / metrics[]",
+            "type": "object[]",
+            "description": "compact 为直接命中对象和指标摘要，standard/full 返回详细定义。"
+          },
+          {
+            "path": "relations[] / hierarchies[] / relationPaths[]",
+            "type": "object[]",
+            "description": "standard/full 中返回相关构造信息；compact 为空数组。"
+          },
+          {
+            "path": "axioms[] / inferences[]",
+            "type": "object[]",
+            "description": "include 对应开关显式开启时返回。"
+          },
+          {
+            "path": "refs",
+            "type": "object",
+            "description": "兼容会话短引用映射；新调用可直接使用稳定 ID。"
+          },
+          {
+            "path": "contextDigest / tokenEstimate",
+            "type": "string / number",
+            "description": "上下文摘要与估计 token 数。"
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -1028,6 +2650,246 @@
           }
         ],
         "x-required-scopes": "semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "columns[]",
+            "type": "string[]（成功时）",
+            "description": "返回列名，按结果顺序排列。"
+          },
+          {
+            "path": "rows[]",
+            "type": "object[]（成功时）",
+            "description": "结果行；对象键与 columns 对应。无匹配数据可为空数组。"
+          },
+          {
+            "path": "rowCount / truncated",
+            "type": "number / boolean",
+            "description": "本次返回行数与截断状态。"
+          },
+          {
+            "path": "ontologyVersion / resolutionMode",
+            "type": "number / string",
+            "description": "实际本体版本及查询模式。"
+          },
+          {
+            "path": "businessSummary",
+            "type": "object（INTENT 成功时）",
+            "description": "业务口径摘要：metrics、dimensions、filters 和 time。"
+          },
+          {
+            "path": "businessSummary.filters[]",
+            "type": "object[]",
+            "description": "每项含 object、property、value，说明实际筛选归属。"
+          },
+          {
+            "path": "planId",
+            "type": "string（成功时）",
+            "description": "本次编译查询计划标识。"
+          },
+          {
+            "path": "queryIr",
+            "type": "object（可选）",
+            "description": "options.includeQueryIr=true 返回：rootObjectId、measureIds、dimensionPropertyIds、filters、relationIds、timeRange、sort、limit。"
+          },
+          {
+            "path": "sqlPreview",
+            "type": "object（可选）",
+            "description": "options.includeSqlPreview=true 返回 sql 与 parameters；参数值脱敏为问号。此开关仍会执行查询，不是仅预览。"
+          },
+          {
+            "path": "resolution / ontologyContext",
+            "type": "object（可选）",
+            "description": "includeResolution / includeOntologyContext 控制绑定和上下文详情。"
+          },
+          {
+            "path": "axioms / inferenceEvidence",
+            "type": "array（可选）",
+            "description": "includeAxioms / includeInferenceEvidence 控制规则和推论证据。"
+          },
+          {
+            "path": "missing[]",
+            "type": "object[]（NEEDS_INPUT）",
+            "description": "field、term、reason；补充业务信息或修复定义后重新查询，不执行 SQL。"
+          },
+          {
+            "path": "clarificationId",
+            "type": "string（NEEDS_CLARIFICATION）",
+            "description": "用于继续接口的路径参数，有效期 30 分钟。"
+          },
+          {
+            "path": "clarifications[]",
+            "type": "object[]（NEEDS_CLARIFICATION）",
+            "description": "id、term、reason、candidates；每个候选含 id、label、object、property。selections 使用原样返回的候选 ID。"
+          },
+          {
+            "path": "context / acceptanceContract",
+            "type": "object（ANALYSIS_READY）",
+            "description": "分析上下文与验收约束；该模式不执行数据查询。"
+          }
+        ],
+        "x-response-examples": {
+          "success": {
+            "requestId": "req_example",
+            "namespace": "retail",
+            "ontologyVersion": 1,
+            "status": "SUCCEEDED",
+            "data": {
+              "columns": [
+                "标准店名",
+                "销售金额"
+              ],
+              "rows": [
+                {
+                  "标准店名": "示例店铺",
+                  "销售金额": 1200
+                }
+              ],
+              "rowCount": 1,
+              "truncated": false,
+              "ontologyVersion": 1,
+              "resolutionMode": "INTENT",
+              "businessSummary": {
+                "metrics": [
+                  "销售金额"
+                ],
+                "dimensions": [
+                  "标准店名"
+                ],
+                "filters": [],
+                "time": "今年"
+              },
+              "planId": "plan_example"
+            },
+            "warnings": [],
+            "auditId": "audit_example",
+            "completeness": {
+              "complete": true,
+              "truncated": false,
+              "nextCursor": null
+            }
+          },
+          "missing": {
+            "status": "NEEDS_INPUT",
+            "data": {
+              "status": "NEEDS_INPUT",
+              "missing": [
+                {
+                  "field": "filter_0",
+                  "term": "线上渠道",
+                  "reason": "与指标对象之间没有可安全使用的关联路径"
+                }
+              ]
+            }
+          },
+          "clarification": {
+            "status": "NEEDS_CLARIFICATION",
+            "data": {
+              "status": "NEEDS_CLARIFICATION",
+              "clarificationId": "clar_example",
+              "clarifications": [
+                {
+                  "id": "filter_0",
+                  "term": "线上",
+                  "reason": "请确认业务含义",
+                  "candidates": [
+                    {
+                      "id": "[\"value\",\"value_example\",\"p_channel\"]",
+                      "label": "线上",
+                      "object": "组织单元",
+                      "property": "组织单元名称"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "error": {
+            "status": "FAILED",
+            "error": {
+              "code": "INVALID_REQUEST",
+              "message": "请求参数不符合契约",
+              "stage": "binding",
+              "retryable": false
+            }
+          }
+        },
         "parameters": [],
         "responses": {
           "200": {
@@ -1092,6 +2954,246 @@
           }
         ],
         "x-required-scopes": "semantic:read + semantic:plan + data:execute",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "columns[]",
+            "type": "string[]（成功时）",
+            "description": "返回列名，按结果顺序排列。"
+          },
+          {
+            "path": "rows[]",
+            "type": "object[]（成功时）",
+            "description": "结果行；对象键与 columns 对应。无匹配数据可为空数组。"
+          },
+          {
+            "path": "rowCount / truncated",
+            "type": "number / boolean",
+            "description": "本次返回行数与截断状态。"
+          },
+          {
+            "path": "ontologyVersion / resolutionMode",
+            "type": "number / string",
+            "description": "实际本体版本及查询模式。"
+          },
+          {
+            "path": "businessSummary",
+            "type": "object（INTENT 成功时）",
+            "description": "业务口径摘要：metrics、dimensions、filters 和 time。"
+          },
+          {
+            "path": "businessSummary.filters[]",
+            "type": "object[]",
+            "description": "每项含 object、property、value，说明实际筛选归属。"
+          },
+          {
+            "path": "planId",
+            "type": "string（成功时）",
+            "description": "本次编译查询计划标识。"
+          },
+          {
+            "path": "queryIr",
+            "type": "object（可选）",
+            "description": "options.includeQueryIr=true 返回：rootObjectId、measureIds、dimensionPropertyIds、filters、relationIds、timeRange、sort、limit。"
+          },
+          {
+            "path": "sqlPreview",
+            "type": "object（可选）",
+            "description": "options.includeSqlPreview=true 返回 sql 与 parameters；参数值脱敏为问号。此开关仍会执行查询，不是仅预览。"
+          },
+          {
+            "path": "resolution / ontologyContext",
+            "type": "object（可选）",
+            "description": "includeResolution / includeOntologyContext 控制绑定和上下文详情。"
+          },
+          {
+            "path": "axioms / inferenceEvidence",
+            "type": "array（可选）",
+            "description": "includeAxioms / includeInferenceEvidence 控制规则和推论证据。"
+          },
+          {
+            "path": "missing[]",
+            "type": "object[]（NEEDS_INPUT）",
+            "description": "field、term、reason；补充业务信息或修复定义后重新查询，不执行 SQL。"
+          },
+          {
+            "path": "clarificationId",
+            "type": "string（NEEDS_CLARIFICATION）",
+            "description": "用于继续接口的路径参数，有效期 30 分钟。"
+          },
+          {
+            "path": "clarifications[]",
+            "type": "object[]（NEEDS_CLARIFICATION）",
+            "description": "id、term、reason、candidates；每个候选含 id、label、object、property。selections 使用原样返回的候选 ID。"
+          },
+          {
+            "path": "context / acceptanceContract",
+            "type": "object（ANALYSIS_READY）",
+            "description": "分析上下文与验收约束；该模式不执行数据查询。"
+          }
+        ],
+        "x-response-examples": {
+          "success": {
+            "requestId": "req_example",
+            "namespace": "retail",
+            "ontologyVersion": 1,
+            "status": "SUCCEEDED",
+            "data": {
+              "columns": [
+                "标准店名",
+                "销售金额"
+              ],
+              "rows": [
+                {
+                  "标准店名": "示例店铺",
+                  "销售金额": 1200
+                }
+              ],
+              "rowCount": 1,
+              "truncated": false,
+              "ontologyVersion": 1,
+              "resolutionMode": "INTENT",
+              "businessSummary": {
+                "metrics": [
+                  "销售金额"
+                ],
+                "dimensions": [
+                  "标准店名"
+                ],
+                "filters": [],
+                "time": "今年"
+              },
+              "planId": "plan_example"
+            },
+            "warnings": [],
+            "auditId": "audit_example",
+            "completeness": {
+              "complete": true,
+              "truncated": false,
+              "nextCursor": null
+            }
+          },
+          "missing": {
+            "status": "NEEDS_INPUT",
+            "data": {
+              "status": "NEEDS_INPUT",
+              "missing": [
+                {
+                  "field": "filter_0",
+                  "term": "线上渠道",
+                  "reason": "与指标对象之间没有可安全使用的关联路径"
+                }
+              ]
+            }
+          },
+          "clarification": {
+            "status": "NEEDS_CLARIFICATION",
+            "data": {
+              "status": "NEEDS_CLARIFICATION",
+              "clarificationId": "clar_example",
+              "clarifications": [
+                {
+                  "id": "filter_0",
+                  "term": "线上",
+                  "reason": "请确认业务含义",
+                  "candidates": [
+                    {
+                      "id": "[\"value\",\"value_example\",\"p_channel\"]",
+                      "label": "线上",
+                      "object": "组织单元",
+                      "property": "组织单元名称"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "error": {
+            "status": "FAILED",
+            "error": {
+              "code": "INVALID_REQUEST",
+              "message": "请求参数不符合契约",
+              "stage": "binding",
+              "retryable": false
+            }
+          }
+        },
         "parameters": [
           {
             "in": "path",
@@ -1159,6 +3261,115 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "sourceId",
+            "type": "string",
+            "description": "数据源标识。"
+          },
+          {
+            "path": "configured",
+            "type": "boolean（未配置时）",
+            "description": "未配置时返回 false；已配置时返回 payload。"
+          },
+          {
+            "path": "credentialConfigured",
+            "type": "boolean（已配置时）",
+            "description": "是否已保存密码，不代表连接测试通过。"
+          },
+          {
+            "path": "payload",
+            "type": "object（已配置时）",
+            "description": "host、port、username、catalog、database、tls；不返回明文密码。"
+          },
+          {
+            "path": "updatedAt",
+            "type": "string（可选）",
+            "description": "配置更新时间。"
+          },
+          {
+            "path": "tables[]",
+            "type": "object[]",
+            "description": "已扫描表；含 name、comment、columns、fingerprint、scannedAt。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1208,6 +3419,110 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "sourceId",
+            "type": "string",
+            "description": "数据源标识。"
+          },
+          {
+            "path": "configured",
+            "type": "boolean（未配置时）",
+            "description": "未配置时返回 false；已配置时返回 payload。"
+          },
+          {
+            "path": "credentialConfigured",
+            "type": "boolean（已配置时）",
+            "description": "是否已保存密码，不代表连接测试通过。"
+          },
+          {
+            "path": "payload",
+            "type": "object（已配置时）",
+            "description": "host、port、username、catalog、database、tls；不返回明文密码。"
+          },
+          {
+            "path": "updatedAt",
+            "type": "string（可选）",
+            "description": "配置更新时间。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1279,6 +3594,100 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "status",
+            "type": "string",
+            "description": "连接测试结果。"
+          },
+          {
+            "path": "databaseVersion",
+            "type": "string",
+            "description": "数据库返回的版本。"
+          },
+          {
+            "path": "elapsedMs",
+            "type": "number",
+            "description": "测试耗时，毫秒。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1330,6 +3739,100 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "sourceId",
+            "type": "string",
+            "description": "扫描的数据源。"
+          },
+          {
+            "path": "tables[]",
+            "type": "object[]",
+            "description": "表 ID、catalog、database、name、type、comment、status、fingerprint、scannedAt。"
+          },
+          {
+            "path": "tables[].columns[]",
+            "type": "object[]",
+            "description": "name、dataType、nullable、comment、sensitive 等字段元数据。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1381,6 +3884,115 @@
           }
         ],
         "x-required-scopes": "semantic:read",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "status",
+            "type": "string",
+            "description": "empty / building / ready / partial / failed。"
+          },
+          {
+            "path": "properties",
+            "type": "number",
+            "description": "参与索引的属性数。"
+          },
+          {
+            "path": "valuesCount",
+            "type": "number",
+            "description": "已索引值数量。"
+          },
+          {
+            "path": "coveredRows",
+            "type": "number",
+            "description": "覆盖行数。"
+          },
+          {
+            "path": "failedProperties",
+            "type": "number / null",
+            "description": "失败属性数；空索引可能为 null。"
+          },
+          {
+            "path": "updatedAt",
+            "type": "string / null",
+            "description": "最近更新时间。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1442,6 +4054,115 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "status",
+            "type": "string",
+            "description": "empty / building / ready / partial / failed。"
+          },
+          {
+            "path": "properties",
+            "type": "number",
+            "description": "参与索引的属性数。"
+          },
+          {
+            "path": "valuesCount",
+            "type": "number",
+            "description": "已索引值数量。"
+          },
+          {
+            "path": "coveredRows",
+            "type": "number",
+            "description": "覆盖行数。"
+          },
+          {
+            "path": "failedProperties",
+            "type": "number / null",
+            "description": "失败属性数；空索引可能为 null。"
+          },
+          {
+            "path": "updatedAt",
+            "type": "string / null",
+            "description": "最近更新时间。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1503,6 +4224,110 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "[].clientId / [].name",
+            "type": "string",
+            "description": "客户端 ID 和名称。"
+          },
+          {
+            "path": "[].scopes[]",
+            "type": "string[]",
+            "description": "已授权权限。"
+          },
+          {
+            "path": "[].status",
+            "type": "string",
+            "description": "ACTIVE / DISABLED。"
+          },
+          {
+            "path": "[].rateLimit",
+            "type": "number",
+            "description": "每分钟调用限额。"
+          },
+          {
+            "path": "[].rotatedAt",
+            "type": "string",
+            "description": "密钥更新时间；列表不返回明文密钥。"
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -1542,6 +4367,100 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "clientId",
+            "type": "string",
+            "description": "新客户端 ID。"
+          },
+          {
+            "path": "apiKey",
+            "type": "string",
+            "description": "新密钥，仅本次响应提供，立即安全保存。"
+          },
+          {
+            "path": "warning",
+            "type": "string",
+            "description": "密钥保存提示。"
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -1634,6 +4553,90 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "deleted",
+            "type": "boolean",
+            "description": "成功撤销为 true。"
+          }
+        ],
         "parameters": [
           {
             "in": "path",
@@ -1685,6 +4688,105 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "[].auditId / [].requestId",
+            "type": "string",
+            "description": "审计与请求标识。"
+          },
+          {
+            "path": "[].eventType",
+            "type": "string",
+            "description": "事件类型。"
+          },
+          {
+            "path": "[].createdAt",
+            "type": "string",
+            "description": "发生时间。"
+          },
+          {
+            "path": "[].payload",
+            "type": "object",
+            "description": "脱敏后的事件数据。"
+          }
+        ],
         "parameters": [
           {
             "in": "query",
@@ -1737,6 +4839,100 @@
           }
         ],
         "x-required-scopes": "system:admin",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "uptimeSeconds",
+            "type": "number",
+            "description": "进程已运行秒数。"
+          },
+          {
+            "path": "memory",
+            "type": "object",
+            "description": "Node 进程内存统计，单位字节。"
+          },
+          {
+            "path": "routes",
+            "type": "object",
+            "description": "按路由分组；count 调用数、errors 错误数、p95Ms 和 maxMs 延迟。"
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -2869,7 +6065,8 @@
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "description": "要计算的指标或度量业务名称。按字段默认聚合或指标定义计算。"
               },
               "dimensions": {
                 "maxItems": 16,
@@ -2877,7 +6074,8 @@
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "description": "分组对象或属性名称；对象自动使用主名称属性。"
               },
               "filters": {
                 "maxItems": 16,
@@ -2887,27 +6085,32 @@
                   "properties": {
                     "value": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "要匹配的业务值；通过已发布版本的值索引查找。"
                     },
                     "object": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "可选对象名称或 ID，限定值检索范围。"
                     },
                     "property": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "可选属性名称或 ID，限定值检索范围。"
                     }
                   },
                   "required": [
                     "value"
                   ],
                   "additionalProperties": false
-                }
+                },
+                "description": "业务值筛选数组，多个条件同时成立（AND）。"
               },
               "time": {
                 "type": "object",
                 "properties": {
                   "field": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "时间属性名称或 ID，例如业务日期。"
                   },
                   "period": {
                     "type": "string",
@@ -2918,14 +6121,16 @@
                       "PREVIOUS_MONTH",
                       "TODAY",
                       "YESTERDAY"
-                    ]
+                    ],
+                    "description": "由平台按服务器时间计算的时间周期。"
                   }
                 },
                 "required": [
                   "field",
                   "period"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "时间筛选，先筛选再汇总，不自动增加时间分组。"
               },
               "sort": {
                 "maxItems": 16,
@@ -2935,14 +6140,16 @@
                   "properties": {
                     "field": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "已选择的指标或维度名称，必须能唯一绑定。"
                     },
                     "direction": {
                       "type": "string",
                       "enum": [
                         "ASC",
                         "DESC"
-                      ]
+                      ],
+                      "description": "ASC 升序；DESC 降序。"
                     }
                   },
                   "required": [
@@ -2950,12 +6157,14 @@
                     "direction"
                   ],
                   "additionalProperties": false
-                }
+                },
+                "description": "对已选择的指标或维度排序。"
               },
               "limit": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 10000
+                "maximum": 10000,
+                "description": "结果行数限制，默认 200。"
               }
             },
             "required": [
@@ -2992,21 +6201,24 @@
             "properties": {
               "rootObjectId": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "查询事实或主对象的稳定 ID。"
               },
               "measureIds": {
                 "type": "array",
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "description": "指标或可用度量属性 ID。"
               },
               "dimensionPropertyIds": {
                 "type": "array",
                 "items": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "description": "分组属性 ID。"
               },
               "filters": {
                 "default": [],
@@ -3059,7 +6271,8 @@
                     "operator"
                   ],
                   "additionalProperties": false
-                }
+                },
+                "description": "直接属性筛选，多个条件按 AND 组合。"
               },
               "sort": {
                 "default": [],
@@ -3097,7 +6310,8 @@
                 "enum": [
                   "aggregate",
                   "detail"
-                ]
+                ],
+                "description": "aggregate 汇总；detail 明细。使用 FIXED_SHAPE 及对应可用查询结构。"
               },
               "hierarchyFilters": {
                 "type": "array",
@@ -3604,10 +6818,12 @@
               "pageSize": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 10000
+                "maximum": 10000,
+                "description": "每页返回行数，上限 10000。"
               },
               "cursor": {
-                "type": "string"
+                "type": "string",
+                "description": "上一页 completeness.nextCursor；保持原本体版本及查询条件。"
               }
             },
             "additionalProperties": false,
@@ -3617,22 +6833,28 @@
             "type": "object",
             "properties": {
               "includeResolution": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "返回绑定与解析详情；默认关闭。"
               },
               "includeOntologyContext": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "附带语义上下文；默认关闭。"
               },
               "includeAxioms": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "返回公理实例；默认关闭，平台始终执行规则校验。"
               },
               "includeInferenceEvidence": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "返回推论与证据；默认关闭。"
               },
               "includeQueryIr": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "返回编译中间表示，供 Query IR 标签页展示；默认关闭。"
               },
               "includeSqlPreview": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "返回 SQL 和脱敏参数，供 SQL 标签页展示；默认关闭，开启后仍执行查询。"
               }
             },
             "additionalProperties": false,

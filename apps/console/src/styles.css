@@ -572,3 +572,12 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .context-summary table { width: 100%; border-collapse: collapse; }
 .context-summary th, .context-summary td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 .context-summary small { display: block; color: var(--muted); font-size: 11px; }
+
+.debug-api-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 12px 0; font-size: 12px; }
+.debug-api-actions span { margin-right: auto; color: var(--muted); }
+.reference-selector { display: grid; gap: 8px; font-size: 12px; font-weight: 600; }
+.reference-selector select { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--text); }
+.api-guide .guide-body { max-width: 1200px; margin: 0 auto; }
+.api-guide .api-reference { font-size: 13px; }
+.api-guide .model-table th:first-child { width: 28%; }
+.api-guide .model-table td { overflow-wrap: anywhere; white-space: normal; }

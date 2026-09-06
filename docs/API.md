@@ -16,6 +16,15 @@
 
 返回：直接返回状态对象，包含 status、version、kernelVersion、components、time。
 
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| status | string | 服务状态。 |
+| version / kernelVersion | string | 服务与公理内核版本。 |
+| components | object | 组件配置状态，不代表数据库可连接。 |
+| time | string | 服务器时间。 |
+
 ## 读取 API 契约
 
 `GET /v1/system/openapi.json`
@@ -27,6 +36,16 @@
 无参数，无请求体。
 
 返回：直接返回 OpenAPI 文档，主要字段为 paths、components.schemas、info。
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| openapi | string | OpenAPI 版本。 |
+| info | object | 服务标题与版本。 |
+| servers[] | object[] | API 根地址。 |
+| paths | object | 各接口操作、参数、示例和响应说明。 |
+| components.schemas | object | 请求及领域结构的 JSON Schema。 |
 
 ## 读取本体概览
 
@@ -42,6 +61,37 @@
 | version | query | 否 | 发布版本号或 latest；省略时读取最新发布版本。 |
 
 返回：data 包含版本信息、counts 和 contentDigest；响应头提供 ETag。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| ontologyVersion / status | number / string | 实际版本和发布状态。 |
+| counts | object | 对象、关系、指标、公理等数量。 |
+| contentDigest | string | 定义摘要。 |
+| valueIndex | object | 值索引状态。 |
+| defaultObject | object / null | 默认对象。 |
+| graph | object | 概览图谱。 |
 
 ## 读取本体快照
 
@@ -59,6 +109,41 @@
 
 返回：data 为完整可导出快照；ETag 匹配时返回 HTTP 304，响应体为空。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| schemaVersion | number | 快照格式版本，当前为 3。 |
+| namespace / version / status | string / number / string | 命名空间、发布版本与状态。 |
+| objects[] | object[] | 对象定义；含 id、label、objectType、properties、grainPropertyIds、primaryNamePropertyId。 |
+| objects[].properties[] | object[] | 属性定义：id、label、meaning、sourceColumn、visibility、numericSpec、valueSearchable。 |
+| relations[] | object[] | 对象及属性连接、方向、基数、启用状态和关系策略。 |
+| metrics[] | object[] | 指标定义及聚合、公式、源属性或依赖指标。 |
+| dimensionHierarchies[] | object[] | 层级定义、层次和字段映射。 |
+| axiomAssertions[] / inferredAssertions[] | object[] | 固化公理和推论。 |
+| contentDigest / inferenceDigest | string | 定义与推论摘要。 |
+| publishedAt | string（可选） | 发布时间。 |
+
 ## 读取本体图谱
 
 `GET /v1/namespaces/{ns}/graph`
@@ -75,6 +160,34 @@
 
 返回：data 包含 ontologyVersion、nodes 和 edges。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| ontologyVersion | number | 版本。 |
+| nodes[] | object[] | 图节点：标识、标签和类型。 |
+| edges[] | object[] | 图连线：源、目标及关系信息。 |
+
 ## 列出发布版本
 
 `GET /v1/namespaces/{ns}/versions`
@@ -88,6 +201,36 @@
 | ns | path | 是 | 本体命名空间，例如 retail。 |
 
 返回：data 为版本列表，包含发布时间、变更说明及定义数量。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| [].version / [].status | number / string | 版本及发布状态，按版本倒序。 |
+| [].publishedAt / [].publishedBy | string | 发布时间与发布人。 |
+| [].changeSummary | string | 变更说明。 |
+| [].objectCount / [].relationCount / [].metricCount | number | 定义数量。 |
+| [].contentDigest / [].inferenceDigest | string | 版本摘要。 |
 
 ## 比较本体版本
 
@@ -104,6 +247,33 @@
 | baseVersion | query | 否 | 基线版本号；省略时使用目标版本的记录基线或前一版本。 |
 
 返回：data 包含 baseVersion 及各类定义的 added、changed、removed。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| baseVersion | number | 实际比较基线。 |
+| objects / relations / metrics / hierarchies / axioms / inferences | object | 每类包含 added、changed、removed，用于展示增删改。 |
 
 ## 创建本体草稿
 
@@ -128,6 +298,38 @@
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| draftId | string | 后续草稿操作使用的 ID。 |
+| baseVersion | number | 草稿基线，用于发布并发校验。 |
+| revision | number | 每次修改递增；修改请求提交最新值。 |
+| snapshot | object | 当前草稿，结构同本体快照。 |
+| physicalTables[] | object[] | 已扫描的物理表及字段。 |
+| validation | object（修改后） | valid 和 issues；保存成功仍需关注校验问题。 |
+| goldenReport | object（可选） | 编译回归结果、运行时间和关联 revision。 |
+
 ## 读取本体草稿
 
 `GET /v1/namespaces/{ns}/drafts/{draftId}`
@@ -142,6 +344,38 @@
 | draftId | path | 是 | 创建或读取草稿返回的 draftId。 |
 
 返回：data 包含草稿快照、revision、已扫描表和回归报告；草稿不存在时返回 404。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| draftId | string | 后续草稿操作使用的 ID。 |
+| baseVersion | number | 草稿基线，用于发布并发校验。 |
+| revision | number | 每次修改递增；修改请求提交最新值。 |
+| snapshot | object | 当前草稿，结构同本体快照。 |
+| physicalTables[] | object[] | 已扫描的物理表及字段。 |
+| validation | object（修改后） | valid 和 issues；保存成功仍需关注校验问题。 |
+| goldenReport | object（可选） | 编译回归结果、运行时间和关联 revision。 |
 
 ## 修改本体草稿
 
@@ -174,6 +408,38 @@
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| draftId | string | 后续草稿操作使用的 ID。 |
+| baseVersion | number | 草稿基线，用于发布并发校验。 |
+| revision | number | 每次修改递增；修改请求提交最新值。 |
+| snapshot | object | 当前草稿，结构同本体快照。 |
+| physicalTables[] | object[] | 已扫描的物理表及字段。 |
+| validation | object（修改后） | valid 和 issues；保存成功仍需关注校验问题。 |
+| goldenReport | object（可选） | 编译回归结果、运行时间和关联 revision。 |
+
 ## 校验草稿
 
 `POST /v1/namespaces/{ns}/drafts/{draftId}/validate`
@@ -194,6 +460,37 @@
 {}
 ```
 
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| valid | boolean | 是否通过公理校验。 |
+| issues[] | object[] | 校验问题：规则、位置及说明。 |
+| axiomAssertions[] / inferencePreview[] | object[] | 公理和推论预览。 |
+| goldenCases | object | 查询编译回归报告；只编译，不执行业务数据查询。 |
+| draftId / revision | string / number | 被校验的草稿及修订号。 |
+| digests | object | content 和 inference 摘要。 |
 
 ## 发布本体版本
 
@@ -220,6 +517,41 @@
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| schemaVersion | number | 快照格式版本，当前为 3。 |
+| namespace / version / status | string / number / string | 命名空间、发布版本与状态。 |
+| objects[] | object[] | 对象定义；含 id、label、objectType、properties、grainPropertyIds、primaryNamePropertyId。 |
+| objects[].properties[] | object[] | 属性定义：id、label、meaning、sourceColumn、visibility、numericSpec、valueSearchable。 |
+| relations[] | object[] | 对象及属性连接、方向、基数、启用状态和关系策略。 |
+| metrics[] | object[] | 指标定义及聚合、公式、源属性或依赖指标。 |
+| dimensionHierarchies[] | object[] | 层级定义、层次和字段映射。 |
+| axiomAssertions[] / inferredAssertions[] | object[] | 固化公理和推论。 |
+| contentDigest / inferenceDigest | string | 定义与推论摘要。 |
+| publishedAt | string（可选） | 发布时间。 |
+
 ## 列出公理实例
 
 `GET /v1/namespaces/{ns}/axioms`
@@ -234,6 +566,36 @@
 | version | query | 否 | 发布版本号或 latest；省略时读取最新发布版本。 |
 
 返回：data 为公理数组，包含 axiomCode、parameters、enforcement 和 sourceDefinitionIds。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| [].id / [].axiomCode | string | 公理实例 ID 和规则编码。 |
+| [].subjectId / [].subjectType | string | 约束对象及类型。 |
+| [].parameters | object | 规则参数。 |
+| [].enforcement / [].severity | string | 生效阶段与严重性。 |
+| [].sourceDefinitionIds[] | string[] | 生成此公理的定义 ID。 |
 
 ## 列出推论
 
@@ -250,6 +612,37 @@
 
 返回：data 为推论数组，包含 predicate、axiomAssertionIds、premiseAssertionIds 和 proof。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| [].id / predicate | string | 推论标识和推论类型。 |
+| [].subjectId / objectId | string | 关联定义标识，objectId 可选。 |
+| [].value | any | 推论结论。 |
+| [].axiomAssertionIds[] / premiseAssertionIds[] | string[] | 公理与前提引用。 |
+| [].proof[] | object[] | 证明步骤，包含事实、公理、推导。 |
+| [].ontologyVersion | number | 推论所属版本。 |
+
 ## 解释推论依据
 
 `GET /v1/namespaces/{ns}/inferences/{id}/explanation`
@@ -265,6 +658,37 @@
 | version | query | 否 | 发布版本号或 latest；省略时读取最新发布版本。 |
 
 返回：data 为推论及其 FACT、AXIOM、DERIVATION 证明步骤；不存在时返回 404。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| id / predicate | string | 推论标识和推论类型。 |
+| subjectId / objectId | string | 关联定义标识，objectId 可选。 |
+| value | any | 推论结论。 |
+| axiomAssertionIds[] / premiseAssertionIds[] | string[] | 公理与前提引用。 |
+| proof[] | object[] | 证明步骤，包含事实、公理、推导。 |
+| ontologyVersion | number | 推论所属版本。 |
 
 ## 解析语义上下文
 
@@ -307,6 +731,44 @@
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| sessionId / expiresAt | string | 固定版本会话及过期时间。 |
+| ontologyVersion / projection | number / string | 实际版本与投影模式。 |
+| bindings[] | object[] | term、role、status；BOUND 返回 selected，值绑定还返回 filter；AMBIGUOUS 返回 candidateReferences。 |
+| bindings[].selected | object | kind、id、objectId、propertyId；对象维度使用主名称属性。 |
+| candidates[] | object[] | 候选类型、业务标签、所属对象及属性、匹配原因、优先级和可用用途。 |
+| values[] | object[] | 匹配值及归属，filter 可用于 EQ 筛选。 |
+| retrieval | object | status、unmatchedTerms、notice；MATCHED、PARTIAL_MATCH、NO_MATCH、AMBIGUOUS。 |
+| ambiguities[] | object[] | 待澄清词条、原因与候选。 |
+| objects[] / metrics[] | object[] | compact 为直接命中对象和指标摘要，standard/full 返回详细定义。 |
+| relations[] / hierarchies[] / relationPaths[] | object[] | standard/full 中返回相关构造信息；compact 为空数组。 |
+| axioms[] / inferences[] | object[] | include 对应开关显式开启时返回。 |
+| refs | object | 兼容会话短引用映射；新调用可直接使用稳定 ID。 |
+| contextDigest / tokenEstimate | string / number | 上下文摘要与估计 token 数。 |
+
 ## 执行语义查询
 
 `POST /v1/semantic-query`
@@ -346,6 +808,138 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| columns[] | string[]（成功时） | 返回列名，按结果顺序排列。 |
+| rows[] | object[]（成功时） | 结果行；对象键与 columns 对应。无匹配数据可为空数组。 |
+| rowCount / truncated | number / boolean | 本次返回行数与截断状态。 |
+| ontologyVersion / resolutionMode | number / string | 实际本体版本及查询模式。 |
+| businessSummary | object（INTENT 成功时） | 业务口径摘要：metrics、dimensions、filters 和 time。 |
+| businessSummary.filters[] | object[] | 每项含 object、property、value，说明实际筛选归属。 |
+| planId | string（成功时） | 本次编译查询计划标识。 |
+| queryIr | object（可选） | options.includeQueryIr=true 返回：rootObjectId、measureIds、dimensionPropertyIds、filters、relationIds、timeRange、sort、limit。 |
+| sqlPreview | object（可选） | options.includeSqlPreview=true 返回 sql 与 parameters；参数值脱敏为问号。此开关仍会执行查询，不是仅预览。 |
+| resolution / ontologyContext | object（可选） | includeResolution / includeOntologyContext 控制绑定和上下文详情。 |
+| axioms / inferenceEvidence | array（可选） | includeAxioms / includeInferenceEvidence 控制规则和推论证据。 |
+| missing[] | object[]（NEEDS_INPUT） | field、term、reason；补充业务信息或修复定义后重新查询，不执行 SQL。 |
+| clarificationId | string（NEEDS_CLARIFICATION） | 用于继续接口的路径参数，有效期 30 分钟。 |
+| clarifications[] | object[]（NEEDS_CLARIFICATION） | id、term、reason、candidates；每个候选含 id、label、object、property。selections 使用原样返回的候选 ID。 |
+| context / acceptanceContract | object（ANALYSIS_READY） | 分析上下文与验收约束；该模式不执行数据查询。 |
+
+### 响应示例（成功为完整信封，其余为关键字段）
+
+```json
+{
+  "success": {
+    "requestId": "req_example",
+    "namespace": "retail",
+    "ontologyVersion": 1,
+    "status": "SUCCEEDED",
+    "data": {
+      "columns": [
+        "标准店名",
+        "销售金额"
+      ],
+      "rows": [
+        {
+          "标准店名": "示例店铺",
+          "销售金额": 1200
+        }
+      ],
+      "rowCount": 1,
+      "truncated": false,
+      "ontologyVersion": 1,
+      "resolutionMode": "INTENT",
+      "businessSummary": {
+        "metrics": [
+          "销售金额"
+        ],
+        "dimensions": [
+          "标准店名"
+        ],
+        "filters": [],
+        "time": "今年"
+      },
+      "planId": "plan_example"
+    },
+    "warnings": [],
+    "auditId": "audit_example",
+    "completeness": {
+      "complete": true,
+      "truncated": false,
+      "nextCursor": null
+    }
+  },
+  "missing": {
+    "status": "NEEDS_INPUT",
+    "data": {
+      "status": "NEEDS_INPUT",
+      "missing": [
+        {
+          "field": "filter_0",
+          "term": "线上渠道",
+          "reason": "与指标对象之间没有可安全使用的关联路径"
+        }
+      ]
+    }
+  },
+  "clarification": {
+    "status": "NEEDS_CLARIFICATION",
+    "data": {
+      "status": "NEEDS_CLARIFICATION",
+      "clarificationId": "clar_example",
+      "clarifications": [
+        {
+          "id": "filter_0",
+          "term": "线上",
+          "reason": "请确认业务含义",
+          "candidates": [
+            {
+              "id": "[\"value\",\"value_example\",\"p_channel\"]",
+              "label": "线上",
+              "object": "组织单元",
+              "property": "组织单元名称"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error": {
+    "status": "FAILED",
+    "error": {
+      "code": "INVALID_REQUEST",
+      "message": "请求参数不符合契约",
+      "stage": "binding",
+      "retryable": false
+    }
+  }
+}
+```
+
+
 ## 提交澄清并继续查询
 
 `POST /v1/semantic-query/clarifications/{clarificationId}:continue`
@@ -370,6 +964,138 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| columns[] | string[]（成功时） | 返回列名，按结果顺序排列。 |
+| rows[] | object[]（成功时） | 结果行；对象键与 columns 对应。无匹配数据可为空数组。 |
+| rowCount / truncated | number / boolean | 本次返回行数与截断状态。 |
+| ontologyVersion / resolutionMode | number / string | 实际本体版本及查询模式。 |
+| businessSummary | object（INTENT 成功时） | 业务口径摘要：metrics、dimensions、filters 和 time。 |
+| businessSummary.filters[] | object[] | 每项含 object、property、value，说明实际筛选归属。 |
+| planId | string（成功时） | 本次编译查询计划标识。 |
+| queryIr | object（可选） | options.includeQueryIr=true 返回：rootObjectId、measureIds、dimensionPropertyIds、filters、relationIds、timeRange、sort、limit。 |
+| sqlPreview | object（可选） | options.includeSqlPreview=true 返回 sql 与 parameters；参数值脱敏为问号。此开关仍会执行查询，不是仅预览。 |
+| resolution / ontologyContext | object（可选） | includeResolution / includeOntologyContext 控制绑定和上下文详情。 |
+| axioms / inferenceEvidence | array（可选） | includeAxioms / includeInferenceEvidence 控制规则和推论证据。 |
+| missing[] | object[]（NEEDS_INPUT） | field、term、reason；补充业务信息或修复定义后重新查询，不执行 SQL。 |
+| clarificationId | string（NEEDS_CLARIFICATION） | 用于继续接口的路径参数，有效期 30 分钟。 |
+| clarifications[] | object[]（NEEDS_CLARIFICATION） | id、term、reason、candidates；每个候选含 id、label、object、property。selections 使用原样返回的候选 ID。 |
+| context / acceptanceContract | object（ANALYSIS_READY） | 分析上下文与验收约束；该模式不执行数据查询。 |
+
+### 响应示例（成功为完整信封，其余为关键字段）
+
+```json
+{
+  "success": {
+    "requestId": "req_example",
+    "namespace": "retail",
+    "ontologyVersion": 1,
+    "status": "SUCCEEDED",
+    "data": {
+      "columns": [
+        "标准店名",
+        "销售金额"
+      ],
+      "rows": [
+        {
+          "标准店名": "示例店铺",
+          "销售金额": 1200
+        }
+      ],
+      "rowCount": 1,
+      "truncated": false,
+      "ontologyVersion": 1,
+      "resolutionMode": "INTENT",
+      "businessSummary": {
+        "metrics": [
+          "销售金额"
+        ],
+        "dimensions": [
+          "标准店名"
+        ],
+        "filters": [],
+        "time": "今年"
+      },
+      "planId": "plan_example"
+    },
+    "warnings": [],
+    "auditId": "audit_example",
+    "completeness": {
+      "complete": true,
+      "truncated": false,
+      "nextCursor": null
+    }
+  },
+  "missing": {
+    "status": "NEEDS_INPUT",
+    "data": {
+      "status": "NEEDS_INPUT",
+      "missing": [
+        {
+          "field": "filter_0",
+          "term": "线上渠道",
+          "reason": "与指标对象之间没有可安全使用的关联路径"
+        }
+      ]
+    }
+  },
+  "clarification": {
+    "status": "NEEDS_CLARIFICATION",
+    "data": {
+      "status": "NEEDS_CLARIFICATION",
+      "clarificationId": "clar_example",
+      "clarifications": [
+        {
+          "id": "filter_0",
+          "term": "线上",
+          "reason": "请确认业务含义",
+          "candidates": [
+            {
+              "id": "[\"value\",\"value_example\",\"p_channel\"]",
+              "label": "线上",
+              "object": "组织单元",
+              "property": "组织单元名称"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error": {
+    "status": "FAILED",
+    "error": {
+      "code": "INVALID_REQUEST",
+      "message": "请求参数不符合契约",
+      "stage": "binding",
+      "retryable": false
+    }
+  }
+}
+```
+
+
 ## 读取数据源配置
 
 `GET /v1/data-sources/{sourceId}`
@@ -383,6 +1109,37 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 | sourceId | path | 是 | 数据源标识，控制台默认使用 selectdb。 |
 
 返回：data 包含配置状态、payload、updatedAt 和 tables；未配置时 configured 为 false。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| sourceId | string | 数据源标识。 |
+| configured | boolean（未配置时） | 未配置时返回 false；已配置时返回 payload。 |
+| credentialConfigured | boolean（已配置时） | 是否已保存密码，不代表连接测试通过。 |
+| payload | object（已配置时） | host、port、username、catalog、database、tls；不返回明文密码。 |
+| updatedAt | string（可选） | 配置更新时间。 |
+| tables[] | object[] | 已扫描表；含 name、comment、columns、fingerprint、scannedAt。 |
 
 ## 保存数据源连接
 
@@ -418,6 +1175,36 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| sourceId | string | 数据源标识。 |
+| configured | boolean（未配置时） | 未配置时返回 false；已配置时返回 payload。 |
+| credentialConfigured | boolean（已配置时） | 是否已保存密码，不代表连接测试通过。 |
+| payload | object（已配置时） | host、port、username、catalog、database、tls；不返回明文密码。 |
+| updatedAt | string（可选） | 配置更新时间。 |
+
 ## 测试数据源连接
 
 `POST /v1/data-sources/{sourceId}:test`
@@ -432,6 +1219,34 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 返回：data 为连接测试结果；连接或认证失败时返回错误详情。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| status | string | 连接测试结果。 |
+| databaseVersion | string | 数据库返回的版本。 |
+| elapsedMs | number | 测试耗时，毫秒。 |
+
 ## 扫描表结构
 
 `POST /v1/data-sources/{sourceId}/schema:scan`
@@ -445,6 +1260,34 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 | sourceId | path | 是 | 数据源标识，控制台默认使用 selectdb。 |
 
 返回：data 包含 sourceId 和 tables，各表包含字段、注释、结构指纹及扫描时间。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| sourceId | string | 扫描的数据源。 |
+| tables[] | object[] | 表 ID、catalog、database、name、type、comment、status、fingerprint、scannedAt。 |
+| tables[].columns[] | object[] | name、dataType、nullable、comment、sensitive 等字段元数据。 |
 
 ## 读取值索引状态
 
@@ -461,6 +1304,37 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 返回：data 包含索引状态、属性数、值数和失败属性数。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| status | string | empty / building / ready / partial / failed。 |
+| properties | number | 参与索引的属性数。 |
+| valuesCount | number | 已索引值数量。 |
+| coveredRows | number | 覆盖行数。 |
+| failedProperties | number / null | 失败属性数；空索引可能为 null。 |
+| updatedAt | string / null | 最近更新时间。 |
+
 ## 重建属性值索引
 
 `POST /v1/namespaces/{ns}/value-index:rebuild`
@@ -476,6 +1350,37 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 返回：data 返回本轮索引状态与统计，包含 properties、valuesCount 和 failedProperties。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| status | string | empty / building / ready / partial / failed。 |
+| properties | number | 参与索引的属性数。 |
+| valuesCount | number | 已索引值数量。 |
+| coveredRows | number | 覆盖行数。 |
+| failedProperties | number / null | 失败属性数；空索引可能为 null。 |
+| updatedAt | string / null | 最近更新时间。 |
+
 ## 列出 API 客户端
 
 `GET /v1/system/api-clients`
@@ -487,6 +1392,36 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 无参数，无请求体。
 
 返回：data 为客户端列表，不包含可恢复的明文 API Key。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| [].clientId / [].name | string | 客户端 ID 和名称。 |
+| [].scopes[] | string[] | 已授权权限。 |
+| [].status | string | ACTIVE / DISABLED。 |
+| [].rateLimit | number | 每分钟调用限额。 |
+| [].rotatedAt | string | 密钥更新时间；列表不返回明文密钥。 |
 
 ## 创建 API 客户端
 
@@ -516,6 +1451,34 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 ```
 
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| clientId | string | 新客户端 ID。 |
+| apiKey | string | 新密钥，仅本次响应提供，立即安全保存。 |
+| warning | string | 密钥保存提示。 |
+
 ## 撤销 API 客户端
 
 `DELETE /v1/system/api-clients/{clientId}`
@@ -529,6 +1492,32 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 | clientId | path | 是 | 客户端列表或创建响应中的 clientId。 |
 
 返回：data.deleted 为 true。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| deleted | boolean | 成功撤销为 true。 |
 
 ## 读取调用审计
 
@@ -544,6 +1533,35 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 返回：data 为审计事件数组，包含 auditId、eventType、createdAt 和脱敏 payload。
 
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| [].auditId / [].requestId | string | 审计与请求标识。 |
+| [].eventType | string | 事件类型。 |
+| [].createdAt | string | 发生时间。 |
+| [].payload | object | 脱敏后的事件数据。 |
+
 ## 读取服务指标
 
 `GET /v1/system/metrics`
@@ -555,3 +1573,31 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 无参数，无请求体。
 
 返回：data 包含 uptimeSeconds、memory 和 routes；路由指标含 count、errors、p95Ms、maxMs。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| uptimeSeconds | number | 进程已运行秒数。 |
+| memory | object | Node 进程内存统计，单位字节。 |
+| routes | object | 按路由分组；count 调用数、errors 错误数、p95Ms 和 maxMs 延迟。 |

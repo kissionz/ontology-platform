@@ -1593,28 +1593,10 @@ function SystemPage({
   const openapi = useApi<any>("/v1/system/openapi.json", "no-auth");
   const clients = useApi<any[]>("/v1/system/api-clients", apiKey);
   const audits = useApi<any[]>("/v1/system/audit-events?limit=100", apiKey);
-  const [section, setSection] = useState<"debug" | "clients" | "audit" | "mcp" | "sdk">("debug");
+  const [section, setSection] = useState<"debug" | "reference" | "clients" | "audit" | "mcp" | "sdk">("debug");
   const [endpoint, setEndpoint] = useState("/v1/semantic-context:resolve");
   const [method, setMethod] = useState("POST");
-  const [body, setBody] = useState(
-    JSON.stringify(
-      {
-        namespace: "retail",
-        ontologyVersion: "latest",
-        question: "今年各事业部销售额和毛利率",
-        concepts: { metrics: ["销售额", "毛利率"], dimensions: ["事业部"], time: ["业务日期"] },
-        purpose: "ANSWER",
-        include: {
-          values: true,
-          axioms: false,
-          inferences: false,
-          evidence: false,
-        },
-      },
-      null,
-      2,
-    ),
-  );
+  const [body, setBody] = useState("");
   const [response, setResponse] = useState<any>();
   const [responseHeaders, setResponseHeaders] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -1624,6 +1606,14 @@ function SystemPage({
   const pathKeys = [...endpoint.matchAll(/\{([^}]+)\}/g)].map(match => match[1]!);
   const operation = openapi.data?.paths?.[endpoint.replace(/^\/v1/, "")]?.[method.toLowerCase()];
   const [queryValues, setQueryValues] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!operation) return;
+    const example = operation.requestBody?.content?.["application/json"]?.example;
+    setBody(example === undefined ? "" : JSON.stringify(example, null, 2));
+    setQueryValues(Object.fromEntries((operation.parameters ?? []).filter((p: any) => p.in === "query" && p.schema?.default !== undefined).map((p: any) => [p.name, String(p.schema.default)])));
+    setResponse(undefined); setResponseHeaders({}); setStatus(""); setResponseTab("响应体");
+  }, [operation]);
+
   const queryParameters = (operation?.parameters ?? []).filter((p: any) => p.in === "query");
   const queryString = new URLSearchParams(queryParameters.filter((p: any) => queryValues[p.name]?.trim()).map((p: any) => [p.name, queryValues[p.name]])).toString();
   const resolvedEndpoint = endpoint.replace(/\{([^}]+)\}/g, (_, key: string) => encodeURIComponent(pathValues[key] ?? "")) + (queryString ? `?${queryString}` : "");
@@ -1705,6 +1695,7 @@ function SystemPage({
             <Code size={16} />
             API 调试台
           </button>
+          <button className={section === "reference" ? "active" : ""} onClick={() => setSection("reference")}><Code size={16} />API 说明</button>
           <button className={section === "mcp" ? "active" : ""} onClick={() => setSection("mcp")}><Code size={16} />MCP 接入说明</button>
           <button className={section === "sdk" ? "active" : ""} onClick={() => setSection("sdk")}><Code size={16} />SDK 接入说明</button>
           <button className={section === "clients" ? "active" : ""} onClick={() => setSection("clients")}>
@@ -1763,7 +1754,7 @@ function SystemPage({
                   ))}
                 </select>
               </div>
-              <ApiReference document={openapi.data} operation={operation} onExample={value => setBody(JSON.stringify(value, null, 2))} />
+              <div className="debug-api-actions"><span>{operation?.summary}</span><button className="text-button" onClick={() => setSection("reference")}>查看 API 说明</button>{operation?.requestBody && <button className="text-button" onClick={() => setBody(JSON.stringify(operation.requestBody.content["application/json"].example ?? {}, null, 2))}>重置请求示例</button>}</div>
               {queryParameters.length > 0 && <div className="request-path-params">{queryParameters.map((p: any) => <label key={p.name}>{p.name}（查询参数）<input aria-label={`查询参数 ${p.name}`} value={queryValues[p.name] ?? ""} placeholder={p.schema?.default != null ? `默认 ${p.schema.default}` : "可选"} onChange={e => setQueryValues({ ...queryValues, [p.name]: e.target.value })} /></label>)}</div>}
               {pathKeys.length > 0 && <div className="request-path-params">{pathKeys.map(key => <label key={key}>{key}<input aria-label={`路径参数 ${key}`} value={pathValues[key] ?? ""} onChange={event => setPathValues({ ...pathValues, [key]: event.target.value })} /></label>)}</div>}
               <div className="console-tabs">
@@ -1809,6 +1800,13 @@ function SystemPage({
                 <button className="secondary-button" onClick={() => void navigator.clipboard.writeText(JSON.stringify(redactUi(response), null, 2))}>复制响应</button>
               </div>
             </div>
+          </div>
+        </section> : section === "reference" ? <section className="panel integration-guide api-guide">
+          <PanelHeader title="API 说明" subtitle="参数、响应字段与调用示例"><button className="secondary-button" onClick={() => setSection("debug")}>打开调试台</button></PanelHeader>
+          <div className="guide-body">
+            <label className="reference-selector">选择接口<select aria-label="选择文档接口" value={`${method} ${endpoint}`} onChange={event => {const [m, ...path] = event.target.value.split(" "); setMethod(m!); setEndpoint(path.join(" "));}}>{endpoints.map(e=><option key={`${e.method} ${e.path}`} value={`${e.method} ${e.path}`}>{e.summary} · {e.method} {e.path}</option>)}</select></label>
+            <p><code>{method} {endpoint}</code></p>
+            <ApiReference document={openapi.data} operation={operation} onExample={value => {setBody(JSON.stringify(value,null,2));setSection("debug");}} />
           </div>
         </section> : section === "mcp" || section === "sdk" ? <IntegrationGuide key={section} kind={section} /> : section === "clients" ? (
           <section className="panel admin-panel">

@@ -1,6 +1,7 @@
+import { ENVELOPE_FIELDS, RESPONSE_FIELDS, QUERY_RESPONSE_EXAMPLES } from "./response-docs.js";
 import { jsonSchemas } from "./index.js";
 
-import { API_DOCS, PATH_DESCRIPTIONS, REQUEST_DOCS } from "./api-docs.js";
+import { API_DOCS, PATH_DESCRIPTIONS, REQUEST_DOCS, QUERY_FIELD_DESCRIPTIONS } from "./api-docs.js";
 
 const security = [{ bearerAuth: [] }];
 const pathParameter = (name: string) => ({ in: "path", name, required: true, description: PATH_DESCRIPTIONS[name], schema: { type: "string" } });
@@ -17,7 +18,7 @@ const operation = (operationId: keyof typeof API_DOCS, parameters: ReturnType<ty
     ...(operationId === "ListAuditEvents" ? [queryParameter("limit", "最近审计事件的条数，默认 100。", { type: "integer", default: 100 })] : []),
   ];
   const headers = operationId === "PatchOntologyDraft" ? [{ in: "header", name: "If-Match", required: false, description: "可替代请求体 revision，值为草稿当前修订号。", schema: { type: "string" } }] : operationId === "GetOntologySnapshot" ? [{ in: "header", name: "If-None-Match", required: false, description: "上次响应的 ETag，相同则返回 304。", schema: { type: "string" } }] : [];
-  return { operationId, summary: docs.summary, description: docs.description, security, "x-required-scopes": docs.scopes, parameters: [...parameters, ...queries, ...headers], responses: {
+  return { operationId, summary: docs.summary, description: docs.description, security, "x-required-scopes": docs.scopes, "x-envelope-fields": ["GetHealth", "GetOpenApiDocument"].includes(operationId) ? [] : ENVELOPE_FIELDS, "x-response-fields": RESPONSE_FIELDS[operationId], "x-response-examples": ["ExecuteSemanticQuery", "ContinueSemanticQuery"].includes(operationId) ? QUERY_RESPONSE_EXAMPLES : undefined, parameters: [...parameters, ...queries, ...headers], responses: {
     "200": { description: docs.returns, content: { "application/json": { schema: { type: "object" } } } },
     ...(operationId === "GetOntologySnapshot" ? { "304": { description: "快照未改变，响应体为空。" } } : {}),
     "400": { description: "参数不符合契约，检查 error.message 和 error.details。" },
@@ -35,6 +36,14 @@ export function createOpenApiDocument() {
   const schemas = Object.fromEntries(Object.entries(jsonSchemas()).map(([name, rawSchema]) => {
     const schema = rawSchema as { properties?: Record<string, unknown> };
     const described = { ...schema, ...(schema.properties ? { properties: Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, { ...(value as object), ...(REQUEST_DOCS[name]?.fields[key] ? { description: REQUEST_DOCS[name].fields[key] } : {}) }])) } : {}) };
+    const describeNested = (node: any, prefix = "") => {
+      for (const [key, raw] of Object.entries(node.properties ?? {})) {
+        const value = raw as any; const path = prefix ? `${prefix}.${key}` : key;
+        if (name === "ExecuteSemanticQueryInput" && QUERY_FIELD_DESCRIPTIONS[path]) value.description = QUERY_FIELD_DESCRIPTIONS[path];
+        describeNested(value.items ?? value, path + (value.items ? "[]" : ""));
+      }
+    };
+    describeNested(described);
     return [name, qualifyRefs(described, name)];
   }));
   return {

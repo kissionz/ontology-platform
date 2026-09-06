@@ -21,6 +21,12 @@ for (const [path, methods] of Object.entries(document.paths)) for (const [method
   const operation = raw as any;
   const example = operation.requestBody?.content?.["application/json"]?.example;
   api.push(`## ${operation.summary}\n\n\`${method.toUpperCase()} /v1${path}\`\n\n${operation.description}\n\n所需权限：${operation["x-required-scopes"]}\n\n${parameters(operation)}\n\n返回：${operation.responses["200"].description}${example === undefined ? "" : code(example)}`);
+  for (const [title, key] of [["公共响应信封", "x-envelope-fields"], ["业务响应字段（相对于 data）", "x-response-fields"]]) {
+    const fields = operation[key!];
+    if (fields?.length) api.push(`### ${title}\n\n` + table([["字段路径", "类型与条件", "说明"], ["---", "---", "---"], ...fields.map((f:any)=>[f.path,f.type,f.description])]));
+  }
+  if (operation["x-response-examples"]) api.push("### 响应示例（成功为完整信封，其余为关键字段）" + code(operation["x-response-examples"]));
+
 }
 writeFileSync(new URL("../docs/API.md", import.meta.url), api.join("\n\n") + "\n");
 
