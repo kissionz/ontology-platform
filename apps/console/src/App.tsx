@@ -812,8 +812,12 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [route, setRoute] = useState(() => new URLSearchParams(location.search));
   const snap = useApi<Snapshot>(`/v1/namespaces/retail/ontology?version=${route.get("version") ?? "latest"}`, apiKey);
   const sources = useApi<any>("/v1/data-sources/selectdb", apiKey);
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState<string | undefined>(() => sessionStorage.getItem("ontology-selected-object:retail") ?? undefined);
+  useEffect(() => {
+    if (selected) sessionStorage.setItem("ontology-selected-object:retail", selected);
+  }, [selected]);
   const [draft, setDraft] = useState<any>();
+  const [restoringDraft, setRestoringDraft] = useState(() => Boolean(route.get("draft") ?? (route.has("version") ? null : sessionStorage.getItem("ontology-active-draft"))));
   const [editing, setEditing] = useState(false);
   const [catalogTab, setCatalogTab] = useState<"objects" | "metrics" | "dimensionHierarchies">("objects");
   const [catalogSearch, setCatalogSearch] = useState("");
@@ -834,19 +838,21 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [showReport, setShowReport] = useState(false);
   useEffect(() => {
     const draftId = route.get("draft") ?? (route.has("version") ? null : sessionStorage.getItem("ontology-active-draft"));
-    if (!draftId) return;
+    if (!draftId) { setRestoringDraft(false); return; }
+    setRestoringDraft(true);
     let active = true;
     api<any>(`/v1/namespaces/retail/drafts/${encodeURIComponent(draftId)}`, apiKey).then(result => {
       if (!active) return;
       setDraft(result); setEditing(true); setGoldenCaseJson(JSON.stringify(result.goldenReport?.cases ?? [], null, 2));
       sessionStorage.setItem("ontology-active-draft", result.draftId);
-    }).catch(error => { if (active) { sessionStorage.removeItem("ontology-active-draft"); setMessage(error instanceof Error ? error.message : String(error)); } });
+    }).catch(error => { if (active) { sessionStorage.removeItem("ontology-active-draft"); setMessage(error instanceof Error ? error.message : String(error)); } }).finally(() => { if (active) setRestoringDraft(false); });
     return () => { active = false; };
   }, [apiKey, route]);
-  const snapshot: Snapshot | undefined = draft?.snapshot ?? snap.data;
+  // Restore the draft before choosing a fallback; it may contain unpublished objects.
+  const snapshot: Snapshot | undefined = draft?.snapshot ?? (restoringDraft ? undefined : snap.data);
   useEffect(() => {
     const first = snapshot?.objects[0]?.id;
-    if (first && !selected) setSelected(first);
+    if (first && (!selected || !snapshot?.objects.some(object => object.id === selected))) setSelected(first);
   }, [snapshot, selected]);
   useEffect(() => {
     const id = route.get("entity");
@@ -886,6 +892,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
   };
   const save = async () => {
     if (!draft || !object) return;
+    setMessage("");
     setBusy(true);
     try {
       const updated = objectForm;

@@ -316,7 +316,9 @@ test("object tabs save Chinese semantic and aggregation settings and expose type
   await expect(page.getByText("草稿已保存，1 项需修复", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "配置属性 店铺引用", exact: true }).click();
   await page.getByLabel("店铺引用关联目标", { exact: true }).selectOption("o_bu");
+  const referenceSaved = page.waitForResponse(response => response.request().method() === "PATCH" && response.url().includes("/drafts/"));
   await page.getByRole("button", { name: "保存对象", exact: true }).click();
+  expect((await referenceSaved).ok()).toBeTruthy();
   await expect(page.getByRole("button", { name: "保存对象", exact: true })).toBeDisabled();
   await page.reload();
   await page.getByRole("tab", { name: /^属性 / }).click();
@@ -557,3 +559,24 @@ test('overview inspector wraps long sources and displays business names instead 
  await expect(inspector.getByText('o_order → o_store',{exact:true})).not.toBeVisible();
  await page.screenshot({path:`${tmpdir()}/ontology-inspector-relations.png`,fullPage:true});
 });
+
+for (const slower of ["published", "draft"] as const) {
+  test(`selected object survives reload when ${slower} snapshot arrives last`, async ({ page }) => {
+    await page.goto("/?page=ontology");
+    await page.getByRole("button", { name: "在草稿中编辑", exact: true }).click();
+    await page.locator(".catalog-item").filter({ hasText: "订单" }).click();
+    await page.getByLabel("业务分类", { exact: true }).fill("交易域");
+    await page.getByRole("button", { name: "保存对象", exact: true }).click();
+    await expect(page.getByText("草稿已保存，公理校验通过", { exact: true })).toBeVisible();
+    const pattern = slower === "published" ? "**/ontology?version=*" : "**/drafts/*";
+    await page.route(pattern, async route => {
+      const response = await route.fetch();
+      await new Promise(resolve => setTimeout(resolve, 350));
+      await route.fulfill({ response });
+    });
+    await page.reload();
+    await expect(page.getByLabel("业务分类", { exact: true })).toHaveValue("交易域");
+    await page.getByRole("tab", { name: /^属性 / }).click();
+    await expect(page.getByRole("button", { name: "配置属性 销售金额", exact: true })).toBeVisible();
+  });
+}
