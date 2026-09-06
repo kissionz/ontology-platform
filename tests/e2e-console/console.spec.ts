@@ -232,7 +232,7 @@ test("graph inspection, version filters and rollback drafts remain usable across
   await page.goto("/");
   await page.getByRole("button", { name: /订单.*业务事件/ }).click();
   await page.getByRole("tab", { name: "指标", exact: true }).click();
-  await expect(page.locator(".inspector").getByText("SUM(orders.sales)", { exact: true })).toBeVisible();
+  await expect(page.locator(".inspector").getByText("求和(【销售金额】)", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "关系", exact: true }).click();
   await expect(page.locator(".inspector").getByText("订单关联店铺")).toBeVisible();
   await page.getByRole("button", { name: "含指标", exact: true }).click();
@@ -530,4 +530,30 @@ test('graph long press dragging persists positions and reset restores automatic 
  for(const width of [1600,1280]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`${tmpdir()}/ontology-graph-layout-${width}.png`,fullPage:true});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);}
  await page.getByRole('button',{name:'恢复自动布局',exact:true}).click();await expect(node).toHaveAttribute('transform',original!);
  await node.click();await expect(page.locator('.inspector h2')).toHaveText('店铺');
+});
+
+
+test('overview inspector wraps long sources and displays business names instead of identifiers',async({page})=>{
+ const longName='dws_btn_group_prod_merge_final_split_chatbi_extra_long_table_name';
+ await page.route('**/v1/namespaces/retail/ontology',async route=>{
+   const response=await route.fetch();const json=await response.json();const object=json.data.objects.find((o:any)=>o.id==='o_order');object.name=longName;object.sourceTableId=`selectdb:${longName}`;object.grain='';for(const metric of json.data.metrics)metric.expression=metric.expression.replaceAll('orders.',`${longName}.`);
+   await route.fulfill({response,json});
+ });
+ await page.goto('/');await page.getByRole('button',{name:/订单.*业务事件/}).click();
+ const inspector=page.locator('.inspector');
+ await expect(inspector.locator('.source-table-name')).toHaveText(longName);
+ await expect(inspector.getByText('订单 ID',{exact:true}).first()).toBeVisible();
+ await page.getByRole('tab',{name:'指标',exact:true}).click();
+ await expect(inspector.getByText('(【销售额】-【成本额】)/【销售额】',{exact:true})).toBeVisible();
+ await expect(inspector.getByText('(m_sales-m_cost)/m_sales',{exact:true})).not.toBeVisible();
+ for(const width of [1600,1280]){
+   await page.setViewportSize({width,height:1000});
+   await page.screenshot({path:`${tmpdir()}/ontology-inspector-metrics-${width}.png`,fullPage:true});
+   await expect.poll(()=>inspector.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+   const label=inspector.getByText('对象类型',{exact:true});await expect.poll(async()=> (await label.boundingBox())!.width).toBeGreaterThan(50);
+ }
+ await page.getByRole('tab',{name:'关系',exact:true}).click();
+ await expect(inspector.getByText('订单 → 店铺',{exact:true})).toBeVisible();
+ await expect(inspector.getByText('o_order → o_store',{exact:true})).not.toBeVisible();
+ await page.screenshot({path:`${tmpdir()}/ontology-inspector-relations.png`,fullPage:true});
 });

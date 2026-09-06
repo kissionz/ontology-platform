@@ -587,3 +587,22 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .graph-node { user-select: none; touch-action: none; }
 .graph-node[data-dragging] { cursor: grabbing; }
 .graph-node[data-dragging] rect { stroke: var(--blue); stroke-width: 2; filter: drop-shadow(0 3px 4px #23426922); }
+
+.inspector { display: flex; flex-direction: column; min-height: 0; }
+.inspector-hero { flex: 0 1 auto; overflow: auto; max-height: 48%; }
+.inspector .object-heading > div { min-width: 0; }
+.inspector .object-heading .object-code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inspector .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.inspector .meta-grid > div { min-width: 0; }
+.inspector .meta-grid .meta-wide { grid-column: 1 / -1; }
+.inspector .meta-grid span { white-space: nowrap; font-size: 10px; }
+.inspector .meta-grid strong { overflow-wrap: anywhere; line-height: 1.6; }
+.inspector .source-table-name { font-family: monospace; font-weight: 400; }
+.inspector .tabbar { flex: 0 0 43px; gap: 16px; }
+.inspector .inspector-body { height: auto; min-height: 0; flex: 1; }
+.inspector .property-row > div { min-width: 0; overflow-wrap: anywhere; }
+.inspector .business-formula { background: #f6f8fc; border-radius: 6px; padding: 9px; color: var(--text); line-height: 1.8; }
+.inspector .inspector-technical { margin-top: 10px; color: var(--muted); font-size: 10px; }
+.inspector-technical summary { cursor: pointer; }
+.inspector-technical code { display: inline; overflow-wrap: anywhere; }
+.inspector .relation-business-path { color: var(--text); font-weight: 500; }

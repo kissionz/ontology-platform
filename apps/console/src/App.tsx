@@ -1,3 +1,4 @@
+import { businessExpression, sourceTableLabel } from "./inspector-copy.js";
 import { graphLayout, edgeAnchor, type Point } from "./graph-layout.js";
 import { MetricEditor, newMetric } from "./MetricEditor.js";
 import { ContextSummary } from "./ContextSummary.js";
@@ -94,6 +95,10 @@ type Snapshot = {
     cardinality: string;
     direction: string;
     required: boolean;
+    sourcePropertyId?: string;
+    targetPropertyId?: string;
+    enabled?: boolean;
+    type?: string;
   }>;
   metrics: Array<{
     id: string;
@@ -762,7 +767,7 @@ function Inspector({ object, snapshot, initialTab = "properties" }: { object?: O
           </span>
           <div>
             <h2>{object.label}</h2>
-            <p>{object.name}</p>
+            <p className="object-code" title={object.name}>{object.name}</p>
           </div>
         </div>
         <p className="object-description">{object.description}</p>
@@ -775,13 +780,13 @@ function Inspector({ object, snapshot, initialTab = "properties" }: { object?: O
             <span>状态</span>
             <strong>已发布</strong>
           </div>
-          <div>
+          <div className="meta-wide">
             <span>业务粒度</span>
-            <strong>{object.grain}</strong>
+            <strong>{object.grain || object.grainPropertyIds.map(id=>object.properties.find(p=>p.id===id)?.label ?? "未命名属性").join(" × ") || "未配置"}</strong>
           </div>
-          <div>
-            <span>来源</span>
-            <strong>{object.sourceTableId}</strong>
+          <div className="meta-wide">
+            <span>来源表</span>
+            <strong className="source-table-name" title={object.sourceTableId}>{sourceTableLabel(object.sourceTableId)}</strong>
           </div>
         </div>
       </div>
@@ -790,8 +795,13 @@ function Inspector({ object, snapshot, initialTab = "properties" }: { object?: O
       </div>
       <div className="inspector-body" role="tabpanel">
         {tab === "properties" && object.properties.map(p => <div className="property-row" key={p.id}><div><strong>{p.label}</strong><small>{p.name} · {p.dataType}</small></div><span className="property-type">{term(p.meaning)}</span></div>)}
-        {tab === "metrics" && snapshot?.metrics.filter(metric => metric.objectId === object.id).map(metric => <div className="inspector-definition" key={metric.id}><strong>{metric.label}</strong><p>{metric.description}</p><code>{metric.expression}</code></div>)}
-        {tab === "relations" && snapshot?.relations.filter(relation => relation.sourceObjectId === object.id || relation.targetObjectId === object.id).map(relation => <div className="inspector-definition" key={relation.id}><strong>{relation.name}</strong><p>{relation.sourceObjectId} → {relation.targetObjectId}</p><small>{term(relation.cardinality)} · {term(relation.direction)}</small></div>)}
+        {tab === "metrics" && <>{!snapshot?.metrics.some(m=>m.objectId===object.id) && <p className="model-help">该对象暂无已定义指标。</p>}{snapshot?.metrics.filter(metric => metric.objectId === object.id).map(metric => <div className="inspector-definition" key={metric.id}><strong>{metric.label}</strong>{metric.description && metric.description!==metric.label && <p>{metric.description}</p>}<p className="business-formula">{businessExpression(metric.expression,snapshot,object.id)}</p><small>{term(metric.aggregation)}</small><details className="inspector-technical"><summary>技术定义</summary><p>指标编号：<code>{metric.id}</code></p><code>{metric.expression}</code></details></div>)}</>}
+        {tab === "relations" && <>{!snapshot?.relations.some(r=>r.sourceObjectId===object.id||r.targetObjectId===object.id) && <p className="model-help">该对象暂无关系。</p>}{snapshot?.relations.filter(relation => relation.sourceObjectId === object.id || relation.targetObjectId === object.id).map(relation => {
+          const source=snapshot.objects.find(o=>o.id===relation.sourceObjectId),target=snapshot.objects.find(o=>o.id===relation.targetObjectId);
+          const sourceField=source?.properties.find(p=>p.id===relation.sourcePropertyId),targetField=target?.properties.find(p=>p.id===relation.targetPropertyId);
+          const arrow=relation.direction==="BIDIRECTIONAL"?"↔":relation.direction==="TARGET_TO_SOURCE"?"←":"→";
+          return <div className="inspector-definition" key={relation.id}><strong>{relation.name}</strong><p className="relation-business-path">{source?.label ?? "未找到源对象"} {arrow} {target?.label ?? "未找到目标对象"}</p>{sourceField&&targetField&&<p>{sourceField.label} = {targetField.label}</p>}<small>{term(relation.cardinality)} · {term(relation.direction)}{relation.enabled===false?" · 已停用":""}</small><details className="inspector-technical"><summary>技术定义</summary><p>关系编号：<code>{relation.id}</code></p><p><code>{relation.sourceObjectId} {arrow} {relation.targetObjectId}</code></p></details></div>;
+        })}</>}
         {tab === "axioms" && snapshot?.axiomAssertions.filter(axiom => axiom.subjectId === object.id || axiom.sourceDefinitionIds.includes(object.id) || object.properties.some(property => property.id === axiom.subjectId)).map(axiom => <div className="inspector-definition" key={axiom.id}><strong>{axiomTitle(axiom.axiomCode)}</strong><p>{axiomDescription(axiom.axiomCode)}</p><small>{term(axiom.enforcement)}</small></div>)}
       </div>
     </aside>
