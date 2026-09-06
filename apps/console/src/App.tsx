@@ -1,3 +1,4 @@
+import { graphLayout, edgeAnchor, type Point } from "./graph-layout.js";
 import { MetricEditor, newMetric } from "./MetricEditor.js";
 import { ContextSummary } from "./ContextSummary.js";
 import { ApiReference } from "./ApiReference.js";
@@ -13,6 +14,7 @@ import type { DraftPatchOperation } from "../../../packages/application/src/inde
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ComponentType,
   type ReactNode,
@@ -593,6 +595,9 @@ function Overview({ apiKey }: { apiKey: string }) {
               </div>
             </div>
             <GraphView
+              key={`retail:${projection}`}
+              storageKey={`ontology-graph:retail:${projection}`}
+              layoutGraph={rawGraph!}
               graph={g!}
               selected={selected}
               onSelect={setSelected}
@@ -629,27 +634,29 @@ function Stat({
     </div>
   );
 }
-function GraphView({
-  graph,
-  selected,
-  onSelect,
-  scale,
-}: {
-  graph: Graph;
-  selected?: string;
-  onSelect: (id: string) => void;
-  scale: number;
+function GraphView({ graph, layoutGraph, storageKey, selected, onSelect, scale }: {
+  graph: Graph; layoutGraph: Graph; storageKey: string; selected?: string; onSelect: (id: string) => void; scale: number;
 }) {
-  const nodes = graph.nodes.slice(0, 30);
-  const positions = new Map(
-    nodes.map((node, index) => [
-      node.id,
-      { x: 120 + (index % 4) * 205, y: 90 + Math.floor(index / 4) * 125 },
-    ]),
-  );
+  const layout = useMemo(() => graphLayout(layoutGraph), [layoutGraph]);
+  const [saved, setSaved] = useState<Record<string, Point>>(() => {
+    try { const value = JSON.parse(localStorage.getItem(storageKey) ?? "{}"); return Object.fromEntries(Object.entries(value).filter(([,p]:any)=>p && Number.isFinite(p.x) && Number.isFinite(p.y))) as Record<string,Point>; } catch { return {}; }
+  });
+  const [notice, setNotice] = useState("长按节点拖动 · 松开自动保存到本浏览器");
+  const [moving, setMoving] = useState<{id:string;point:Point}>();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const drag = useRef<{id:string;pointerId:number;start:Point;origin:Point;point:Point;active:boolean;timer:ReturnType<typeof setTimeout>} | null>(null);
+  const suppressClick = useRef(false);
+  useEffect(()=>()=>{if(drag.current)clearTimeout(drag.current.timer);},[]);
+  const clamp = (p:Point):Point => ({x:Math.max(75,Math.min(layout.width-75,p.x)),y:Math.max(40,Math.min(layout.height-60,p.y))});
+  const positions = new Map(Object.entries(layout.positions).map(([id,p])=>[id,clamp(moving?.id===id?moving.point:saved[id]??p)]));
+  const nodes = graph.nodes.filter(n=>positions.has(n.id));
+  const point = (event: {clientX:number;clientY:number}) => { const matrix=svgRef.current?.getScreenCTM(); return matrix ? new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse()) : {x:0,y:0}; };
+  const persist = (next:Record<string,Point>) => {setSaved(next);try{localStorage.setItem(storageKey,JSON.stringify(next));setNotice("位置已保存 · 长按节点可继续调整");}catch{setNotice("浏览器无法保存位置，本次调整仅在当前页面有效");}};
+  const finish = (cancel=false) => {const current=drag.current;if(!current)return;clearTimeout(current.timer);if(current.active&&!cancel){persist({...saved,[current.id]:clamp(current.point)});suppressClick.current=true;}drag.current=null;setMoving(undefined);if(cancel)setNotice("已取消调整 · 长按节点拖动");};
   return (
     <div className="graph-stage">
-      <svg viewBox="0 0 920 560" style={{ transform: `scale(${scale})` }}>
+      <div className="graph-layout-controls"><span role="status">{notice}</span><button className="text-button" onClick={()=>{finish(true);persist({});setNotice("已恢复自动布局");}}>恢复自动布局</button></div>
+      <svg ref={svgRef} viewBox={`0 0 ${layout.width} ${layout.height}`} style={{ transform: `scale(${scale})` }}>
         <defs>
           <marker
             id="arrow"
@@ -663,15 +670,17 @@ function GraphView({
           </marker>
         </defs>
         {graph.edges.map((edge) => {
-          const a = positions.get(edge.source),
-            b = positions.get(edge.target);
+          const source = positions.get(edge.source), target = positions.get(edge.target);
+          const visible = new Set(nodes.map(n=>n.id));
+          const a = source && target && visible.has(edge.source) && visible.has(edge.target) ? edgeAnchor(source,target) : undefined;
+          const b = source && target ? edgeAnchor(target,source) : undefined;
           return a && b ? (
             <g key={edge.id}>
               <line
                 className="graph-edge"
-                x1={a.x + 65}
+                x1={a.x}
                 y1={a.y}
-                x2={b.x - 70}
+                x2={b.x}
                 y2={b.y}
                 markerEnd="url(#arrow)"
               />
@@ -690,13 +699,27 @@ function GraphView({
               tabIndex={0}
               className={`graph-node ${node.objectType === "ENTITY" ? "entity" : ""} ${selected === node.id ? "selected" : ""}`}
               transform={`translate(${p.x - 66} ${p.y - 27})`}
-              onClick={() => onSelect(node.id)}
-              onKeyDown={(event) => event.key === "Enter" && onSelect(node.id)}
+              aria-label={`${node.label} ${term(node.objectType ?? node.kind)}`}
+              data-node-id={node.id}
+              data-dragging={moving?.id===node.id || undefined}
+              onPointerDown={event => {
+                if(event.button!==0||drag.current)return;event.currentTarget.setPointerCapture(event.pointerId);suppressClick.current=false;
+                const start=point(event), origin=positions.get(node.id)!;
+                const timer=setTimeout(()=>{if(drag.current){drag.current.active=true;setMoving({id:node.id,point:origin});setNotice("拖动中 · 松开保存，Esc 取消");}},300);
+                drag.current={id:node.id,pointerId:event.pointerId,start,origin,point:origin,active:false,timer};
+              }}
+              onPointerMove={event=>{const d=drag.current;if(!d||d.pointerId!==event.pointerId)return;const p=point(event);if(!d.active){if(Math.hypot(p.x-d.start.x,p.y-d.start.y)>8){clearTimeout(d.timer);drag.current=null;suppressClick.current=true;}return;}d.point=clamp({x:d.origin.x+p.x-d.start.x,y:d.origin.y+p.y-d.start.y});setMoving({id:d.id,point:d.point});}}
+              onPointerUp={()=>finish()}
+              onPointerCancel={()=>finish(true)}
+              onLostPointerCapture={()=>finish(true)}
+              onClick={()=>{if(suppressClick.current){suppressClick.current=false;return;}onSelect(node.id);}}
+              onKeyDown={event=>{if(event.key==="Escape"){finish(true);return;}if(event.key==="Enter")onSelect(node.id);const delta:Record<string,Point>={ArrowLeft:{x:-10,y:0},ArrowRight:{x:10,y:0},ArrowUp:{x:0,y:-10},ArrowDown:{x:0,y:10}};if(delta[event.key]){event.preventDefault();const p=positions.get(node.id)!;persist({...saved,[node.id]:clamp({x:p.x+delta[event.key]!.x,y:p.y+delta[event.key]!.y})});}}}
             >
               <rect width="132" height="54" rx="8" />
               <circle className="node-dot" cx="17" cy="18" r="4" />
               <text className="node-title" x="29" y="22">
-                {node.label}
+                {node.label.length>9?`${node.label.slice(0,8)}…`:node.label}
+                <title>{node.label}</title>
               </text>
               <text className="node-type" x="17" y="39">
                 {term(node.objectType ?? node.kind)} · {node.propertyCount} 属性

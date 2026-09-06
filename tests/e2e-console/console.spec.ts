@@ -516,3 +516,18 @@ test("debugger loads each operation example and keeps documentation separate", a
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
+
+test('graph long press dragging persists positions and reset restores automatic layout',async({page})=>{
+ await page.goto('/');
+ const node=page.locator('[data-node-id="o_store"]');
+ await expect(node).toBeVisible();
+ const original=await node.getAttribute('transform');
+ const box=(await node.boundingBox())!;
+ await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.waitForTimeout(350);await page.mouse.move(box.x+box.width/2+55,box.y+box.height/2+35,{steps:5});await page.mouse.up();
+ await expect(page.getByRole('status')).toContainText('位置已保存');
+ const moved=await node.getAttribute('transform');expect(moved).not.toBe(original);
+ await page.reload();await expect(node).toHaveAttribute('transform',moved!);
+ for(const width of [1600,1280]){await page.setViewportSize({width,height:1000});await page.screenshot({path:`${tmpdir()}/ontology-graph-layout-${width}.png`,fullPage:true});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);}
+ await page.getByRole('button',{name:'恢复自动布局',exact:true}).click();await expect(node).toHaveAttribute('transform',original!);
+ await node.click();await expect(page.locator('.inspector h2')).toHaveText('店铺');
+});
