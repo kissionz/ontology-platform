@@ -4837,7 +4837,7 @@
       "get": {
         "operationId": "ListAuditEvents",
         "summary": "读取调用审计",
-        "description": "查看最近的请求及业务审计事件，可根据返回的 auditId 关联调用过程。",
+        "description": "按时间范围、密钥名称或客户端 ID、调用事件筛选 API 请求及业务审计事件，支持分页及范围内完整调用统计。",
         "security": [
           {
             "bearerAuth": []
@@ -4928,9 +4928,14 @@
             "description": "审计与请求标识。"
           },
           {
-            "path": "[].eventType",
+            "path": "[].eventType / [].event",
             "type": "string",
-            "description": "事件类型。"
+            "description": "原始类型及调用事件（方法＋路由或业务事件名）。"
+          },
+          {
+            "path": "[].clientId / [].clientName",
+            "type": "string",
+            "description": "密钥所属客户端和显示名称。"
           },
           {
             "path": "[].createdAt",
@@ -4941,23 +4946,128 @@
             "path": "[].payload",
             "type": "object",
             "description": "脱敏后的事件数据。"
+          },
+          {
+            "path": "events[]",
+            "type": "object[]（includeSummary=true）",
+            "description": "当前分页内事件，字段同默认数组。"
+          },
+          {
+            "path": "total",
+            "type": "number（includeSummary=true）",
+            "description": "全部匹配事件数，不受分页限制。"
+          },
+          {
+            "path": "overview.calls / overview.failures",
+            "type": "number",
+            "description": "匹配的 HTTP 请求数及 HTTP 状态码大于等于 400 的请求数。"
+          },
+          {
+            "path": "overview.successRate",
+            "type": "number / null",
+            "description": "HTTP 成功比例 0–1，无请求时为 null。"
+          },
+          {
+            "path": "overview.averageDurationMs",
+            "type": "number / null",
+            "description": "所有匹配 HTTP 请求平均耗时（毫秒）。"
+          },
+          {
+            "path": "filters.clients[] / filters.events[]",
+            "type": "array",
+            "description": "可筛选的客户端 ID、名称与调用事件；选项不受分页限制。"
+          },
+          {
+            "path": "limit / offset",
+            "type": "number",
+            "description": "本次分页条数及偏移。"
           }
         ],
         "parameters": [
           {
             "in": "query",
+            "name": "start",
+            "required": false,
+            "description": "开始时间（含），ISO 8601，须带时区。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "description": "结束时间（含），ISO 8601，须带时区。",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "clientId",
+            "required": false,
+            "description": "精确匹配密钥所属客户端 ID；bootstrap 为管理员，anonymous 为未认证请求。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "clientName",
+            "required": false,
+            "description": "按密钥名称包含匹配，大小写不敏感。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event",
+            "required": false,
+            "description": "精确匹配调用事件，例如 GET /v1/namespaces/:ns/summary 或 ValueIndexFailed。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "includeSummary",
+            "required": false,
+            "description": "true 返回 events、total、overview 和筛选选项；默认 false 保持事件数组。",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
-            "description": "最近审计事件的条数，默认 100。",
+            "description": "每页条数，1–200，默认 100。",
             "schema": {
               "type": "integer",
-              "default": 100
+              "default": 100,
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "description": "分页偏移量，从 0 开始。",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "data 为审计事件数组，包含 auditId、eventType、createdAt 和脱敏 payload。",
+            "description": "默认 data 为事件数组；includeSummary=true 时返回 events、total、overview、filters、limit、offset。overview 仅统计匹配的 HTTP 请求，HTTP 状态码小于 400 为成功；不会将业务事件重复计数。",
             "content": {
               "application/json": {
                 "schema": {

@@ -622,3 +622,47 @@ test("metric creation uses automatic stable codes, deletion protects dependencie
   await page.reload();
   await expect(page.getByRole("button", { name: "放弃草稿", exact: true })).toHaveCount(0);
 });
+
+test("Chinese client permissions and audit filters expose complete call overview", async ({ page }) => {
+  await page.goto("/?page=system");
+  await page.getByRole("button", { name: "API 客户端与密钥", exact: true }).click();
+  await expect(page.locator(".scope-options")).toContainText("读取本体");
+  await expect(page.locator(".scope-options")).toContainText("执行数据查询");
+  await expect(page.locator(".scope-options")).not.toContainText("ontology:read");
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: `${tmpdir()}/ontology-client-permissions-${width}.png`, fullPage: true });
+  }
+  await page.getByLabel("客户端名称", { exact: true }).fill("审计验收 Agent");
+  const created = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/v1/system/api-clients"));
+  await page.getByRole("button", { name: "创建客户端", exact: true }).click();
+  const client = (await (await created).json()).data;
+  const headers = { authorization: `Bearer ${client.apiKey}` };
+  expect((await page.request.get("/v1/namespaces/retail/summary", { headers })).ok()).toBeTruthy();
+  expect((await page.request.get("/v1/namespaces/retail/ontology", { headers })).ok()).toBeTruthy();
+  expect((await page.request.get("/v1/audit-missing-route", { headers })).status()).toBe(404);
+  await page.getByRole("button", { name: "调用审计", exact: true }).click();
+  await page.getByLabel("审计密钥名称").selectOption(client.clientId);
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await expect(page.getByLabel("调用概览")).toContainText("66.7%");
+  await expect(page.locator(".audit-table tbody tr")).toHaveCount(3);
+  for (const width of [1600, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: `${tmpdir()}/ontology-audit-overview-${width}.png`, fullPage: true });
+  }
+  await page.getByLabel("审计调用事件").selectOption("GET /v1/namespaces/:ns/summary");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await expect(page.locator(".audit-table tbody tr")).toHaveCount(1);
+  await expect(page.getByLabel("调用概览")).toContainText("100.0%");
+  await page.getByLabel("审计开始时间").fill("2099-01-01T00:00");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await expect(page.getByText("当前条件下没有调用记录", { exact: true })).toBeVisible();
+  await page.getByLabel("审计结束时间").fill("2000-01-01T00:00");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("开始时间不能晚于结束时间");
+  await page.getByRole("button", { name: "重置筛选", exact: true }).click();
+  await expect(page.getByLabel("审计开始时间")).toHaveValue("");
+  await expect(page.getByLabel("审计密钥名称")).toHaveValue("");
+});

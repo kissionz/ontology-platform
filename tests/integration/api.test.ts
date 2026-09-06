@@ -174,3 +174,45 @@ it("rejects deletion of a referenced metric and permits removing dependents in t
   expect(removed.json().data.snapshot.metrics.some((m: any) => m.id === "m_sales")).toBe(false);
   expect(app.platformStore.getSnapshot("retail", 1)?.metrics.some(m => m.id === "m_sales")).toBe(true);
 });
+
+it("filters audit time, key name and action in SQL and summarizes beyond the current page", async () => {
+  const app = setup(); const store = app.platformStore;
+  for (let i = 0; i < 120; i++) {
+    store.appendAudit(`a${i}`, `r${i}`, "HttpRequestCompleted", { clientId: "alpha", clientName: "测试 Agent", method: "POST", route: "/v1/semantic-query", statusCode: i < 20 ? 500 : 200, durationMs: 10 });
+  }
+  store.db.prepare("UPDATE audit_events SET created_at=?").run("2026-01-01T00:00:00.000Z");
+  store.appendAudit("outside", "outside", "HttpRequestCompleted", { clientId: "alpha", clientName: "测试 Agent", method: "POST", route: "/v1/semantic-query", statusCode: 200, durationMs: 1000 });
+  const query = new URLSearchParams({ includeSummary: "true", start: "2026-01-01T08:00:00+08:00", end: "2026-01-01T08:00:00+08:00", clientName: "Agent", event: "POST /v1/semantic-query", limit: "2", offset: "2" });
+  const response = await app.inject({ url: `/v1/system/audit-events?${query}`, headers: auth });
+  expect(response.statusCode).toBe(200);
+  const result = response.json().data;
+  expect(result.events).toHaveLength(2); expect(result.total).toBe(120);
+  expect(result.overview).toMatchObject({ calls: 120, failures: 20, averageDurationMs: 10 });
+  expect(result.overview.successRate).toBeCloseTo(100 / 120);
+  query.set("clientName", "' OR 1=1 --");
+  const empty = (await app.inject({ url: `/v1/system/audit-events?${query}`, headers: auth })).json().data;
+  expect(empty.total).toBe(0); expect(empty.overview.successRate).toBeNull();
+});
+
+it("keeps revoked key names in audit records and correlates business events without counting twice", async () => {
+  const app = setup();
+  const client = (await app.inject({ method: "POST", url: "/v1/system/api-clients", headers: auth, payload: { name: "历史 Agent", scopes: ["ontology:read"] } })).json().data;
+  const response = await app.inject({ url: "/v1/namespaces/retail/summary", headers: { authorization: `Bearer ${client.apiKey}` } });
+  const http = (app.platformStore.listAudit() as any[]).find(event => event.payload.clientId === client.clientId);
+  app.platformStore.appendAudit(http.auditId, http.requestId, "ValueIndexFailed", { code: "VALUE_INDEX_BUILD_FAILED" });
+  await app.inject({ method: "DELETE", url: `/v1/system/api-clients/${client.clientId}`, headers: auth });
+  const result = (await app.inject({ url: `/v1/system/audit-events?includeSummary=true&clientId=${client.clientId}`, headers: auth })).json().data;
+  expect(response.statusCode).toBe(200); expect(result.total).toBe(2);
+  expect(result.events.every((event: any) => event.clientName === "历史 Agent")).toBe(true);
+  expect(result.overview.calls).toBe(1);
+  expect(JSON.stringify(result)).not.toContain(client.apiKey);
+});
+
+it("validates audit ranges and pagination and restricts audit access to administrators", async () => {
+  const app = setup();
+  for (const query of ["limit=-1", "limit=201", "offset=-1", "start=invalid", "start=2026-02-01T00:00:00Z&end=2026-01-01T00:00:00Z"]) {
+    expect((await app.inject({ url: `/v1/system/audit-events?${query}`, headers: auth })).statusCode).toBe(400);
+  }
+  const client = (await app.inject({ method: "POST", url: "/v1/system/api-clients", headers: auth, payload: { name: "只读 Agent", scopes: ["ontology:read"] } })).json().data;
+  expect((await app.inject({ url: "/v1/system/audit-events?includeSummary=true", headers: { authorization: `Bearer ${client.apiKey}` } })).statusCode).toBe(403);
+});

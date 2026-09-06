@@ -1,3 +1,5 @@
+import { AuditPanel } from "./AuditPanel.js";
+import { SCOPE_LABELS, scopeLabel } from "./system-copy.js";
 import { businessExpression, sourceTableLabel } from "./inspector-copy.js";
 import { graphLayout, edgeAnchor, type Point } from "./graph-layout.js";
 import { effectiveMetrics, propertyMetric } from "../../../packages/domain/src/property-metrics.js";
@@ -1777,7 +1779,7 @@ function SystemPage({
           <button className={section === "sdk" ? "active" : ""} onClick={() => setSection("sdk")}><Code size={16} />SDK 接入说明</button>
           <button className={section === "clients" ? "active" : ""} onClick={() => setSection("clients")}>
             <Key size={16} />
-            API Client 与密钥轮换
+            API 客户端与密钥
           </button>
           <button className={section === "audit" ? "active" : ""} onClick={() => setSection("audit")}>
             <ListChecks size={16} />
@@ -1887,20 +1889,17 @@ function SystemPage({
           </div>
         </section> : section === "mcp" || section === "sdk" ? <IntegrationGuide key={section} kind={section} /> : section === "clients" ? (
           <section className="panel admin-panel">
-            <PanelHeader title="API Client 与密钥轮换" subtitle="密钥仅在创建时显示一次；存储中仅保留摘要">
+            <PanelHeader title="API 客户端与密钥" subtitle="密钥仅在创建时显示一次；存储中仅保留摘要">
               <button className="primary-button" onClick={createClient}><Plus size={15} />创建客户端</button>
             </PanelHeader>
-            <div className="admin-form"><label>客户端名称<input value={clientName} onChange={(event) => setClientName(event.target.value)} /></label><label>每分钟请求上限<input type="number" min={1} value={clientRateLimit} onChange={event => setClientRateLimit(Number(event.target.value))} /></label><fieldset className="scope-options"><legend>Scope</legend>{["ontology:read", "ontology:draft", "ontology:publish", "semantic:read", "semantic:plan", "data:execute", "system:admin"].map(scope => <label key={scope}><input type="checkbox" checked={clientScopes.includes(scope)} onChange={event => setClientScopes(event.target.checked ? [...clientScopes, scope] : clientScopes.filter(value => value !== scope))} />{scope}</label>)}</fieldset></div>
+            <div className="admin-form"><label>客户端名称<input value={clientName} onChange={(event) => setClientName(event.target.value)} /></label><label>每分钟请求上限<input type="number" min={1} value={clientRateLimit} onChange={event => setClientRateLimit(Number(event.target.value))} /></label><fieldset className="scope-options"><legend>权限范围</legend>{["ontology:read", "ontology:draft", "ontology:publish", "semantic:read", "semantic:plan", "data:execute", "system:admin"].map(scope => <label key={scope}><input type="checkbox" checked={clientScopes.includes(scope)} onChange={event => setClientScopes(event.target.checked ? [...clientScopes, scope] : clientScopes.filter(value => value !== scope))} /><span>{scopeLabel(scope)}<small>{SCOPE_LABELS[scope]?.description}</small></span></label>)}</fieldset></div>
             {createdKey && <div className="one-time-key"><strong>一次性密钥</strong><code>{createdKey}</code><button className="secondary-button" onClick={() => void navigator.clipboard.writeText(createdKey)}>复制并安全保存</button></div>}
             <div className="client-list">
-              {clients.data?.map((client) => <div className="client-row" key={client.clientId}><div><strong>{client.name}</strong><small>{client.clientId} · {client.scopes.join(", ")}</small></div><Badge tone={client.status === "ACTIVE" ? "success" : "warning"}>{client.status}</Badge><span>{client.rateLimit}/min</span><button className="secondary-button" onClick={() => void revokeClient(client.clientId)}>撤销</button></div>)}
+              {clients.data?.map((client) => <div className="client-row" key={client.clientId}><div><strong>{client.name}</strong><small>{client.scopes.map(scopeLabel).join("、")}</small></div><Badge tone={client.status === "ACTIVE" ? "success" : "warning"}>{client.status === "ACTIVE" ? "可用" : "已停用"}</Badge><span>{client.rateLimit} 次/分钟</span><button className="secondary-button" onClick={() => void revokeClient(client.clientId)}>撤销</button></div>)}
             </div>
           </section>
         ) : (
-          <section className="panel admin-panel">
-            <PanelHeader title="调用审计" subtitle="请求级 trace、状态和耗时；载荷已脱敏"><Badge>{audits.data?.length ?? 0} 条</Badge></PanelHeader>
-            <div className="audit-list">{audits.data?.map((event) => <div className="audit-row" key={`${event.auditId}:${event.sequence}`}><code>{event.auditId}</code><strong>{event.eventType}</strong><span>{event.createdAt}</span><pre>{JSON.stringify(redactUi(event.payload), null, 2)}</pre></div>)}</div>
-          </section>
+          <AuditPanel apiKey={apiKey} document={openapi.data} />
         )}
       </section>
     </main>

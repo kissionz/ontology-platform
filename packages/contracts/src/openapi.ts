@@ -15,7 +15,16 @@ const operation = (operationId: keyof typeof API_DOCS, parameters: ReturnType<ty
     ...(versioned.has(operationId) ? [versionQuery] : []),
     ...(operationId === "GetOntologyGraph" ? [queryParameter("projection", "图谱视图：relations 关系、metrics 指标、axioms 公理。", { type: "string", enum: ["relations", "metrics", "axioms"], default: "relations" })] : []),
     ...(operationId === "DiffOntologyVersions" ? [queryParameter("baseVersion", "基线版本号；省略时使用目标版本的记录基线或前一版本。", { type: "integer", minimum: 0 })] : []),
-    ...(operationId === "ListAuditEvents" ? [queryParameter("limit", "最近审计事件的条数，默认 100。", { type: "integer", default: 100 })] : []),
+    ...(operationId === "ListAuditEvents" ? [
+      queryParameter("start", "开始时间（含），ISO 8601，须带时区。", { type: "string", format: "date-time" }),
+      queryParameter("end", "结束时间（含），ISO 8601，须带时区。", { type: "string", format: "date-time" }),
+      queryParameter("clientId", "精确匹配密钥所属客户端 ID；bootstrap 为管理员，anonymous 为未认证请求。", { type: "string" }),
+      queryParameter("clientName", "按密钥名称包含匹配，大小写不敏感。", { type: "string" }),
+      queryParameter("event", "精确匹配调用事件，例如 GET /v1/namespaces/:ns/summary 或 ValueIndexFailed。", { type: "string" }),
+      queryParameter("includeSummary", "true 返回 events、total、overview 和筛选选项；默认 false 保持事件数组。", { type: "boolean", default: false }),
+      queryParameter("limit", "每页条数，1–200，默认 100。", { type: "integer", default: 100, minimum: 1, maximum: 200 }),
+      queryParameter("offset", "分页偏移量，从 0 开始。", { type: "integer", default: 0, minimum: 0 }),
+    ] : []),
   ];
   const headers = ["PatchOntologyDraft", "DiscardOntologyDraft"].includes(operationId) ? [{ in: "header", name: "If-Match", required: operationId === "DiscardOntologyDraft", description: operationId === "DiscardOntologyDraft" ? "必填，填写草稿当前 revision，防止丢弃他人更新。" : "可替代请求体 revision，值为草稿当前修订号。", schema: { type: "string" } }] : operationId === "GetOntologySnapshot" ? [{ in: "header", name: "If-None-Match", required: false, description: "上次响应的 ETag，相同则返回 304。", schema: { type: "string" } }] : [];
   return { operationId, summary: docs.summary, description: docs.description, security, "x-required-scopes": docs.scopes, "x-envelope-fields": ["GetHealth", "GetOpenApiDocument"].includes(operationId) ? [] : ENVELOPE_FIELDS, "x-response-fields": RESPONSE_FIELDS[operationId], "x-response-examples": ["ExecuteSemanticQuery", "ContinueSemanticQuery"].includes(operationId) ? QUERY_RESPONSE_EXAMPLES : undefined, parameters: [...parameters, ...queries, ...headers], responses: {

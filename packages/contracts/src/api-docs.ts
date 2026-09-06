@@ -29,7 +29,7 @@ export const API_DOCS = {
   ListApiClients: doc("列出 API 客户端", "查看已创建客户端的权限范围、状态和调用限额。", "system:admin", "data 为客户端列表，不包含可恢复的明文 API Key。"),
   CreateApiClient: doc("创建 API 客户端", "创建带指定权限和调用限额的客户端，系统自动生成密钥。", "system:admin", "data 包含 clientId 和 apiKey。明文密钥仅在创建响应中提供一次，请当次保存。"),
   RevokeApiClient: doc("撤销 API 客户端", "撤销指定客户端，使其密钥不能继续调用平台。", "system:admin", "data.deleted 为 true。"),
-  ListAuditEvents: doc("读取调用审计", "查看最近的请求及业务审计事件，可根据返回的 auditId 关联调用过程。", "system:admin", "data 为审计事件数组，包含 auditId、eventType、createdAt 和脱敏 payload。"),
+  ListAuditEvents: doc("读取调用审计", "按时间范围、密钥名称或客户端 ID、调用事件筛选 API 请求及业务审计事件，支持分页及范围内完整调用统计。", "system:admin", "默认 data 为事件数组；includeSummary=true 时返回 events、total、overview、filters、limit、offset。overview 仅统计匹配的 HTTP 请求，HTTP 状态码小于 400 为成功；不会将业务事件重复计数。"),
   GetSystemMetrics: doc("读取服务指标", "查看当前进程运行时间、内存，以及各路由调用量、错误量和延迟。", "system:admin", "data 包含 uptimeSeconds、memory 和 routes；路由指标含 count、errors、p95Ms、maxMs。"),
 } as const;
 

@@ -45,7 +45,7 @@ const ALL_SCOPES: Scope[] = [
 ];
 declare module "fastify" {
   interface FastifyRequest {
-    auth?: { clientId: string; scopes: Scope[]; rateLimit: number };
+    auth?: { clientId: string; clientName?: string; scopes: Scope[]; rateLimit: number };
     metricsStartedAt?: number;
     auditId?: string;
   }
@@ -132,12 +132,13 @@ export function buildApp(options: AppOptions = {}) {
       );
     let auth;
     if (bootstrapKey && safeEqualHash(bearer, bootstrapKey))
-      auth = { clientId: "bootstrap", scopes: ALL_SCOPES, rateLimit: 600 };
+      auth = { clientId: "bootstrap", clientName: "管理员密钥", scopes: ALL_SCOPES, rateLimit: 600 };
     else {
       const client = store.findApiClientByHash(hashKey(bearer));
       if (client?.status === "ACTIVE")
         auth = {
           clientId: client.clientId,
+          clientName: client.name,
           scopes: client.scopes,
           rateLimit: client.rateLimit,
         };
@@ -525,14 +526,12 @@ export function buildApp(options: AppOptions = {}) {
   });
   app.get("/v1/system/audit-events", async (request) => {
     requireScopes(request, "system:admin");
-    return ok(
-      request,
-      "system",
-      undefined,
-      store.listAudit(
-        Number((request.query as { limit?: string }).limit ?? 100),
-      ),
-    );
+    const query = z.object({ start: z.string().datetime({ offset: true }).optional(), end: z.string().datetime({ offset: true }).optional(), clientId: z.string().max(200).optional(), clientName: z.string().max(200).optional(), event: z.string().max(300).optional(), limit: z.coerce.number().int().min(1).max(200).default(100), offset: z.coerce.number().int().min(0).default(0), includeSummary: z.enum(["true", "false"]).default("false") }).parse(request.query);
+    const start = query.start ? new Date(query.start).toISOString() : undefined;
+    const end = query.end ? new Date(query.end).toISOString() : undefined;
+    if (start && end && start > end) throw new PlatformException({ code: "INVALID_REQUEST", message: "开始时间不能晚于结束时间", stage: "audit", retryable: false }, 400);
+    const result = store.queryAudit({ ...query, start, end });
+    return ok(request, "system", undefined, query.includeSummary === "true" ? result : result.events);
   });
   app.addHook("onResponse", async (request, reply) => {
     const route = request.routeOptions.url ?? request.url.split("?")[0]!;
@@ -556,6 +555,7 @@ export function buildApp(options: AppOptions = {}) {
         method: request.method,
         route,
         clientId: request.auth?.clientId,
+        clientName: request.auth?.clientName,
         statusCode: reply.statusCode,
         durationMs: Number(duration.toFixed(3)),
       },

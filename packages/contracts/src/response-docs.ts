@@ -30,7 +30,7 @@ export const RESPONSE_FIELDS: Record<string, ResponseField[]> = {
  GetValueIndexStatus:index,RebuildValueIndex:index,
  ListApiClients:fields([['[].clientId / [].name','string','客户端 ID 和名称。'],['[].scopes[]','string[]','已授权权限。'],['[].status','string','ACTIVE / DISABLED。'],['[].rateLimit','number','每分钟调用限额。'],['[].rotatedAt','string','密钥更新时间；列表不返回明文密钥。']]),
  CreateApiClient:fields([['clientId','string','新客户端 ID。'],['apiKey','string','新密钥，仅本次响应提供，立即安全保存。'],['warning','string','密钥保存提示。']]),RevokeApiClient:fields([['deleted','boolean','成功撤销为 true。']]),
- ListAuditEvents:fields([['[].auditId / [].requestId','string','审计与请求标识。'],['[].eventType','string','事件类型。'],['[].createdAt','string','发生时间。'],['[].payload','object','脱敏后的事件数据。']]),
+ ListAuditEvents:fields([['[].auditId / [].requestId','string','审计与请求标识。'],['[].eventType / [].event','string','原始类型及调用事件（方法＋路由或业务事件名）。'],['[].clientId / [].clientName','string','密钥所属客户端和显示名称。'],['[].createdAt','string','发生时间。'],['[].payload','object','脱敏后的事件数据。'],['events[]','object[]（includeSummary=true）','当前分页内事件，字段同默认数组。'],['total','number（includeSummary=true）','全部匹配事件数，不受分页限制。'],['overview.calls / overview.failures','number','匹配的 HTTP 请求数及 HTTP 状态码大于等于 400 的请求数。'],['overview.successRate','number / null','HTTP 成功比例 0–1，无请求时为 null。'],['overview.averageDurationMs','number / null','所有匹配 HTTP 请求平均耗时（毫秒）。'],['filters.clients[] / filters.events[]','array','可筛选的客户端 ID、名称与调用事件；选项不受分页限制。'],['limit / offset','number','本次分页条数及偏移。']]),
  GetSystemMetrics:fields([['uptimeSeconds','number','进程已运行秒数。'],['memory','object','Node 进程内存统计，单位字节。'],['routes','object','按路由分组；count 调用数、errors 错误数、p95Ms 和 maxMs 延迟。']])
 };
 export const QUERY_RESPONSE_EXAMPLES = {

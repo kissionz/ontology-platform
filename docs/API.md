@@ -330,6 +330,49 @@
 | validation | object（修改后） | valid 和 issues；保存成功仍需关注校验问题。 |
 | goldenReport | object（可选） | 编译回归结果、运行时间和关联 revision。 |
 
+## 放弃本体草稿
+
+`DELETE /v1/namespaces/{ns}/drafts/{draftId}`
+
+永久丢弃指定草稿。If-Match 必须填写当前 revision；不改变已发布版本、数据源或值索引。
+
+所需权限：ontology:draft
+
+| 参数 | 位置 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| ns | path | 是 | 本体命名空间，例如 retail。 |
+| draftId | path | 是 | 创建或读取草稿返回的 draftId。 |
+| If-Match | header | 是 | 必填，填写草稿当前 revision，防止丢弃他人更新。 |
+
+返回：data 包含 draftId 与 discarded=true；草稿不存在返回 404，修订号冲突返回 409。
+
+### 公共响应信封
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| requestId | string | 本次请求标识。 |
+| namespace | string | 本体命名空间；系统操作为 system。 |
+| ontologyVersion | number（可选） | 本次实际使用的发布版本；系统操作可能省略。 |
+| status | string | 业务状态；HTTP 200 不代表查询已完成。 |
+| data | object / array | 本接口业务数据，结构见下方。 |
+| auditId | string | 用于关联调用审计。 |
+| warnings | array | 警告列表。 |
+| completeness.complete | boolean | 是否完整；结合 truncated 和 nextCursor 判断。 |
+| completeness.truncated | boolean | 是否有未返回数据。 |
+| completeness.nextCursor | string / null | 下一页游标；查询分页保持版本、条件和参数一致。 |
+| error.code | string（失败时） | 稳定错误码，用于程序分支。 |
+| error.message | string（失败时） | 可读错误说明。 |
+| error.stage | string（失败时） | 失败阶段，例如 binding、planning、session。 |
+| error.retryable | boolean（失败时） | 是否适合重试。 |
+| error.action / error.details | string / object（可选） | 修复建议及错误详情；失败时 data 可能不存在。 |
+
+### 业务响应字段（相对于 data）
+
+| 字段路径 | 类型与条件 | 说明 |
+| --- | --- | --- |
+| draftId | string | 已放弃的草稿标识 |
+| discarded | boolean | 成功时为 true |
+
 ## 读取本体草稿
 
 `GET /v1/namespaces/{ns}/drafts/{draftId}`
@@ -1523,15 +1566,22 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 `GET /v1/system/audit-events`
 
-查看最近的请求及业务审计事件，可根据返回的 auditId 关联调用过程。
+按时间范围、密钥名称或客户端 ID、调用事件筛选 API 请求及业务审计事件，支持分页及范围内完整调用统计。
 
 所需权限：system:admin
 
 | 参数 | 位置 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| limit | query | 否 | 最近审计事件的条数，默认 100。 |
+| start | query | 否 | 开始时间（含），ISO 8601，须带时区。 |
+| end | query | 否 | 结束时间（含），ISO 8601，须带时区。 |
+| clientId | query | 否 | 精确匹配密钥所属客户端 ID；bootstrap 为管理员，anonymous 为未认证请求。 |
+| clientName | query | 否 | 按密钥名称包含匹配，大小写不敏感。 |
+| event | query | 否 | 精确匹配调用事件，例如 GET /v1/namespaces/:ns/summary 或 ValueIndexFailed。 |
+| includeSummary | query | 否 | true 返回 events、total、overview 和筛选选项；默认 false 保持事件数组。 |
+| limit | query | 否 | 每页条数，1–200，默认 100。 |
+| offset | query | 否 | 分页偏移量，从 0 开始。 |
 
-返回：data 为审计事件数组，包含 auditId、eventType、createdAt 和脱敏 payload。
+返回：默认 data 为事件数组；includeSummary=true 时返回 events、total、overview、filters、limit、offset。overview 仅统计匹配的 HTTP 请求，HTTP 状态码小于 400 为成功；不会将业务事件重复计数。
 
 ### 公共响应信封
 
@@ -1558,9 +1608,17 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 | 字段路径 | 类型与条件 | 说明 |
 | --- | --- | --- |
 | [].auditId / [].requestId | string | 审计与请求标识。 |
-| [].eventType | string | 事件类型。 |
+| [].eventType / [].event | string | 原始类型及调用事件（方法＋路由或业务事件名）。 |
+| [].clientId / [].clientName | string | 密钥所属客户端和显示名称。 |
 | [].createdAt | string | 发生时间。 |
 | [].payload | object | 脱敏后的事件数据。 |
+| events[] | object[]（includeSummary=true） | 当前分页内事件，字段同默认数组。 |
+| total | number（includeSummary=true） | 全部匹配事件数，不受分页限制。 |
+| overview.calls / overview.failures | number | 匹配的 HTTP 请求数及 HTTP 状态码大于等于 400 的请求数。 |
+| overview.successRate | number / null | HTTP 成功比例 0–1，无请求时为 null。 |
+| overview.averageDurationMs | number / null | 所有匹配 HTTP 请求平均耗时（毫秒）。 |
+| filters.clients[] / filters.events[] | array | 可筛选的客户端 ID、名称与调用事件；选项不受分页限制。 |
+| limit / offset | number | 本次分页条数及偏移。 |
 
 ## 读取服务指标
 

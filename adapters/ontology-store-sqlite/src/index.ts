@@ -32,6 +32,7 @@ CREATE INDEX IF NOT EXISTS semantic_clarifications_expiry ON semantic_clarificat
 `CREATE TABLE IF NOT EXISTS compiled_query_templates (namespace TEXT NOT NULL, ontology_version INTEGER NOT NULL, cache_key TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(namespace,ontology_version,cache_key));`,
 `CREATE TABLE IF NOT EXISTS draft_golden_reports (report_id TEXT PRIMARY KEY, namespace TEXT NOT NULL, draft_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS draft_golden_reports_lookup ON draft_golden_reports(namespace,draft_id,created_at);`
+, `CREATE INDEX IF NOT EXISTS audit_events_time ON audit_events(created_at); CREATE INDEX IF NOT EXISTS audit_events_request_type ON audit_events(request_id,event_type);`
 ] as const;
 
 export interface DraftRecord { namespace: string; draftId: string; baseVersion?: number; revision: number; snapshot: OntologySnapshotV3; updatedAt: string }
@@ -128,6 +129,36 @@ export class SqlitePlatformStore {
     this.db.prepare("DELETE FROM semantic_clarifications WHERE clarification_id=?").run(clarificationId);
   }
   appendAudit(auditId:string,requestId:string,eventType:string,payload:unknown): void { const next=(this.db.prepare("SELECT COALESCE(MAX(sequence),0)+1 value FROM audit_events WHERE audit_id=?").get(auditId) as {value:number}).value; this.db.prepare("INSERT INTO audit_events(audit_id,sequence,request_id,event_type,payload,created_at) VALUES(?,?,?,?,?,?)").run(auditId,next,requestId,eventType,JSON.stringify(redact(payload)),new Date().toISOString()); }
+  queryAudit(filters: { start?: string; end?: string; clientId?: string; clientName?: string; event?: string; limit?: number; offset?: number } = {}) {
+    const cte = `WITH base AS (
+      SELECT a.*, COALESCE(json_extract(a.payload,'$.clientId'), json_extract(h.payload,'$.clientId'), 'anonymous') clientId,
+        COALESCE(json_extract(a.payload,'$.clientName'), json_extract(h.payload,'$.clientName')) recordedName,
+        CASE WHEN a.event_type='HttpRequestCompleted' THEN json_extract(a.payload,'$.method') || ' ' || json_extract(a.payload,'$.route') ELSE a.event_type END event
+      FROM audit_events a LEFT JOIN audit_events h ON h.rowid = (SELECT rowid FROM audit_events WHERE request_id=a.request_id AND event_type='HttpRequestCompleted' AND a.event_type!='HttpRequestCompleted' LIMIT 1)
+      WHERE a.event_type!='HttpRequestCompleted' OR json_extract(a.payload,'$.route') LIKE '/v1/%'
+    ), enriched AS (
+      SELECT base.*, COALESCE(recordedName,c.name,CASE WHEN base.clientId='bootstrap' THEN '管理员密钥' WHEN base.clientId='anonymous' THEN '未认证请求' ELSE '已撤销密钥 · ' || base.clientId END) clientName
+      FROM base LEFT JOIN api_clients c ON c.client_id=base.clientId
+    ) `;
+    const conditions: string[] = []; const parameters: string[] = [];
+    if (filters.start) { conditions.push('created_at >= ?'); parameters.push(filters.start); }
+    if (filters.end) { conditions.push('created_at <= ?'); parameters.push(filters.end); }
+    if (filters.clientId) { conditions.push('clientId = ?'); parameters.push(filters.clientId); }
+    if (filters.clientName) { conditions.push('instr(lower(clientName),lower(?)) > 0'); parameters.push(filters.clientName); }
+    if (filters.event) { conditions.push('event = ?'); parameters.push(filters.event); }
+    const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
+    const rows = this.db.prepare(cte + `SELECT audit_id auditId,sequence,request_id requestId,event_type eventType,event,clientId,clientName,payload,created_at createdAt FROM enriched${where} ORDER BY created_at DESC,request_id DESC,sequence DESC LIMIT ? OFFSET ?`).all(...parameters, filters.limit ?? 50, filters.offset ?? 0) as Array<Record<string, unknown>>;
+    const totals = this.db.prepare(cte + `SELECT COUNT(*) total,
+      SUM(CASE WHEN event_type='HttpRequestCompleted' THEN 1 ELSE 0 END) calls,
+      SUM(CASE WHEN event_type='HttpRequestCompleted' AND json_extract(payload,'$.statusCode')>=400 THEN 1 ELSE 0 END) failures,
+      AVG(CASE WHEN event_type='HttpRequestCompleted' THEN json_extract(payload,'$.durationMs') END) averageDurationMs
+      FROM enriched${where}`).get(...parameters) as { total: number; calls: number | null; failures: number | null; averageDurationMs: number | null };
+    const clients = this.db.prepare(cte + 'SELECT clientId,MAX(clientName) name FROM enriched GROUP BY clientId ORDER BY name').all();
+    const events = this.db.prepare(cte + 'SELECT DISTINCT event FROM enriched WHERE event IS NOT NULL ORDER BY event').all().map(row => row.event as string);
+    return { events: rows.map(row => ({ ...row, payload: JSON.parse(row.payload as string) })), total: totals.total,
+      overview: { calls: totals.calls ?? 0, failures: totals.failures ?? 0, successRate: totals.calls ? ((totals.calls - (totals.failures ?? 0)) / totals.calls) : null, averageDurationMs: totals.averageDurationMs },
+      filters: { clients, events }, limit: filters.limit ?? 50, offset: filters.offset ?? 0 };
+  }
   listAudit(limit=100) { return (this.db.prepare("SELECT audit_id auditId,sequence,request_id requestId,event_type eventType,payload,created_at createdAt FROM audit_events ORDER BY created_at DESC,sequence DESC LIMIT ?").all(limit) as Array<Record<string,unknown>>).map(row=>({...row,payload:JSON.parse(row.payload as string)})); }
   putPhysicalSource(sourceId:string,payload:Record<string,unknown>,credentialCiphertext?:string):void { this.db.prepare("INSERT INTO physical_sources(source_id,payload,credential_ciphertext,updated_at) VALUES(?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET payload=excluded.payload,credential_ciphertext=COALESCE(excluded.credential_ciphertext,physical_sources.credential_ciphertext),updated_at=excluded.updated_at").run(sourceId,JSON.stringify(redact(payload)),credentialCiphertext??null,new Date().toISOString()); }
   getCredentialCiphertext(sourceId: string): string | undefined {
