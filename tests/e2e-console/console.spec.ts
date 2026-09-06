@@ -193,11 +193,11 @@ test("API reference covers every endpoint and provides MCP and SDK guides", asyn
     await expect(page.getByLabel("当前 API 说明")).toContainText("所需权限");
   }
   await selector.selectOption("POST /v1/semantic-query");
-  await page.getByText("参数说明（9）", { exact: true }).click();
+  await page.getByText("参数说明（10）", { exact: true }).click();
   await expect(page.getByLabel("当前 API 说明")).toContainText("FIXED_SHAPE");
   await page.getByText("请求示例与完整结构", { exact: true }).click();
   await page.getByRole("button", { name: "填入请求示例", exact: true }).click();
-  await expect(page.getByLabel("请求体", { exact: true })).toHaveValue(/"ANALYSIS"/);
+  await expect(page.getByLabel("请求体", { exact: true })).toHaveValue(/"INTENT"/);
   await selector.selectOption("GET /v1/namespaces/{ns}/summary");
   await page.getByLabel("查询参数 version").fill("1");
   const request = page.waitForResponse(r => r.url().includes("/summary?version=1"));
@@ -477,4 +477,15 @@ test("metric editor builds field metrics, property compositions and SQL template
   await expect(page.getByLabel("指标计算表达式", { exact: true })).toHaveValue("SUM(CASE WHEN `orders`.`cost` > 0 THEN `orders`.`cost` ELSE 0 END)");
   await page.getByRole("button", { name: "保存定义", exact: true }).click();
   await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
+});
+
+test("business intent executes from the API console in one request", async ({ page }) => {
+  await page.goto("/?page=system");
+  await page.getByLabel("选择 API 接口").selectOption("POST /v1/semantic-query");
+  await page.getByLabel("请求体", { exact: true }).fill(JSON.stringify({namespace:"retail",ontologyVersion:1,intent:{metrics:["销售额"],dimensions:["事业部"]}}));
+  await page.getByRole("button",{name:"发送请求",exact:true}).click();
+  await expect(page.locator(".status-code")).toContainText("200 OK");
+  await expect(page.locator(".response-json")).toContainText('"businessSummary"');
+  await expect(page.locator(".response-json")).toContainText('"rows"');
+  await expect(page.locator(".response-json")).not.toContainText('"sqlPreview"');
 });

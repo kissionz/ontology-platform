@@ -1,12 +1,12 @@
 # MCP 接入说明
 
-compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
+独立调用 ResolveOntologyContext 时，compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
 
 普通调用默认返回业务候选与引用，公理、推论和证明详情需显式开启。响应开关不影响平台内部校验与查询规则。
 
 对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。
 
-Agent 提取完整业务词放入 terms，平台同时检索对象、属性、指标和值。词条可写成 {term, role, object, property} 明确用途和范围；相同语义归并，优先级相同的不同候选需澄清。先检查 bindings 和 retrieval，再将确定的 ID 和 values[].filter 填入查询结构。
+独立检索时，Agent 提取完整业务词放入 terms，平台同时检索对象、属性、指标和值。词条可写成 {term, role, object, property} 明确用途和范围；相同语义归并，优先级相同的不同候选需澄清。先检查 bindings 和 retrieval，再将确定的 ID 和 values[].filter 填入查询结构。
 
 先在项目根目录安装依赖并启动 API 服务：npm install、npm run build、npm start。运行环境为 Node.js 24 或更高版本。
 
@@ -16,7 +16,7 @@ ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读�
 
 连接远程 REST 服务时，在 MCP 进程环境中配置目标平台生成的 ONTOLOGY_API_KEY。密钥的 scopes、调用限额和审计与 REST 完全相同。
 
-推荐先调用 ResolveOntologyContext，使用返回的版本、对象 ID 和会话，再调用 ExecuteSemanticQuery；遇到 NEEDS_CLARIFICATION 时用 ContinueSemanticQuery 提交全部选择。
+推荐直接调用 ExecuteSemanticQuery，传 queryMode: INTENT 与 intent 中的业务名称，平台统一检索并执行。SUCCEEDED 读取 data.rows、columns、businessSummary；NEEDS_INPUT 按 missing 补充请求；NEEDS_CLARIFICATION 用 ContinueSemanticQuery 提交全部选择，平台固定原版本。ResolveOntologyContext 用于独立检索和调试。
 
 草稿创建通过 REST 的 CreateOntologyDraft 完成，当前 MCP 工具集包含草稿修改、校验和发布。发布权限为 ontology:publish。
 
@@ -85,11 +85,12 @@ ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读�
 
 ## ExecuteSemanticQuery · 执行语义查询
 
-AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。 所需权限：semantic:read + semantic:plan；AUTO / FIXED_SHAPE 还需 data:execute。
+INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。 所需权限：semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute。
 
 | 参数 | 必填 | 说明 |
 | --- | --- | --- |
-| queryMode | 是 | AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。 |
+| queryMode | 是 | INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。 |
+| intent | 否 | 业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。 |
 | namespace | 是 | 本体命名空间。 |
 | ontologyVersion | 否 | 发布版本号或 latest；有 sessionId 时须与会话版本一致。 |
 | question | 否 | AUTO 与 ANALYSIS 使用的自然语言问题。 |
@@ -99,15 +100,22 @@ AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编�
 | pagination | 否 | pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。 |
 | options | 否 | 可开启 includeResolution、includeOntologyContext、includeAxioms、includeInferenceEvidence、includeQueryIr、includeSqlPreview。 |
 
-返回说明：返回执行信封。status 可为 SUCCEEDED、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；成功时 data 含 columns、rows、rowCount，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。
+返回说明：返回执行信封。status 可为 SUCCEEDED、NEEDS_INPUT、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；NEEDS_INPUT 时按 data.missing 补充请求，NEEDS_CLARIFICATION 时提交候选选择。成功时 data 含 columns、rows、rowCount，INTENT 另含 businessSummary 业务口径摘要，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。
 
 调用参数示例：
 
 ```json
 {
   "namespace": "retail",
-  "queryMode": "ANALYSIS",
-  "question": "按店铺查看销售额"
+  "queryMode": "INTENT",
+  "intent": {
+    "metrics": [
+      "销售额"
+    ],
+    "dimensions": [
+      "店铺"
+    ]
+  }
 }
 ```
 

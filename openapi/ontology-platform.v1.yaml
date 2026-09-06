@@ -1021,17 +1021,17 @@
       "post": {
         "operationId": "ExecuteSemanticQuery",
         "summary": "执行语义查询",
-        "description": "AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。",
+        "description": "INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "x-required-scopes": "semantic:read + semantic:plan；AUTO / FIXED_SHAPE 还需 data:execute",
+        "x-required-scopes": "semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "返回执行信封。status 可为 SUCCEEDED、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；成功时 data 含 columns、rows、rowCount，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。",
+            "description": "返回执行信封。status 可为 SUCCEEDED、NEEDS_INPUT、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；NEEDS_INPUT 时按 data.missing 补充请求，NEEDS_CLARIFICATION 时提交候选选择。成功时 data 含 columns、rows、rowCount，INTENT 另含 businessSummary 业务口径摘要，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。",
             "content": {
               "application/json": {
                 "schema": {
@@ -1066,12 +1066,14 @@
               },
               "example": {
                 "namespace": "retail",
-                "ontologyVersion": "latest",
-                "queryMode": "ANALYSIS",
-                "question": "按店铺查看销售额",
-                "options": {
-                  "includeAxioms": false,
-                  "includeInferenceEvidence": false
+                "queryMode": "INTENT",
+                "intent": {
+                  "metrics": [
+                    "销售额"
+                  ],
+                  "dimensions": [
+                    "店铺"
+                  ]
                 }
               }
             }
@@ -2847,13 +2849,120 @@
         "type": "object",
         "properties": {
           "queryMode": {
+            "default": "INTENT",
             "type": "string",
             "enum": [
               "AUTO",
               "FIXED_SHAPE",
-              "ANALYSIS"
+              "ANALYSIS",
+              "INTENT"
             ],
-            "description": "AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。"
+            "description": "INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。"
+          },
+          "intent": {
+            "type": "object",
+            "properties": {
+              "metrics": {
+                "minItems": 1,
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "dimensions": {
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "filters": {
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "object": {
+                      "type": "string"
+                    },
+                    "property": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "time": {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "period": {
+                    "type": "string",
+                    "enum": [
+                      "CURRENT_YEAR",
+                      "PREVIOUS_YEAR",
+                      "CURRENT_MONTH",
+                      "PREVIOUS_MONTH",
+                      "TODAY",
+                      "YESTERDAY"
+                    ]
+                  }
+                },
+                "required": [
+                  "field",
+                  "period"
+                ],
+                "additionalProperties": false
+              },
+              "sort": {
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "ASC",
+                        "DESC"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "field",
+                    "direction"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "limit": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "metrics"
+            ],
+            "additionalProperties": false,
+            "description": "业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。"
           },
           "namespace": {
             "type": "string",

@@ -89,8 +89,17 @@ export const QueryIrSchema = z.object({
   sort: z.array(z.object({ entityId: z.string(), direction: z.enum(["ASC", "DESC"]) })), limit: z.number().int().positive(),
   resultContract: z.object({ calculationSource: z.literal("DORIS_SQL"), businessLogicBeforeLimit: z.literal(true), completeness: z.literal("COMPLETE_IF_NOT_TRUNCATED"), expectedPeriodCount: z.number().int().optional(), exhaustiveRequested: z.boolean() }).strict().optional(),
 }).strict();
+export const BusinessQueryIntentSchema = z.object({
+  metrics: z.array(z.string().trim().min(1)).min(1).max(16),
+  dimensions: z.array(z.string().trim().min(1)).max(16).optional(),
+  filters: z.array(z.object({ value: z.string().trim().min(1), object: z.string().optional(), property: z.string().optional() }).strict()).max(16).optional(),
+  time: z.object({ field: z.string().min(1), period: z.enum(["CURRENT_YEAR", "PREVIOUS_YEAR", "CURRENT_MONTH", "PREVIOUS_MONTH", "TODAY", "YESTERDAY"] ) }).strict().optional(),
+  sort: z.array(z.object({ field: z.string().min(1), direction: z.enum(["ASC", "DESC"]) }).strict()).max(16).optional(),
+  limit: z.number().int().positive().max(10000).optional()
+}).strict();
 export const ExecuteSemanticQueryInputSchema = z.object({
-  queryMode: z.enum(["AUTO", "FIXED_SHAPE", "ANALYSIS"]), namespace: z.string().min(1), ontologyVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(),
+  queryMode: z.enum(["AUTO", "FIXED_SHAPE", "ANALYSIS", "INTENT"]).default("INTENT"),
+  intent: BusinessQueryIntentSchema.optional(), namespace: z.string().min(1), ontologyVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(),
   question: z.string().optional(), queryShape: FixedQueryShapeSchema.optional(), parameters: z.record(z.string(), z.unknown()).optional(), sessionId: z.string().optional(),
   pagination: z.object({ pageSize: z.number().int().positive().max(10_000).optional(), cursor: z.string().optional() }).optional(),
   options: z.object({ includeResolution: z.boolean().optional(), includeOntologyContext: z.boolean().optional(), includeAxioms: z.boolean().optional(), includeInferenceEvidence: z.boolean().optional(), includeQueryIr: z.boolean().optional(), includeSqlPreview: z.boolean().optional() }).optional()

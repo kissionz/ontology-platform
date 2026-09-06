@@ -311,13 +311,14 @@
 
 `POST /v1/semantic-query`
 
-AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。
+INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。
 
-所需权限：semantic:read + semantic:plan；AUTO / FIXED_SHAPE 还需 data:execute
+所需权限：semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute
 
 | 参数 | 位置 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| queryMode | body | 是 | AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。 |
+| queryMode | body | 是 | INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。 |
+| intent | body | 否 | 业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。 |
 | namespace | body | 是 | 本体命名空间。 |
 | ontologyVersion | body | 否 | 发布版本号或 latest；有 sessionId 时须与会话版本一致。 |
 | question | body | 否 | AUTO 与 ANALYSIS 使用的自然语言问题。 |
@@ -327,17 +328,19 @@ AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编�
 | pagination | body | 否 | pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。 |
 | options | body | 否 | 可开启 includeResolution、includeOntologyContext、includeAxioms、includeInferenceEvidence、includeQueryIr、includeSqlPreview。 |
 
-返回：返回执行信封。status 可为 SUCCEEDED、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；成功时 data 含 columns、rows、rowCount，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。
+返回：返回执行信封。status 可为 SUCCEEDED、NEEDS_INPUT、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；NEEDS_INPUT 时按 data.missing 补充请求，NEEDS_CLARIFICATION 时提交候选选择。成功时 data 含 columns、rows、rowCount，INTENT 另含 businessSummary 业务口径摘要，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。
 
 ```json
 {
   "namespace": "retail",
-  "ontologyVersion": "latest",
-  "queryMode": "ANALYSIS",
-  "question": "按店铺查看销售额",
-  "options": {
-    "includeAxioms": false,
-    "includeInferenceEvidence": false
+  "queryMode": "INTENT",
+  "intent": {
+    "metrics": [
+      "销售额"
+    ],
+    "dimensions": [
+      "店铺"
+    ]
   }
 }
 ```

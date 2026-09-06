@@ -1,3 +1,4 @@
+import { bindBusinessIntent } from "./business-intent.js";
 import { effectiveMetrics } from "../../domain/src/property-metrics.js";
 import { retrieveContext } from "./context-retrieval.js";
 import { relationJoinExpression, relationTraversals } from "../../domain/src/relations.js";
@@ -663,10 +664,11 @@ export class OntologyPlatform {
     };
   }
 
-  async executeSemanticQuery(input: ExecuteSemanticQueryInput) {
+  async executeSemanticQuery(input: ExecuteSemanticQueryInput, intentSelections: Record<string, string> = {}) {
     const requestId = `req_${randomUUID()}`,
       auditId = `audit_${randomUUID()}`;
     try {
+      if (input.intent && input.queryMode && input.queryMode !== "INTENT") throw new PlatformException({code:"INVALID_REQUEST",message:"intent 仅用于 INTENT 模式",stage:"binding",retryable:false},400);
       const pinnedSession = input.sessionId ? this.store.getSession(input.sessionId) : undefined;
       const version = this.resolveVersion(
         input.namespace,
@@ -724,7 +726,18 @@ export class OntologyPlatform {
       }
       let shape: FixedQueryShape;
       let resolution: unknown;
-      if (input.queryMode === "FIXED_SHAPE") {
+      let businessSummary: unknown;
+      if (input.queryMode === "INTENT" || (!input.queryMode && input.intent)) {
+        if (!input.intent || input.queryShape) throw new PlatformException({code:"INVALID_REQUEST", message:"INTENT 需要 intent，且不能同时提供 queryShape",stage:"binding",retryable:false},400);
+        const bound = bindBusinessIntent(snapshot, input.intent, (term, scope) => this.store.matchValues(input.namespace, version, term, scope), intentSelections);
+        if (bound.missing.length) return this.envelope(requestId,auditId,input.namespace,version,"NEEDS_INPUT",{status:"NEEDS_INPUT",missing:bound.missing});
+        if (bound.clarifications.length) {
+          const clarificationId = `clar_${randomUUID()}`;
+          this.store.saveClarification({clarificationId,input:{...input,ontologyVersion:version},version,choices:Object.fromEntries(bound.clarifications.map(c=>[c.id,c.candidates.map(c=>c.id)])),indexedValues:[],expiresAt:new Date(this.now().getTime()+30*60_000).toISOString()});
+          return this.envelope(requestId,auditId,input.namespace,version,"NEEDS_CLARIFICATION",{status:"NEEDS_CLARIFICATION",clarificationId,clarifications:bound.clarifications});
+        }
+        shape = bound.shape; businessSummary = bound.summary; resolution = bound.context;
+      } else if (input.queryMode === "FIXED_SHAPE") {
         if (!input.queryShape)
           throw new PlatformException(
             {
@@ -789,7 +802,7 @@ export class OntologyPlatform {
         resolution = resolved.resolution;
       }
       const intent = shapeToIntent(shape, snapshot);
-      if (input.question) {
+      if (input.question && !input.intent) {
         const time = input.question.match(/(?:今年|本年|去年)\d{1,2}月|\d{4}年(?:\d{1,2}月)?|(?:近|最近)\d{1,3}个?(?:天|月|年)|今天|昨天|本周|上周|本月|这个月|上月|本季度|上季度|今年|本年|去年/);
         if (time && !intent.timeRange) intent.timeRange = { expression: time[0] };
         const grain = input.question.match(/(?:按|每|分)(天|日|周|月|季度|年)/);
@@ -879,6 +892,7 @@ export class OntologyPlatform {
         ...(input.options?.includeOntologyContext ? { ontologyContext } : {}),
         ...(input.options?.includeAxioms ? { axioms: queryAxioms } : {}),
         ...(input.options?.includeInferenceEvidence ? { inferenceEvidence: queryInferences } : {}),
+        ...(businessSummary ? { businessSummary } : {}),
         resolutionMode: input.queryMode,
         ontologyVersion: version,
         columns: result.columns,
@@ -1009,6 +1023,11 @@ export class OntologyPlatform {
           },
           400,
         );
+    if (pending.input.intent) {
+      const result = await this.executeSemanticQuery(pending.input, selections);
+      if (result.status === "SUCCEEDED") this.store.deleteClarification(clarificationId);
+      return result;
+    }
     const resolved = autoShape(
       visibleSnapshot(this.getSnapshot(pending.input.namespace, pending.version)),
       pending.input.question ?? "",

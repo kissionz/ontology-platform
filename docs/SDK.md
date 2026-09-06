@@ -1,6 +1,8 @@
 # SDK 接入说明
 
-compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
+默认推荐 executeSemanticQuery 的 INTENT 模式：以业务名称传 metrics、dimensions、filters、time 和 sort，平台绑定后直接执行；有歧义时通过 continueSemanticQuery 选择后继续。
+
+独立调用 ResolveOntologyContext 时，compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
 
 公理、推论和证明详情默认关闭。解释或调试时用 include.axioms、include.inferences、include.evidence 按需开启；执行查询使用 options.includeAxioms 和 options.includeInferenceEvidence。规则始终在平台内执行。
 
@@ -14,7 +16,7 @@ resolveOntologyContext 返回候选检索结果。先检查 data.retrieval.statu
 
 TypeScript 构造参数为 baseUrl、apiKey 和可选 fetch；Python 为 base_url、api_key。根地址不包含 /v1。可从系统管理创建有合适权限的客户端并保存自动生成的密钥。
 
-SDK 返回完整响应信封，业务数据位于 data。HTTP 成功仍可能是 NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED，不能只判断有没有抛异常。
+SDK 返回完整响应信封，业务数据位于 data。HTTP 成功仍可能是 NEEDS_INPUT、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED，不能只判断有没有抛异常。
 
 需要 SQL 或公理证据时，在查询 options 中开启 includeSqlPreview、includeQueryIr、includeAxioms、includeInferenceEvidence。分页读取 completeness.nextCursor，下一次传入 pagination.cursor 并保持版本、查询和参数一致。
 
@@ -44,16 +46,14 @@ const client = new OntologyPlatformClient({
 });
 
 try {
-  const response = await client.resolveOntologyContext({
+  const response = await client.executeSemanticQuery({
     namespace: "retail",
     ontologyVersion: "latest",
-    purpose: "PLAN",
-    question: "按店铺查看销售额",
-    terms: ["销售额", { term: "店铺", role: "dimensions" }],
-    include: { axioms: false, inferences: false, evidence: false },
+    queryMode: "INTENT",
+    intent: { metrics: ["销售额"], dimensions: ["店铺"] },
   });
   if (response?.status === "SUCCEEDED") console.log(response.data);
-  else console.log(response?.status, response?.error);
+  else console.log(response?.status, response?.data, response?.error);
 } catch (error) {
   console.error(error); // HTTP 错误可读取 status、code、response
 }
@@ -74,18 +74,16 @@ client = OntologyPlatformClient(
     os.environ["ONTOLOGY_API_KEY"],
 )
 try:
-    response = client.resolve_ontology_context({
+    response = client.execute_semantic_query({
         "namespace": "retail",
         "ontologyVersion": "latest",
-        "purpose": "PLAN",
-        "question": "按店铺查看销售额",
-        "terms": ["销售额", {"term": "店铺", "role": "dimensions"}],
-        "include": {"axioms": False, "inferences": False, "evidence": False},
+        "queryMode": "INTENT",
+        "intent": {"metrics": ["销售额"], "dimensions": ["店铺"]},
     })
     if response.get("status") == "SUCCEEDED":
         print(response.get("data"))
     else:
-        print(response.get("status"), response.get("error"))
+        print(response.get("status"), response.get("data"), response.get("error"))
 except OntologyPlatformError as error:
     print(error.status, error.payload)
 
