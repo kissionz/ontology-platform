@@ -1,5 +1,7 @@
 # SDK 接入说明
 
+明细查询复用 executeSemanticQuery / execute_semantic_query，参数结构与 REST/MCP 相同；传 queryMode=INTENT 和 intent.resultKind=detail 即可按业务名称查询。省略 fields 返回全部可读取属性，includeObjects 指定关联对象，分页沿用 completeness.nextCursor。
+
 默认推荐 executeSemanticQuery 的 INTENT 模式：以业务名称传 metrics、dimensions、filters、time 和 sort，平台绑定后直接执行；有歧义时通过 continueSemanticQuery 选择后继续。
 
 独立调用 ResolveOntologyContext 时，compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
@@ -23,6 +25,24 @@ SDK 返回完整响应信封，业务数据位于 data。HTTP 成功仍可能是
 TypeScript 在 HTTP 非成功时抛出带 status、code、response 的 Error；手动调用 request 使用 ETag 得到 304 时返回 undefined。Python 抛出 OntologyPlatformError，可读取 status 和 payload，网络错误由 urllib 抛出。
 
 TypeScript 还提供 request(path, init) 调用其他 REST 接口，path 以 /v1 开头。Python 公共方法目前为表中四项，其他管理操作可直接调用 REST。
+
+## 明细查询参数示例
+
+```json
+{
+  "namespace": "retail",
+  "queryMode": "INTENT",
+  "intent": {
+    "resultKind": "detail",
+    "object": "订单",
+    "includeObjects": [
+      "店铺"
+    ],
+    "limit": 100
+  }
+}
+```
+
 
 ## 公共方法
 

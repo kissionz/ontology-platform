@@ -1,5 +1,25 @@
 # MCP 接入说明
 
+## 明细查询参数示例
+
+```json
+{
+  "namespace": "retail",
+  "queryMode": "INTENT",
+  "intent": {
+    "resultKind": "detail",
+    "object": "订单",
+    "includeObjects": [
+      "店铺"
+    ],
+    "limit": 100
+  }
+}
+```
+
+
+明细查询继续调用 ExecuteSemanticQuery。INTENT 传 intent.resultKind=detail、object 主对象名称、includeObjects 关联对象名称；fields 可指定属性名称或 {object, property}，省略时输出全部可读取属性。默认禁止扩行，确认后设置 allowFanout=true；名称或路径歧义使用 ContinueSemanticQuery。响应 data.columnBindings 将输出列映射到来源对象和属性。
+
 独立调用 ResolveOntologyContext 时，compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。
 
 普通调用默认返回业务候选与引用，公理、推论和证明详情需显式开启。响应开关不影响平台内部校验与查询规则。
@@ -85,16 +105,16 @@ ONTOLOGY_API_URL 是 REST 服务根地址，不含 /v1。本机连接默认读�
 
 ## ExecuteSemanticQuery · 执行语义查询
 
-INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。 所需权限：semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute。
+INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。resultKind=detail 返回逐行属性原值，支持跨对象字段及默认全部可读取属性；省略时仍按汇总语义执行。执行前应用本体公理和 SQL 安全约束。 所需权限：semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute。
 
 | 参数 | 必填 | 说明 |
 | --- | --- | --- |
 | queryMode | 是 | INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。 |
-| intent | 否 | 业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。 |
+| intent | 否 | 业务查询结构：汇总模式 metrics 指标或度量名称必填；明细模式传 resultKind=detail、object 主对象名称，includeObjects 指定关联对象，fields 指定属性（字符串或 {object, property}），省略 fields 返回主对象和 includeObjects 的全部可读取属性；allowFanout=true 显式允许扩行。dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。 |
 | namespace | 是 | 本体命名空间。 |
 | ontologyVersion | 否 | 发布版本号或 latest；有 sessionId 时须与会话版本一致。 |
 | question | 否 | AUTO 与 ANALYSIS 使用的自然语言问题。 |
-| queryShape | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；具体 ID 从本体或语义上下文取得。 |
+| queryShape | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；明细模式传 resultKind=detail、selectPropertyIds 可选字段 ID、includeObjectIds 可选关联对象 ID；不填字段返回主对象及明确加入对象的全部可读取属性，measureIds 可省略。relationPaths 按目标对象 ID 指定关系 ID 顺序；allowFanout 控制一对多、多对多展开。具体 ID 从本体或语义上下文取得。 |
 | parameters | 否 | 查询结构中参数占位符的名称与取值。 |
 | sessionId | 否 | 语义上下文返回的会话 ID，用于固定版本和解析短引用。 |
 | pagination | 否 | pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。 |

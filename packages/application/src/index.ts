@@ -52,6 +52,7 @@ export interface GoldenReport {
 export type CompiledTemplate = Pick<CompiledQuery, "ir" | "sql">;
 
 export interface ClarificationRecord {
+  intentSelections?: Record<string,string>;
   clarificationId: string;
   input: ExecuteSemanticQueryInput;
   version: number;
@@ -696,7 +697,11 @@ export class OntologyPlatform {
             409,
           );
       }
-      const snapshot = visibleSnapshot(this.store.getSnapshot(input.namespace, version)!);
+      const originalSnapshot = this.store.getSnapshot(input.namespace, version)!;
+      const snapshot = visibleSnapshot(originalSnapshot);
+      if (input.intent?.resultKind === "detail" || input.queryShape?.resultKind === "detail") {
+        for (const object of snapshot.objects) object.defaultFilter = originalSnapshot.objects.find(original => original.id === object.id)?.defaultFilter;
+      }
       if (input.queryMode === "ANALYSIS") {
         const context = this.resolveOntologyContext({
           namespace: input.namespace,
@@ -736,7 +741,7 @@ export class OntologyPlatform {
         if (bound.missing.length) return this.envelope(requestId,auditId,input.namespace,version,"NEEDS_INPUT",{status:"NEEDS_INPUT",missing:bound.missing});
         if (bound.clarifications.length) {
           const clarificationId = `clar_${randomUUID()}`;
-          this.store.saveClarification({clarificationId,input:{...input,ontologyVersion:version},version,choices:Object.fromEntries(bound.clarifications.map(c=>[c.id,c.candidates.map(c=>c.id)])),indexedValues:[],expiresAt:new Date(this.now().getTime()+30*60_000).toISOString()});
+          this.store.saveClarification({clarificationId,intentSelections,input:{...input,ontologyVersion:version},version,choices:Object.fromEntries(bound.clarifications.map(c=>[c.id,c.candidates.map(c=>c.id)])),indexedValues:[],expiresAt:new Date(this.now().getTime()+30*60_000).toISOString()});
           return this.envelope(requestId,auditId,input.namespace,version,"NEEDS_CLARIFICATION",{status:"NEEDS_CLARIFICATION",clarificationId,clarifications:bound.clarifications});
         }
         shape = bound.shape; businessSummary = bound.summary; resolution = bound.context;
@@ -899,6 +904,7 @@ export class OntologyPlatform {
         resolutionMode: input.queryMode,
         ontologyVersion: version,
         columns: result.columns,
+        ...(compiled.ir.resultKind === "detail" ? { resultKind: "detail", columnBindings: compiled.ir.columnBindings } : {}),
         rows: result.rows,
         rowCount: result.rowCount,
         truncated: result.truncated,
@@ -972,7 +978,7 @@ export class OntologyPlatform {
     // Only the validated DIRECT filter layout is rebound from this template format.
     if (!cache || intent.timeRange || intent.timeGrain || intent.timeComparisons?.length || intent.windowCalculations?.length || intent.derivedMeasures?.length || intent.groupSelections?.length || intent.periodConditions?.length || intent.hierarchyFilters?.length || intent.filterExpression || intent.aggregateFilters?.length || intent.aggregateFilterExpression || intent.filters.some(filter => filter.kind !== "DIRECT")) return compile();
     const key = digest({
-      format: "selectdb-direct-template-v1",
+      format: "selectdb-direct-template-v2",
       snapshot: snapshot.contentDigest,
       tables,
       intent: { ...intent, filters: intent.filters.map(filter => ({ ...filter, value: Array.isArray(filter.value) ? filter.value.map(value => typeof value) : typeof filter.value })) },
@@ -1027,7 +1033,7 @@ export class OntologyPlatform {
           400,
         );
     if (pending.input.intent) {
-      const result = await this.executeSemanticQuery(pending.input, selections);
+      const result = await this.executeSemanticQuery(pending.input, { ...pending.intentSelections, ...selections });
       if (result.status === "SUCCEEDED") this.store.deleteClarification(clarificationId);
       return result;
     }
@@ -1321,7 +1327,7 @@ function queryStructure(value: unknown, key = ""): unknown {
   return value;
 }
 function resolveShapeReferences(shape: FixedQueryShape, resolve: (id: string) => string): FixedQueryShape {
-  const referenceKeys = new Set(["rootObjectId", "measureIds", "dimensionPropertyIds", "propertyId", "entityId", "hierarchyId", "measureId", "leftMeasureId", "rightMeasureId", "partitionByPropertyIds", "orderByEntityId", "groupByPropertyIds"]);
+  const referenceKeys = new Set(["selectPropertyIds", "includeObjectIds", "rootObjectId", "measureIds", "dimensionPropertyIds", "propertyId", "entityId", "hierarchyId", "measureId", "leftMeasureId", "rightMeasureId", "partitionByPropertyIds", "orderByEntityId", "groupByPropertyIds"]);
   const visit = (value: unknown, key = ""): unknown => {
     if (typeof value === "string" && referenceKeys.has(key)) return resolve(value);
     if (Array.isArray(value)) return value.map(item => visit(item, key));

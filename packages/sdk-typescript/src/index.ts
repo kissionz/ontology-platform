@@ -1,4 +1,4 @@
-import type { ExecuteSemanticQueryInput, ResolveSemanticContextInput, PlatformError } from "../../contracts/src/index.js";
+import type { ExecuteSemanticQueryRequest, ResolveSemanticContextInput, PlatformError } from "../../contracts/src/index.js";
 export interface PlatformResponse<T = unknown> {
   requestId: string; namespace: string; ontologyVersion?: number; status: string;
   data?: T; error?: PlatformError; auditId: string;
@@ -7,7 +7,7 @@ export interface PlatformResponse<T = unknown> {
 export class OntologyPlatformClient {
   constructor(private readonly options: { baseUrl: string; apiKey: string; fetch?: typeof fetch }) {}
   resolveOntologyContext(input: ResolveSemanticContextInput) { return this.request("/v1/semantic-context:resolve", { method: "POST", body: JSON.stringify(input) }); }
-  executeSemanticQuery(input: Omit<ExecuteSemanticQueryInput, "queryMode"> & { queryMode?: ExecuteSemanticQueryInput["queryMode"] }) { return this.request("/v1/semantic-query", { method: "POST", body: JSON.stringify(input) }); }
+  executeSemanticQuery(input: ExecuteSemanticQueryRequest) { return this.request("/v1/semantic-query", { method: "POST", body: JSON.stringify(input) }); }
   continueSemanticQuery(id: string, selections: Record<string, string>) { return this.request(`/v1/semantic-query/clarifications/${encodeURIComponent(id)}:continue`, { method: "POST", body: JSON.stringify({ selections }) }); }
   getOntology(namespace: string, version: number | "latest" = "latest") { return this.request(`/v1/namespaces/${encodeURIComponent(namespace)}/ontology?version=${version}`); }
   async request<T = unknown>(path: string, init: RequestInit = {}): Promise<PlatformResponse<T> | undefined> {

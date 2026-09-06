@@ -1,3 +1,4 @@
+import { QUERY_REQUEST_EXAMPLES } from "../../../packages/contracts/src/api-docs.js";
 import { useState } from "react";
 import { MCP_CONFIG, MCP_EXAMPLES, MCP_NOTES, SDK_METHODS, SDK_NOTES, SDK_PY_EXAMPLE, SDK_TS_EXAMPLE } from "../../../packages/contracts/src/integration-docs.js";
 import { MCP_TOOLS, MCP_TOOL_DOCS } from "../../../packages/mcp-server/src/index.js";
@@ -13,6 +14,7 @@ export function IntegrationGuide({ kind }: { kind: "mcp" | "sdk" }) {
     <header className="guide-header"><h2>{kind === "mcp" ? "MCP 接入说明" : "SDK 接入说明"}</h2><p>{kind === "mcp" ? "通过 stdio 将本体、语义查询和公理证据提供给 Agent。" : "通过 TypeScript 或 Python 接入平台，共用 REST 契约与权限。"}</p></header>
     <div className="guide-body">
       <h3>接入步骤与约定</h3><ol>{(kind === "mcp" ? MCP_NOTES : SDK_NOTES).map(note => <li key={note}>{note}</li>)}</ol>
+      <details><summary>明细查询参数示例</summary><Example title="按业务名称请求跨对象明细" value={JSON.stringify(QUERY_REQUEST_EXAMPLES["明细：跨对象全部字段"], null, 2)} /></details>
       {kind === "mcp" ? <>
         <Example title="MCP 客户端配置" value={JSON.stringify(MCP_CONFIG, null, 2)} />
         <h3>工具说明（{MCP_TOOLS.length} 个）</h3>

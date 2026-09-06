@@ -1,8 +1,10 @@
+import { bindDetailIntent } from "./detail-intent.js";
 import type { ExecuteSemanticQueryInput, FixedQueryShape, OntologySnapshotV3 } from '../../contracts/src/index.js';
 import { retrieveContext, type ContextCandidate, type SearchRequest, type ValueLookup } from './context-retrieval.js';
 
 const periods = { CURRENT_YEAR: '今年', PREVIOUS_YEAR: '去年', CURRENT_MONTH: '本月', PREVIOUS_MONTH: '上月', TODAY: '今天', YESTERDAY: '昨天' };
 export function bindBusinessIntent(snapshot: OntologySnapshotV3, intent: NonNullable<ExecuteSemanticQueryInput['intent']>, lookup: ValueLookup, selections: Record<string,string> = {}) {
+  if (intent.resultKind === "detail") return bindDetailIntent(snapshot, intent, lookup, selections);
   const slots: Array<{key:string; request:SearchRequest}> = [];
   intent.metrics.forEach((term,i)=>slots.push({key:`metric_${i}`,request:{term,role:'metrics'}}));
   intent.dimensions?.forEach((term,i)=>slots.push({key:`dimension_${i}`,request:{term,role:'dimensions'}}));

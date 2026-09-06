@@ -414,6 +414,7 @@ export interface PeriodGroupCondition {
 }
 
 export interface AnalysisIntent {
+  selectPropertyIds?: string[]; includeObjectIds?: string[]; allowFanout?: boolean; relationPaths?: Record<string, string[]>;
   rootObjectId?: string;
   measureIds: string[];
   dimensionPropertyIds: string[];
@@ -453,6 +454,7 @@ export interface AnalysisIntent {
 }
 
 export interface QueryIR {
+  selectPropertyIds?: string[]; columnBindings?: Array<{ key: string; objectId: string; propertyId: string; label: string }>;
   version: 3;
   ontologyVersion: number;
   rootObjectId: string;

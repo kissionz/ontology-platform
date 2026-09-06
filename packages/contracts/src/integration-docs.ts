@@ -9,6 +9,7 @@ export const MCP_CONFIG = {
 };
 
 export const MCP_NOTES = [
+  "明细查询继续调用 ExecuteSemanticQuery。INTENT 传 intent.resultKind=detail、object 主对象名称、includeObjects 关联对象名称；fields 可指定属性名称或 {object, property}，省略时输出全部可读取属性。默认禁止扩行，确认后设置 allowFanout=true；名称或路径歧义使用 ContinueSemanticQuery。响应 data.columnBindings 将输出列映射到来源对象和属性。",
   "独立调用 ResolveOntologyContext 时，compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。",
   "普通调用默认返回业务候选与引用，公理、推论和证明详情需显式开启。响应开关不影响平台内部校验与查询规则。",
   "对象中可分析、非敏感且具有有效默认聚合的 NUMBER 属性可直接作为基础指标。ResolveOntologyContext 的 concepts.metrics 接受属性名称或 ID，ExecuteSemanticQuery 的 queryShape.measureIds 接受属性 ID；组合指标的 leftMetricId/rightMetricId 也可引用同对象度量属性 ID。属性引用始终使用字段默认口径，不会替换为其他已命名指标。",
@@ -41,6 +42,7 @@ export const SDK_METHODS = [
 ];
 
 export const SDK_NOTES = [
+  "明细查询复用 executeSemanticQuery / execute_semantic_query，参数结构与 REST/MCP 相同；传 queryMode=INTENT 和 intent.resultKind=detail 即可按业务名称查询。省略 fields 返回全部可读取属性，includeObjects 指定关联对象，分页沿用 completeness.nextCursor。",
   "默认推荐 executeSemanticQuery 的 INTENT 模式：以业务名称传 metrics、dimensions、filters、time 和 sort，平台绑定后直接执行；有歧义时通过 continueSemanticQuery 选择后继续。",
   "独立调用 ResolveOntologyContext 时，compact 默认只返回绑定和业务摘要。由平台构造 SQL 时直接使用候选的 objectId、propertyId 或指标 id，以及 values[].filter；无需读取公式、完整关联和层级。需要这些构造细节时显式传 projection: standard 或 full。对象维度候选的 propertyId 为主名称属性，identityPropertyIds 标识实体身份；平台分组时保留身份以避免同名实体合并。",
   "公理、推论和证明详情默认关闭。解释或调试时用 include.axioms、include.inferences、include.evidence 按需开启；执行查询使用 options.includeAxioms 和 options.includeInferenceEvidence。规则始终在平台内执行。",

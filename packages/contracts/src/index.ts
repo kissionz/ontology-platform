@@ -82,6 +82,7 @@ export const ResolveSemanticContextInputSchema = z.object({
 }).strict();
 export const QueryIrSchema = z.object({
   ...AdvancedQueryFields,
+  selectPropertyIds: z.array(z.string()).optional(), columnBindings: z.array(z.object({ key: z.string(), objectId: z.string(), propertyId: z.string(), label: z.string() }).strict()).optional(),
   version: z.literal(3), ontologyVersion: z.number().int(), rootObjectId: z.string(), measureIds: z.array(z.string()), dimensionPropertyIds: z.array(z.string()),
   filters: z.array(DirectIrFilterSchema), filterExpression: IrFilterExpressionSchema.optional(), relationIds: z.array(z.string()), grain: z.string(), resultKind: z.enum(["aggregate", "detail"]),
   hierarchyFilters: z.array(HierarchyFilterSchema.extend({ objectId: z.string(), nodeIdPropertyId: z.string(), closureObjectId: z.string() })).optional(),
@@ -90,13 +91,23 @@ export const QueryIrSchema = z.object({
   resultContract: z.object({ calculationSource: z.literal("DORIS_SQL"), businessLogicBeforeLimit: z.literal(true), completeness: z.literal("COMPLETE_IF_NOT_TRUNCATED"), expectedPeriodCount: z.number().int().optional(), exhaustiveRequested: z.boolean() }).strict().optional(),
 }).strict();
 export const BusinessQueryIntentSchema = z.object({
-  metrics: z.array(z.string().trim().min(1)).min(1).max(16),
+  metrics: z.array(z.string().trim().min(1)).max(16).default([]),
+  resultKind: z.enum(["aggregate", "detail"]).optional(), object: z.string().trim().min(1).optional(), includeObjects: z.array(z.string().trim().min(1)).optional(),
+  fields: z.array(z.union([z.string().trim().min(1), z.object({ object: z.string().optional(), property: z.string().min(1) }).strict()])).min(1).optional(), allowFanout: z.boolean().optional(),
   dimensions: z.array(z.string().trim().min(1)).max(16).optional(),
-  filters: z.array(z.object({ value: z.string().trim().min(1), object: z.string().optional(), property: z.string().optional() }).strict()).max(16).optional(),
+  filters: z.array(z.object({ value: z.string().trim().min(1), object: z.string().optional(), property: z.string().optional(), operator: z.enum(["EQ", "NE", "GT", "GTE", "LT", "LTE", "CONTAINS", "PREFIX"]).optional() }).strict()).max(16).optional(),
   time: z.object({ field: z.string().min(1), period: z.enum(["CURRENT_YEAR", "PREVIOUS_YEAR", "CURRENT_MONTH", "PREVIOUS_MONTH", "TODAY", "YESTERDAY"] ) }).strict().optional(),
   sort: z.array(z.object({ field: z.string().min(1), direction: z.enum(["ASC", "DESC"]) }).strict()).max(16).optional(),
   limit: z.number().int().positive().max(10000).optional()
-}).strict();
+}).strict().superRefine((intent, context) => {
+  if (intent.resultKind === "detail") {
+    if (!intent.object) context.addIssue({ code: "custom", message: "明细查询必须指定 object", path: ["object"] });
+    if (intent.metrics.length || intent.dimensions?.length) context.addIssue({ code: "custom", message: "明细查询使用 fields 选择属性，不接受 metrics 或 dimensions" });
+  } else {
+    if (!intent.metrics.length) context.addIssue({ code: "custom", message: "汇总查询至少需要一个指标", path: ["metrics"] });
+    if (intent.object || intent.fields || intent.includeObjects || intent.allowFanout || intent.filters?.some(filter => filter.operator)) context.addIssue({ code: "custom", message: "明细配置需要 resultKind=detail" });
+  }
+});
 export const ExecuteSemanticQueryInputSchema = z.object({
   queryMode: z.enum(["AUTO", "FIXED_SHAPE", "ANALYSIS", "INTENT"]).default("INTENT"),
   intent: BusinessQueryIntentSchema.optional(), namespace: z.string().min(1), ontologyVersion: z.union([z.number().int().nonnegative(), z.literal("latest")]).optional(),
@@ -144,6 +155,7 @@ export type AxiomAssertion = z.infer<typeof AxiomAssertionSchema>;
 export type InferredAssertion = z.infer<typeof InferredAssertionSchema>;
 export type ProofStep = z.infer<typeof ProofStepSchema>;
 export type ResolveSemanticContextInput = z.infer<typeof ResolveSemanticContextInputSchema>;
+export type ExecuteSemanticQueryRequest = z.input<typeof ExecuteSemanticQueryInputSchema>;
 export type ExecuteSemanticQueryInput = z.infer<typeof ExecuteSemanticQueryInputSchema>;
 export type QueryIR = z.infer<typeof QueryIrSchema>;
 export type FixedQueryShape = z.infer<typeof FixedQueryShapeSchema>;

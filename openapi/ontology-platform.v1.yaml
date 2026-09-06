@@ -2798,8 +2798,73 @@
     "/semantic-query": {
       "post": {
         "operationId": "ExecuteSemanticQuery",
+        "x-request-examples": {
+          "明细：主对象全部字段": {
+            "namespace": "retail",
+            "queryMode": "INTENT",
+            "intent": {
+              "resultKind": "detail",
+              "object": "订单",
+              "limit": 100
+            }
+          },
+          "明细：跨对象全部字段": {
+            "namespace": "retail",
+            "queryMode": "INTENT",
+            "intent": {
+              "resultKind": "detail",
+              "object": "订单",
+              "includeObjects": [
+                "店铺"
+              ],
+              "limit": 100
+            }
+          },
+          "明细：选择字段与时间筛选": {
+            "namespace": "retail",
+            "queryMode": "INTENT",
+            "intent": {
+              "resultKind": "detail",
+              "object": "订单",
+              "fields": [
+                "订单 ID",
+                "销售金额",
+                {
+                  "object": "店铺",
+                  "property": "店铺名称"
+                }
+              ],
+              "time": {
+                "field": "业务日期",
+                "period": "CURRENT_YEAR"
+              },
+              "limit": 100
+            }
+          },
+          "明细：使用稳定 ID": {
+            "namespace": "retail",
+            "queryMode": "FIXED_SHAPE",
+            "queryShape": {
+              "resultKind": "detail",
+              "rootObjectId": "o_order",
+              "selectPropertyIds": [
+                "p_order_id",
+                "p_sales",
+                "p_store_name"
+              ],
+              "filters": [
+                {
+                  "propertyId": "p_order_date",
+                  "operator": "GTE",
+                  "value": "2026-01-01"
+                }
+              ],
+              "limit": 100
+            }
+          }
+        },
         "summary": "执行语义查询",
-        "description": "INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。",
+        "description": "INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。resultKind=detail 返回逐行属性原值，支持跨对象字段及默认全部可读取属性；省略时仍按汇总语义执行。执行前应用本体公理和 SQL 安全约束。",
         "security": [
           {
             "bearerAuth": []
@@ -2884,6 +2949,16 @@
           }
         ],
         "x-response-fields": [
+          {
+            "path": "resultKind",
+            "type": "detail（明细成功时）",
+            "description": "明细模式直接返回属性原始值，保留重复行，不按维度汇总。"
+          },
+          {
+            "path": "columnBindings[]",
+            "type": "object[]（明细成功时）",
+            "description": "每列含 key（rows 的键）、objectId、propertyId、label；跨对象列以对象名·属性名显示，通过 ID 可稳定识别字段。"
+          },
           {
             "path": "columns[]",
             "type": "string[]（成功时）",
@@ -3188,6 +3263,16 @@
           }
         ],
         "x-response-fields": [
+          {
+            "path": "resultKind",
+            "type": "detail（明细成功时）",
+            "description": "明细模式直接返回属性原始值，保留重复行，不按维度汇总。"
+          },
+          {
+            "path": "columnBindings[]",
+            "type": "object[]（明细成功时）",
+            "description": "每列含 key（rows 的键）、objectId、propertyId、label；跨对象列以对象名·属性名显示，通过 ID 可稳定识别字段。"
+          },
           {
             "path": "columns[]",
             "type": "string[]（成功时）",
@@ -6325,7 +6410,7 @@
             "type": "object",
             "properties": {
               "metrics": {
-                "minItems": 1,
+                "default": [],
                 "maxItems": 16,
                 "type": "array",
                 "items": {
@@ -6333,6 +6418,60 @@
                   "minLength": 1
                 },
                 "description": "要计算的指标或度量业务名称。按字段默认聚合或指标定义计算。"
+              },
+              "resultKind": {
+                "type": "string",
+                "enum": [
+                  "aggregate",
+                  "detail"
+                ],
+                "description": "aggregate 汇总（默认），detail 原始明细。"
+              },
+              "object": {
+                "type": "string",
+                "minLength": 1,
+                "description": "明细主对象的业务名称或 ID，明细模式必填。"
+              },
+              "includeObjects": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "默认全字段时，额外返回这些关联对象的全部可读取属性；不会自动遍历整个本体。"
+              },
+              "fields": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "object": {
+                          "type": "string"
+                        },
+                        "property": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "property"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "description": "输出属性名称或 {object, property}；省略时返回全部可读取属性，显式填写只输出所选字段。"
+              },
+              "allowFanout": {
+                "type": "boolean",
+                "description": "默认 false；true 显式允许一对多、多对多扩展行数。"
               },
               "dimensions": {
                 "maxItems": 16,
@@ -6361,6 +6500,20 @@
                     "property": {
                       "type": "string",
                       "description": "可选属性名称或 ID，限定值检索范围。"
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "EQ",
+                        "NE",
+                        "GT",
+                        "GTE",
+                        "LT",
+                        "LTE",
+                        "CONTAINS",
+                        "PREFIX"
+                      ],
+                      "description": "明细可直接指定 EQ、GTE、LT 等比较运算，需配合 property；不填则通过值索引解析 value。"
                     }
                   },
                   "required": [
@@ -6437,7 +6590,7 @@
               "metrics"
             ],
             "additionalProperties": false,
-            "description": "业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。"
+            "description": "业务查询结构：汇总模式 metrics 指标或度量名称必填；明细模式传 resultKind=detail、object 主对象名称，includeObjects 指定关联对象，fields 指定属性（字符串或 {object, property}），省略 fields 返回主对象和 includeObjects 的全部可读取属性；allowFanout=true 显式允许扩行。dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。"
           },
           "namespace": {
             "type": "string",
@@ -6471,6 +6624,7 @@
                 "description": "查询事实或主对象的稳定 ID。"
               },
               "measureIds": {
+                "default": [],
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -6479,12 +6633,50 @@
                 "description": "指标或可用度量属性 ID。"
               },
               "dimensionPropertyIds": {
+                "default": [],
                 "type": "array",
                 "items": {
                   "type": "string",
                   "minLength": 1
                 },
                 "description": "分组属性 ID。"
+              },
+              "selectPropertyIds": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "明细输出属性 ID；省略则返回主对象及 includeObjectIds 的全部可读取属性。"
+              },
+              "includeObjectIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "明细默认全字段额外加入的对象 ID；隐式经过的中间对象不输出。"
+              },
+              "allowFanout": {
+                "type": "boolean",
+                "description": "默认 false；确认行数展开后显式传 true。"
+              },
+              "relationPaths": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "可选对象 ID 到关系 ID 数组的映射，指定从主对象出发的完整路径。存在多条路径时必须明确指定。"
               },
               "filters": {
                 "default": [],
@@ -7064,7 +7256,7 @@
               "limit"
             ],
             "additionalProperties": false,
-            "description": "FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；具体 ID 从本体或语义上下文取得。"
+            "description": "FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；明细模式传 resultKind=detail、selectPropertyIds 可选字段 ID、includeObjectIds 可选关联对象 ID；不填字段返回主对象及明确加入对象的全部可读取属性，measureIds 可省略。relationPaths 按目标对象 ID 指定关系 ID 顺序；allowFanout 控制一对多、多对多展开。具体 ID 从本体或语义上下文取得。"
           },
           "parameters": {
             "type": "object",
@@ -8217,6 +8409,7 @@
                       "minLength": 1
                     },
                     "measureIds": {
+                      "default": [],
                       "type": "array",
                       "items": {
                         "type": "string",
@@ -8224,10 +8417,44 @@
                       }
                     },
                     "dimensionPropertyIds": {
+                      "default": [],
                       "type": "array",
                       "items": {
                         "type": "string",
                         "minLength": 1
+                      }
+                    },
+                    "selectPropertyIds": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "includeObjectIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "allowFanout": {
+                      "type": "boolean"
+                    },
+                    "relationPaths": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "additionalProperties": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
                       }
                     },
                     "filters": {
@@ -9605,6 +9832,39 @@
                 "quantifier",
                 "groupByPropertyIds",
                 "missingPeriodPolicy"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "selectPropertyIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "columnBindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "objectId": {
+                  "type": "string"
+                },
+                "propertyId": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "objectId",
+                "propertyId",
+                "label"
               ],
               "additionalProperties": false
             }

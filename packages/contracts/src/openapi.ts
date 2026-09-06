@@ -1,7 +1,7 @@
 import { ENVELOPE_FIELDS, RESPONSE_FIELDS, QUERY_RESPONSE_EXAMPLES } from "./response-docs.js";
 import { jsonSchemas } from "./index.js";
 
-import { API_DOCS, PATH_DESCRIPTIONS, REQUEST_DOCS, QUERY_FIELD_DESCRIPTIONS } from "./api-docs.js";
+import { QUERY_REQUEST_EXAMPLES, API_DOCS, PATH_DESCRIPTIONS, REQUEST_DOCS, QUERY_FIELD_DESCRIPTIONS } from "./api-docs.js";
 
 const security = [{ bearerAuth: [] }];
 const pathParameter = (name: string) => ({ in: "path", name, required: true, description: PATH_DESCRIPTIONS[name], schema: { type: "string" } });
@@ -27,7 +27,7 @@ const operation = (operationId: keyof typeof API_DOCS, parameters: ReturnType<ty
     ] : []),
   ];
   const headers = ["PatchOntologyDraft", "DiscardOntologyDraft"].includes(operationId) ? [{ in: "header", name: "If-Match", required: operationId === "DiscardOntologyDraft", description: operationId === "DiscardOntologyDraft" ? "必填，填写草稿当前 revision，防止丢弃他人更新。" : "可替代请求体 revision，值为草稿当前修订号。", schema: { type: "string" } }] : operationId === "GetOntologySnapshot" ? [{ in: "header", name: "If-None-Match", required: false, description: "上次响应的 ETag，相同则返回 304。", schema: { type: "string" } }] : [];
-  return { operationId, summary: docs.summary, description: docs.description, security, "x-required-scopes": docs.scopes, "x-envelope-fields": ["GetHealth", "GetOpenApiDocument"].includes(operationId) ? [] : ENVELOPE_FIELDS, "x-response-fields": RESPONSE_FIELDS[operationId], "x-response-examples": ["ExecuteSemanticQuery", "ContinueSemanticQuery"].includes(operationId) ? QUERY_RESPONSE_EXAMPLES : undefined, parameters: [...parameters, ...queries, ...headers], responses: {
+  return { operationId, ...(operationId === "ExecuteSemanticQuery" ? { "x-request-examples": QUERY_REQUEST_EXAMPLES } : {}), summary: docs.summary, description: docs.description, security, "x-required-scopes": docs.scopes, "x-envelope-fields": ["GetHealth", "GetOpenApiDocument"].includes(operationId) ? [] : ENVELOPE_FIELDS, "x-response-fields": RESPONSE_FIELDS[operationId], "x-response-examples": ["ExecuteSemanticQuery", "ContinueSemanticQuery"].includes(operationId) ? QUERY_RESPONSE_EXAMPLES : undefined, parameters: [...parameters, ...queries, ...headers], responses: {
     "200": { description: docs.returns, content: { "application/json": { schema: { type: "object" } } } },
     ...(operationId === "GetOntologySnapshot" ? { "304": { description: "快照未改变，响应体为空。" } } : {}),
     "400": { description: "参数不符合契约，检查 error.message 和 error.details。" },

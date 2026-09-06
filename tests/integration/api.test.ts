@@ -27,6 +27,7 @@ function setup() {
 afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
+import { OntologyPlatformClient } from "../../packages/sdk-typescript/src/index.js";
 const auth = { authorization: "Bearer test-key" };
 describe("C01-C06 HTTP/MCP contract", () => {
   it("C01 uses identical Application semantics for HTTP and MCP", async () => {
@@ -215,4 +216,24 @@ it("validates audit ranges and pagination and restricts audit access to administ
   }
   const client = (await app.inject({ method: "POST", url: "/v1/system/api-clients", headers: auth, payload: { name: "只读 Agent", scopes: ["ontology:read"] } })).json().data;
   expect((await app.inject({ url: "/v1/system/audit-events?includeSummary=true", headers: { authorization: `Bearer ${client.apiKey}` } })).statusCode).toBe(403);
+});
+
+it("accepts name-based detail requests through SDK HTTP and MCP in one call", async () => {
+  const app = setup();
+  let calls = 0;
+  const client = new OntologyPlatformClient({ baseUrl: "http://test", apiKey: "test-key", fetch: async (url, init) => {
+    calls++;
+    const response = await app.inject({ method: "POST", url: new URL(String(url)).pathname, headers: Object.fromEntries(new Headers(init?.headers)), payload: String(init?.body) });
+    return new Response(response.body, { status: response.statusCode });
+  } });
+  const input = { namespace: "retail", queryMode: "INTENT" as const, intent: { resultKind: "detail" as const, object: "订单", includeObjects: ["店铺"] }, options: { includeSqlPreview: true, includeQueryIr: true } };
+  const http: any = await client.executeSemanticQuery(input);
+  const mcp: any = await new OntologyMcpAdapter(app.platformService).callTool("ExecuteSemanticQuery", input);
+  expect(calls).toBe(1);
+  expect(http.status).toBe("SUCCEEDED");
+  expect(mcp.status).toBe("SUCCEEDED");
+  expect(http.data.resultKind).toBe("detail");
+  expect(http.data.columnBindings).toEqual(mcp.data.columnBindings);
+  expect(http.data.columnBindings.some((column: any) => column.objectId === "o_store")).toBe(true);
+  expect(http.data.sqlPreview.sql).not.toMatch(/GROUP BY|SUM\(|DISTINCT/i);
 });

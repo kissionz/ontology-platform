@@ -35,5 +35,6 @@ export function ApiReference({ document, operation, onExample }: { document: any
     {responseFields("业务响应字段",operation["x-response-fields"] ?? [])}
     {operation["x-response-examples"] && <details><summary>响应示例</summary><p>示例数据仅用于说明结构。成功示例为完整信封，其余展示关键状态字段。</p>{Object.entries(operation["x-response-examples"]).map(([name,value])=><div key={name}><h4>{({success:"查询成功",missing:"需要补充信息",clarification:"需要澄清",error:"请求失败"} as Record<string,string>)[name]}</h4><pre>{JSON.stringify(value,null,2)}</pre></div>)}</details>}
     {content && <details><summary>请求示例与完整结构</summary><p>示例中的命名空间、版本和定义 ID 请替换为实际值。</p>{content.example !== undefined && <><button type="button" className="secondary-button" onClick={() => onExample(content.example)}>填入请求示例</button><pre>{JSON.stringify(content.example, null, 2)}</pre></>}<h4>请求结构</h4><pre>{JSON.stringify(schema, null, 2)}</pre></details>}
+    {operation["x-request-examples"] && <details><summary>明细查询示例</summary>{Object.entries(operation["x-request-examples"]).map(([title, example]) => <div key={title}><h4>{title}</h4><button className="secondary-button" onClick={() => onExample(example)}>填入：{title}</button><pre>{JSON.stringify(example, null, 2)}</pre></div>)}</details>}
   </section>;
 }

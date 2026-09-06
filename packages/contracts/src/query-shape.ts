@@ -48,5 +48,6 @@ export const AdvancedQueryFields = {
   derivedMeasures: z.array(DerivedMeasureSchema).optional(), timeComparisons: z.array(TimeComparisonSchema).optional(), windowCalculations: z.array(WindowCalculationSchema).optional(), groupSelections: z.array(GroupSelectionSchema).optional(), periodConditions: z.array(PeriodConditionSchema).optional(),
 };
 export const FixedQueryShapeSchema = z.object({
-  rootObjectId: reference, measureIds: z.array(reference), dimensionPropertyIds: z.array(reference), filters: z.array(QueryFilterSchema).default([]), sort: z.array(QuerySortSchema).default([]), limit: positiveCount.default(200), resultKind: z.enum(["aggregate", "detail"]).optional(), ...AdvancedQueryFields,
+  rootObjectId: reference, measureIds: z.array(reference).default([]), dimensionPropertyIds: z.array(reference).default([]),
+  selectPropertyIds: z.array(reference).min(1).optional(), includeObjectIds: z.array(reference).optional(), allowFanout: z.boolean().optional(), relationPaths: z.record(reference, z.array(reference).min(1)).optional(), filters: z.array(QueryFilterSchema).default([]), sort: z.array(QuerySortSchema).default([]), limit: positiveCount.default(200), resultKind: z.enum(["aggregate", "detail"]).optional(), ...AdvancedQueryFields,
 }).strict();

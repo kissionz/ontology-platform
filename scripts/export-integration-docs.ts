@@ -1,3 +1,4 @@
+import { QUERY_REQUEST_EXAMPLES } from "../packages/contracts/src/api-docs.js";
 import { writeFileSync } from "node:fs";
 import { createOpenApiDocument } from "../packages/contracts/src/openapi.js";
 import { MCP_CONFIG, MCP_EXAMPLES, MCP_NOTES, SDK_METHODS, SDK_NOTES, SDK_PY_EXAMPLE, SDK_TS_EXAMPLE } from "../packages/contracts/src/integration-docs.js";
@@ -25,17 +26,18 @@ for (const [path, methods] of Object.entries(document.paths)) for (const [method
     const fields = operation[key!];
     if (fields?.length) api.push(`### ${title}\n\n` + table([["字段路径", "类型与条件", "说明"], ["---", "---", "---"], ...fields.map((f:any)=>[f.path,f.type,f.description])]));
   }
+  if (operation["x-request-examples"]) for (const [title, value] of Object.entries(operation["x-request-examples"])) api.push(`### ${title}` + code(value));
   if (operation["x-response-examples"]) api.push("### 响应示例（成功为完整信封，其余为关键字段）" + code(operation["x-response-examples"]));
 
 }
 writeFileSync(new URL("../docs/API.md", import.meta.url), api.join("\n\n") + "\n");
 
 
-const mcp = ["# MCP 接入说明", ...MCP_NOTES, "## 客户端配置" + code(MCP_CONFIG)];
+const mcp = ["# MCP 接入说明", "## 明细查询参数示例" + code(QUERY_REQUEST_EXAMPLES["明细：跨对象全部字段"]), ...MCP_NOTES, "## 客户端配置" + code(MCP_CONFIG)];
 for (const tool of MCP_TOOLS) {
   const schema = tool.inputSchema as any;
   const docs = MCP_TOOL_DOCS[tool.name]!;
   mcp.push(`## ${tool.name} · ${docs.summary}\n\n${tool.description}\n\n${table([["参数", "必填", "说明"], ["---", "---", "---"], ...Object.keys(schema.properties ?? {}).map(name => [name, schema.required?.includes(name) ? "是" : "否", docs.fields[name] ?? "见 tools/list 返回的完整结构"])])}\n\n返回说明：${docs.returns}\n\n调用参数示例：${code(MCP_EXAMPLES[tool.name])}`);
 }
 writeFileSync(new URL("../docs/MCP.md", import.meta.url), mcp.join("\n\n") + "\n");
-writeFileSync(new URL("../docs/SDK.md", import.meta.url), ["# SDK 接入说明", ...SDK_NOTES, "## 公共方法", table([["TypeScript", "Python", "用途与参数"], ["---", "---", "---"], ...SDK_METHODS]), "## TypeScript 示例", `\`\`\`typescript\n${SDK_TS_EXAMPLE}\n\`\`\``, "## Python 示例", `\`\`\`python\n${SDK_PY_EXAMPLE}\n\`\`\``, "完整参数与返回说明见 [REST API 文档](./API.md)。"].join("\n\n") + "\n");
+writeFileSync(new URL("../docs/SDK.md", import.meta.url), ["# SDK 接入说明", ...SDK_NOTES, "## 明细查询参数示例" + code(QUERY_REQUEST_EXAMPLES["明细：跨对象全部字段"]), "## 公共方法", table([["TypeScript", "Python", "用途与参数"], ["---", "---", "---"], ...SDK_METHODS]), "## TypeScript 示例", `\`\`\`typescript\n${SDK_TS_EXAMPLE}\n\`\`\``, "## Python 示例", `\`\`\`python\n${SDK_PY_EXAMPLE}\n\`\`\``, "完整参数与返回说明见 [REST API 文档](./API.md)。"].join("\n\n") + "\n");

@@ -1281,6 +1281,7 @@ describe("QueryIrCompiler", () => {
         filters: [],
         resultKind: "detail",
         title: "客户订单明细",
+        allowFanout: true,
       },
       ontology,
       [ordersTable(), customerTable()],

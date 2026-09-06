@@ -18,7 +18,7 @@ export const API_DOCS = {
   ListInferredAssertions: doc("列出推论", "读取指定版本的关系可达性、查询策略、血缘及指标重算等确定性推论。", "ontology:read", "data 为推论数组，包含 predicate、axiomAssertionIds、premiseAssertionIds 和 proof。"),
   ExplainInference: doc("解释推论依据", "按版本与推论 ID 查看完整证明路径；推论 ID 可从推论列表或语义上下文取得。", "ontology:read", "data 为推论及其 FACT、AXIOM、DERIVATION 证明步骤；不存在时返回 404。"),
   ResolveOntologyContext: doc("解析语义上下文", "统一检索对象、属性、指标和业务值。对象与主名称属性归并，明确指定范围优先，在可用关联范围内按匹配程度和业务优先级绑定；并列候选需要澄清。默认返回业务绑定摘要，由平台构造 SQL。question 单独使用时仅做词典匹配。接口不调用模型、不执行数据查询。", "semantic:read", "data 包含 bindings（逐词 BOUND/AMBIGUOUS/UNMATCHED）、candidates（类型、归属、可用用途、简要匹配依据）、values（可用筛选条件）、sessionId、ontologyVersion 和 refs。compact 仅返回对象与直接指标摘要；公式依赖、完整关系和层级仅在 standard/full 返回。retrieval.status 为 MATCHED、PARTIAL_MATCH、NO_MATCH 或 AMBIGUOUS；未命中项位于 unmatchedTerms，candidates 包含匹配原因，ambiguities 由调用方确认。会话固定版本，有效期 30 分钟。"),
-  ExecuteSemanticQuery: doc("执行语义查询", "INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。", "semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute", "返回执行信封。status 可为 SUCCEEDED、NEEDS_INPUT、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；NEEDS_INPUT 时按 data.missing 补充请求，NEEDS_CLARIFICATION 时提交候选选择。成功时 data 含 columns、rows、rowCount，INTENT 另含 businessSummary 业务口径摘要，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。"),
+  ExecuteSemanticQuery: doc("执行语义查询", "INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。resultKind=detail 返回逐行属性原值，支持跨对象字段及默认全部可读取属性；省略时仍按汇总语义执行。执行前应用本体公理和 SQL 安全约束。", "semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute", "返回执行信封。status 可为 SUCCEEDED、NEEDS_INPUT、NEEDS_CLARIFICATION、ANALYSIS_READY、REJECTED 或 FAILED；NEEDS_INPUT 时按 data.missing 补充请求，NEEDS_CLARIFICATION 时提交候选选择。成功时 data 含 columns、rows、rowCount，INTENT 另含 businessSummary 业务口径摘要，可选返回 SQL、查询计划和推理依据。HTTP 200 仍需检查 status 与 completeness。"),
   ContinueSemanticQuery: doc("提交澄清并继续查询", "当语义查询返回 NEEDS_CLARIFICATION 时，提交该次澄清所需的全部选择，继续原版本查询。", "semantic:read + semantic:plan + data:execute", "返回与语义查询一致的执行信封；无效、过期或不完整的选择会返回错误状态。"),
   GetDataSource: doc("读取数据源配置", "读取已保存的连接信息及扫描到的物理表，密码不会明文返回。数据源配置不要求已有本体。", "system:admin", "data 包含配置状态、payload、updatedAt 和 tables；未配置时 configured 为 false。"),
   PutDataSource: doc("保存数据源连接", "保存 SelectDB 连接并更新凭据缓存。首次配置提供密码；修改时省略 password 保留原密码。", "system:admin", "data 为已保存的连接元数据，密码加密存储且不在响应中明文返回。"),
@@ -35,7 +35,7 @@ export const API_DOCS = {
 
 export const REQUEST_DOCS: Record<string, { fields: Record<string, string>; example: unknown }> = {
   ResolveSemanticContextInput: { fields: { namespace: "本体命名空间，例如 retail。", ontologyVersion: "发布版本号或 latest；省略时选择最新发布版本。", question: "保留用户原问题。未传 concepts 或非空 terms 时才用于完整词典词的包含匹配，不进行自然语言意图或时间解析。", terms: "统一词条数组，最多 32 项；每项为字符串，或 {term, role?, object?, property?}。role 可为 metrics/dimensions/filters/time/values/terms，object/property 可使用 ID 或名称，明确指定后只在该范围查找。优先级 terms > concepts > question。", concepts: "兼容分类入口：metrics 指标/度量、dimensions 对象/属性、filters 属性名或 {object?, property?, value}、values 业务值、time 时间字段，每类最多 16 项。建议使用 terms 统一检索；分组维度不自动限制未指定范围的筛选值。", purpose: "用途：ANSWER 回答、PLAN 规划、EXPLAIN 解释、MODEL 建模。", projection: "compact（默认）供平台执行 SQL 的调用方使用，返回绑定摘要，省略公式、依赖指标、关系和层级详情。standard/full 供解释或外部构造 SQL 使用；始终受可见性和本次候选范围约束。", include: "values 默认参与统一值匹配，false 可关闭。axioms 公理、inferences 推论、evidence 证明过程默认关闭，需显式设为 true；evidence 仅在 inferences 同时开启时返回证明。公理与证明开关仅影响响应，平台仍执行公理校验和查询约束。" }, example: { namespace: "retail", ontologyVersion: "latest", question: "今年线上渠道销售额", terms: ["线上渠道", "销售额"], purpose: "PLAN", include: { values: true, axioms: false, inferences: false, evidence: false } } },
-  ExecuteSemanticQueryInput: { fields: { intent: "业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。", queryMode: "INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。", namespace: "本体命名空间。", ontologyVersion: "发布版本号或 latest；有 sessionId 时须与会话版本一致。", question: "AUTO 与 ANALYSIS 使用的自然语言问题。", queryShape: "FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；具体 ID 从本体或语义上下文取得。", parameters: "查询结构中参数占位符的名称与取值。", sessionId: "语义上下文返回的会话 ID，用于固定版本和解析短引用。", pagination: "pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。", options: "可开启 includeResolution、includeOntologyContext、includeAxioms、includeInferenceEvidence、includeQueryIr、includeSqlPreview。" }, example: { namespace: "retail", queryMode: "INTENT", intent: { metrics: ["销售额"], dimensions: ["店铺"] } } },
+  ExecuteSemanticQueryInput: { fields: { intent: "业务查询结构：汇总模式 metrics 指标或度量名称必填；明细模式传 resultKind=detail、object 主对象名称，includeObjects 指定关联对象，fields 指定属性（字符串或 {object, property}），省略 fields 返回主对象和 includeObjects 的全部可读取属性；allowFanout=true 显式允许扩行。dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。", queryMode: "INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。", namespace: "本体命名空间。", ontologyVersion: "发布版本号或 latest；有 sessionId 时须与会话版本一致。", question: "AUTO 与 ANALYSIS 使用的自然语言问题。", queryShape: "FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；明细模式传 resultKind=detail、selectPropertyIds 可选字段 ID、includeObjectIds 可选关联对象 ID；不填字段返回主对象及明确加入对象的全部可读取属性，measureIds 可省略。relationPaths 按目标对象 ID 指定关系 ID 顺序；allowFanout 控制一对多、多对多展开。具体 ID 从本体或语义上下文取得。", parameters: "查询结构中参数占位符的名称与取值。", sessionId: "语义上下文返回的会话 ID，用于固定版本和解析短引用。", pagination: "pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。", options: "可开启 includeResolution、includeOntologyContext、includeAxioms、includeInferenceEvidence、includeQueryIr、includeSqlPreview。" }, example: { namespace: "retail", queryMode: "INTENT", intent: { metrics: ["销售额"], dimensions: ["店铺"] } } },
   ContinueSemanticQueryInput: { fields: { selections: "澄清响应中的项目 ID 到所选候选项 ID 的映射，需一次提交全部选择。" }, example: { selections: { "待选择项目ID": "候选项ID" } } },
   CreateDraftInput: { fields: { baseVersion: "基线版本号或 latest，默认 latest。", sourceVersion: "可选历史内容版本；用于创建回滚草稿，发布仍以 baseVersion 检查并发。" }, example: { baseVersion: "latest" } },
   DraftPatchInput: { fields: { revision: "当前草稿修订号，需使用最近一次响应中的值；也可用 If-Match 请求头提供。", operations: "非空操作数组。UPSERT_OBJECT / UPSERT_RELATION / UPSERT_METRIC / UPSERT_HIERARCHY 携带完整 value；REMOVE_* 携带 id。操作原子保存，公理问题通过 validation 返回。" }, example: { revision: 1, operations: [{ op: "REMOVE_RELATION", id: "待移除关系ID" }] } },
@@ -47,6 +47,12 @@ export const REQUEST_DOCS: Record<string, { fields: Record<string, string>; exam
 export const PATH_DESCRIPTIONS: Record<string, string> = { ns: "本体命名空间，例如 retail。", sourceId: "数据源标识，控制台默认使用 selectdb。", version: "目标发布版本号，从版本列表取得，不能填写 latest。", draftId: "创建或读取草稿返回的 draftId。", id: "该版本推论列表中的推论 ID。", clarificationId: "NEEDS_CLARIFICATION 响应中的澄清 ID。", clientId: "客户端列表或创建响应中的 clientId。" };
 
 export const QUERY_FIELD_DESCRIPTIONS: Record<string, string> = {
+  "intent.resultKind":"aggregate 汇总（默认），detail 原始明细。",
+  "intent.object":"明细主对象的业务名称或 ID，明细模式必填。",
+  "intent.includeObjects":"默认全字段时，额外返回这些关联对象的全部可读取属性；不会自动遍历整个本体。",
+  "intent.fields":"输出属性名称或 {object, property}；省略时返回全部可读取属性，显式填写只输出所选字段。",
+  "intent.allowFanout":"默认 false；true 显式允许一对多、多对多扩展行数。",
+  "intent.filters[].operator":"明细可直接指定 EQ、GTE、LT 等比较运算，需配合 property；不填则通过值索引解析 value。",
   "intent.metrics":"要计算的指标或度量业务名称。按字段默认聚合或指标定义计算。",
   "intent.dimensions":"分组对象或属性名称；对象自动使用主名称属性。",
   "intent.filters":"业务值筛选数组，多个条件同时成立（AND）。",
@@ -72,5 +78,16 @@ export const QUERY_FIELD_DESCRIPTIONS: Record<string, string> = {
   "queryShape.measureIds":"指标或可用度量属性 ID。",
   "queryShape.dimensionPropertyIds":"分组属性 ID。",
   "queryShape.filters":"直接属性筛选，多个条件按 AND 组合。",
+  "queryShape.selectPropertyIds":"明细输出属性 ID；省略则返回主对象及 includeObjectIds 的全部可读取属性。",
+  "queryShape.includeObjectIds":"明细默认全字段额外加入的对象 ID；隐式经过的中间对象不输出。",
+  "queryShape.allowFanout":"默认 false；确认行数展开后显式传 true。",
+  "queryShape.relationPaths":"可选对象 ID 到关系 ID 数组的映射，指定从主对象出发的完整路径。存在多条路径时必须明确指定。",
   "queryShape.resultKind":"aggregate 汇总；detail 明细。使用 FIXED_SHAPE 及对应可用查询结构。"
+};
+
+export const QUERY_REQUEST_EXAMPLES = {
+  "明细：主对象全部字段": { namespace: "retail", queryMode: "INTENT", intent: { resultKind: "detail", object: "订单", limit: 100 } },
+  "明细：跨对象全部字段": { namespace: "retail", queryMode: "INTENT", intent: { resultKind: "detail", object: "订单", includeObjects: ["店铺"], limit: 100 } },
+  "明细：选择字段与时间筛选": { namespace: "retail", queryMode: "INTENT", intent: { resultKind: "detail", object: "订单", fields: ["订单 ID", "销售金额", { object: "店铺", property: "店铺名称" }], time: { field: "业务日期", period: "CURRENT_YEAR" }, limit: 100 } },
+  "明细：使用稳定 ID": { namespace: "retail", queryMode: "FIXED_SHAPE", queryShape: { resultKind: "detail", rootObjectId: "o_order", selectPropertyIds: ["p_order_id", "p_sales", "p_store_name"], filters: [{ propertyId: "p_order_date", operator: "GTE", value: "2026-01-01" }], limit: 100 } },
 };

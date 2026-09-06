@@ -5,7 +5,7 @@ import { validSnapshot } from "../fixtures-v3.js";
 describe("Phase 0 contracts",()=>{it("publishes standalone v3 schemas",()=>{expect(OntologySnapshotV3Schema.parse(validSnapshot()).schemaVersion).toBe(3);expect(Object.keys(jsonSchemas())).toEqual(Object.keys(CONTRACT_SCHEMAS));});it("keeps the complete OpenAPI surface on the same Zod registry",()=>{const document=createOpenApiDocument();expect(Object.keys(document.components.schemas)).toEqual(Object.keys(jsonSchemas()));expect(document.paths["/semantic-query"].post.operationId).toBe("ExecuteSemanticQuery");expect(Object.keys(document.paths)).toHaveLength(26);expect(document.paths["/system/metrics"].get.operationId).toBe("GetSystemMetrics");});it("requires the public query mode and namespace",()=>{expect(()=>ExecuteSemanticQueryInputSchema.parse({queryMode:"AUTO"})).toThrow();});});
 
 import { readFileSync } from "node:fs";
-import { API_DOCS, REQUEST_DOCS } from "../../packages/contracts/src/api-docs.js";
+import { API_DOCS, REQUEST_DOCS, QUERY_REQUEST_EXAMPLES } from "../../packages/contracts/src/api-docs.js";
 import { MCP_EXAMPLES } from "../../packages/contracts/src/integration-docs.js";
 import { MCP_INPUT_SCHEMAS } from "../../packages/mcp-server/src/index.js";
 
@@ -50,4 +50,8 @@ it("resolves every recursive local reference inside the full OpenAPI document", 
   };
   visit(document);
   expect(refs).toBeGreaterThan(10);
+});
+
+it("validates every detail query example", () => {
+ for (const [name, example] of Object.entries(QUERY_REQUEST_EXAMPLES)) expect(ExecuteSemanticQueryInputSchema.safeParse(example).success, name).toBe(true);
 });

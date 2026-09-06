@@ -816,18 +816,18 @@
 
 `POST /v1/semantic-query`
 
-INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。执行前应用本体公理和 SQL 安全约束。
+INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执行；AUTO 解析自然语言问题；FIXED_SHAPE 按明确的对象与指标 ID 编译查询；ANALYSIS 返回分析上下文和任务信息。resultKind=detail 返回逐行属性原值，支持跨对象字段及默认全部可读取属性；省略时仍按汇总语义执行。执行前应用本体公理和 SQL 安全约束。
 
 所需权限：semantic:read + semantic:plan；INTENT / AUTO / FIXED_SHAPE 还需 data:execute
 
 | 参数 | 位置 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | queryMode | body | 是 | INTENT 默认按 intent 一次绑定并执行；AUTO 自然语言查询；FIXED_SHAPE 明确查询结构；ANALYSIS 仅返回分析任务与上下文。 |
-| intent | body | 否 | 业务查询结构：metrics 指标或度量名称（必填）；dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。 |
+| intent | body | 否 | 业务查询结构：汇总模式 metrics 指标或度量名称必填；明细模式传 resultKind=detail、object 主对象名称，includeObjects 指定关联对象，fields 指定属性（字符串或 {object, property}），省略 fields 返回主对象和 includeObjects 的全部可读取属性；allowFanout=true 显式允许扩行。dimensions 对象或属性名称；filters 为 {value, object?, property?}，使用值索引绑定；time 为 {field, period}，period 支持 CURRENT_YEAR/PREVIOUS_YEAR/CURRENT_MONTH/PREVIOUS_MONTH/TODAY/YESTERDAY；sort 为 {field, direction}，field 必须对应已选指标或维度；limit 限制返回行数。 |
 | namespace | body | 是 | 本体命名空间。 |
 | ontologyVersion | body | 否 | 发布版本号或 latest；有 sessionId 时须与会话版本一致。 |
 | question | body | 否 | AUTO 与 ANALYSIS 使用的自然语言问题。 |
-| queryShape | body | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；具体 ID 从本体或语义上下文取得。 |
+| queryShape | body | 否 | FIXED_SHAPE 必填。包含 rootObjectId、measureIds、dimensionPropertyIds、filters、sort 等；measureIds 可直接传可分析 NUMBER 属性 ID，按其默认聚合执行，与已命名指标保持独立口径；明细模式传 resultKind=detail、selectPropertyIds 可选字段 ID、includeObjectIds 可选关联对象 ID；不填字段返回主对象及明确加入对象的全部可读取属性，measureIds 可省略。relationPaths 按目标对象 ID 指定关系 ID 顺序；allowFanout 控制一对多、多对多展开。具体 ID 从本体或语义上下文取得。 |
 | parameters | body | 否 | 查询结构中参数占位符的名称与取值。 |
 | sessionId | body | 否 | 语义上下文返回的会话 ID，用于固定版本和解析短引用。 |
 | pagination | body | 否 | pageSize 每页 1–10000 行；下一页使用 completeness.nextCursor，保持查询和参数一致。 |
@@ -875,6 +875,8 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 | 字段路径 | 类型与条件 | 说明 |
 | --- | --- | --- |
+| resultKind | detail（明细成功时） | 明细模式直接返回属性原始值，保留重复行，不按维度汇总。 |
+| columnBindings[] | object[]（明细成功时） | 每列含 key（rows 的键）、objectId、propertyId、label；跨对象列以对象名·属性名显示，通过 ID 可稳定识别字段。 |
 | columns[] | string[]（成功时） | 返回列名，按结果顺序排列。 |
 | rows[] | object[]（成功时） | 结果行；对象键与 columns 对应。无匹配数据可为空数组。 |
 | rowCount / truncated | number / boolean | 本次返回行数与截断状态。 |
@@ -890,6 +892,93 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 | clarificationId | string（NEEDS_CLARIFICATION） | 用于继续接口的路径参数，有效期 30 分钟。 |
 | clarifications[] | object[]（NEEDS_CLARIFICATION） | id、term、reason、candidates；每个候选含 id、label、object、property。selections 使用原样返回的候选 ID。 |
 | context / acceptanceContract | object（ANALYSIS_READY） | 分析上下文与验收约束；该模式不执行数据查询。 |
+
+### 明细：主对象全部字段
+
+```json
+{
+  "namespace": "retail",
+  "queryMode": "INTENT",
+  "intent": {
+    "resultKind": "detail",
+    "object": "订单",
+    "limit": 100
+  }
+}
+```
+
+
+### 明细：跨对象全部字段
+
+```json
+{
+  "namespace": "retail",
+  "queryMode": "INTENT",
+  "intent": {
+    "resultKind": "detail",
+    "object": "订单",
+    "includeObjects": [
+      "店铺"
+    ],
+    "limit": 100
+  }
+}
+```
+
+
+### 明细：选择字段与时间筛选
+
+```json
+{
+  "namespace": "retail",
+  "queryMode": "INTENT",
+  "intent": {
+    "resultKind": "detail",
+    "object": "订单",
+    "fields": [
+      "订单 ID",
+      "销售金额",
+      {
+        "object": "店铺",
+        "property": "店铺名称"
+      }
+    ],
+    "time": {
+      "field": "业务日期",
+      "period": "CURRENT_YEAR"
+    },
+    "limit": 100
+  }
+}
+```
+
+
+### 明细：使用稳定 ID
+
+```json
+{
+  "namespace": "retail",
+  "queryMode": "FIXED_SHAPE",
+  "queryShape": {
+    "resultKind": "detail",
+    "rootObjectId": "o_order",
+    "selectPropertyIds": [
+      "p_order_id",
+      "p_sales",
+      "p_store_name"
+    ],
+    "filters": [
+      {
+        "propertyId": "p_order_date",
+        "operator": "GTE",
+        "value": "2026-01-01"
+      }
+    ],
+    "limit": 100
+  }
+}
+```
+
 
 ### 响应示例（成功为完整信封，其余为关键字段）
 
@@ -1031,6 +1120,8 @@ INTENT（默认）按业务名称一次完成检索、绑定、SQL 编译与执�
 
 | 字段路径 | 类型与条件 | 说明 |
 | --- | --- | --- |
+| resultKind | detail（明细成功时） | 明细模式直接返回属性原始值，保留重复行，不按维度汇总。 |
+| columnBindings[] | object[]（明细成功时） | 每列含 key（rows 的键）、objectId、propertyId、label；跨对象列以对象名·属性名显示，通过 ID 可稳定识别字段。 |
 | columns[] | string[]（成功时） | 返回列名，按结果顺序排列。 |
 | rows[] | object[]（成功时） | 结果行；对象键与 columns 对应。无匹配数据可为空数组。 |
 | rowCount / truncated | number / boolean | 本次返回行数与截断状态。 |

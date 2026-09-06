@@ -1,3 +1,4 @@
+import { detailFieldIds, detailPaths } from "../../domain/src/detail-query.js";
 import { effectiveMetrics } from "../../domain/src/property-metrics.js";
 import type { OntologySnapshotV3 } from "../../contracts/src/index.js";
 import type {
@@ -171,8 +172,14 @@ export class QueryIrCompiler {
     timezone = "Asia/Shanghai",
   ): CompiledQuery {
     ontology = { ...ontology, metrics: effectiveMetrics(ontology as unknown as OntologySnapshotV3) };
-    const originalDimensionIds = [...intent.dimensionPropertyIds];
-    intent = preferNameDisplayDimensions(intent, ontology);
+    const detail = intent.resultKind === "detail";
+    if (detail) {
+      if (intent.measureIds.length) throw new Error("明细查询不能使用聚合指标，请通过 selectPropertyIds 选择属性");
+      const fieldIds = detailFieldIds(ontology as unknown as OntologySnapshotV3, intent.rootObjectId ?? "", intent.selectPropertyIds ?? (intent.dimensionPropertyIds.length ? intent.dimensionPropertyIds : undefined), intent.includeObjectIds);
+      intent = { ...intent, dimensionPropertyIds: fieldIds };
+    } else if (intent.selectPropertyIds || intent.includeObjectIds || intent.allowFanout || intent.relationPaths) throw new Error("明细配置需要 resultKind=detail");
+    const originalDimensionIds = detail ? [] : [...intent.dimensionPropertyIds];
+    if (!detail) intent = preferNameDisplayDimensions(intent, ontology);
     const objectById = new Map(ontology.objects.map((object) => [object.id, object]));
     const metricById = new Map(ontology.metrics.map((metric) => [metric.id, metric]));
     const tableById = new Map(tables.map((table) => [table.id, table]));
@@ -184,7 +191,7 @@ export class QueryIrCompiler {
     );
     const measures = measureBindings.map((binding) => binding.metric);
     const dimensions = intent.dimensionPropertyIds.map((id) =>
-      requireProperty(propertyOwners, id, "分析维度"),
+      requireProperty(propertyOwners, id, detail ? "明细字段" : "分析维度", detail),
     );
     const displayFallbacks = new Map<string, { object: OntologyObject; property: OntologyProperty }>();
     for (const requestedPropertyId of originalDimensionIds) {
@@ -212,7 +219,7 @@ export class QueryIrCompiler {
       ? flattenFilterExpression(intent.filterExpression)
       : intent.filters;
     const filters = sourceFilters.map((filter) => {
-      const binding = requireProperty(propertyOwners, filter.propertyId, "筛选条件");
+      const binding = requireProperty(propertyOwners, filter.propertyId, "筛选条件", detail);
       if (filter.kind === "BOUND_VALUE" && binding.object.id !== filter.objectId) {
         throw new Error(`属性值绑定 ${filter.valueBindingId} 的对象与属性不一致`);
       }
@@ -250,8 +257,9 @@ export class QueryIrCompiler {
       ),
     );
     const timeBinding = needsTimeBinding
-      ? resolveTimeBinding(intent, root, measures, propertyOwners)
+      ? detail && intent.timeRange?.propertyId ? requireProperty(propertyOwners, intent.timeRange.propertyId, "时间字段", true) : resolveTimeBinding(intent, root, measures, propertyOwners)
       : undefined;
+    if (detail && timeBinding && timeBinding.property.meaning !== "TIME") throw new Error("时间筛选必须使用时间属性");
     const requiredObjectIds = new Set([
       root.id,
       ...measures.map((metric) => metric.objectId),
@@ -262,12 +270,15 @@ export class QueryIrCompiler {
         .map((filter) => filter.binding.object.id),
       ...hierarchyFilters.map((filter) => filter.hierarchy.objectId),
       ...(timeBinding ? [timeBinding.object.id] : []),
+      ...(detail ? (intent.sort ?? []).map(sort => requireProperty(propertyOwners, sort.entityId, "排序字段", true).object.id) : []),
     ]);
     const outerRelationIds: string[] = [];
     const orderedObjects: OntologyObject[] = [root];
     for (const objectId of requiredObjectIds) {
       if (objectId === root.id) continue;
-      const path = semanticIndex.findRelationPath(root.id, objectId);
+      const paths = detail ? detailPaths(ontology as unknown as OntologySnapshotV3, root.id, objectId, intent.relationPaths?.[objectId]) : undefined;
+      if (paths && paths.length > 1) throw new Error(`对象 ${objectById.get(objectId)?.label} 存在多条明细关联路径，请通过 relationPaths 明确指定`);
+      const path = paths ? (paths[0] ?? []).map(id => ontology.relations.find(relation => relation.id === id)!) : semanticIndex.findRelationPath(root.id, objectId);
       if (!path.length) {
         throw new Error(
           `对象 ${root.label} 与 ${objectById.get(objectId)?.label ?? objectId} 之间没有可用关系`,
@@ -275,14 +286,16 @@ export class QueryIrCompiler {
       }
       let currentId = root.id;
       for (const relation of path) {
-        if (relation.fanoutRisk === "HIGH" || relation.cardinality === "MANY_TO_MANY") {
+        if (!detail && (relation.fanoutRisk === "HIGH" || relation.cardinality === "MANY_TO_MANY")) {
           throw new Error(`关系 ${relation.name} 存在高扇出风险，需要先补充聚合规则`);
         }
-        if (!outerRelationIds.includes(relation.id)) outerRelationIds.push(relation.id);
+        const alreadyIncluded = outerRelationIds.includes(relation.id);
+        if (!alreadyIncluded) outerRelationIds.push(relation.id);
         const nextId =
           relation.sourceObjectId === currentId
             ? relation.targetObjectId
             : relation.sourceObjectId;
+        if (detail && !alreadyIncluded && orderedObjects.some(object => object.id === nextId)) throw new Error("同一对象使用了冲突的明细关联路径，请统一 relationPaths");
         const nextObject = objectById.get(nextId);
         if (!nextObject) throw new Error(`关系 ${relation.name} 引用了不存在的对象`);
         if (!orderedObjects.some((object) => object.id === nextId)) {
@@ -302,7 +315,7 @@ export class QueryIrCompiler {
         return [object.id, table] as const;
       }),
     );
-    validateAggregationSafety(
+    if (!detail) validateAggregationSafety(
       root,
       measures,
       dimensions,
@@ -312,17 +325,30 @@ export class QueryIrCompiler {
       intent.resultKind,
     );
 
+    if (detail && !intent.allowFanout) {
+      const joined = new Set([root.id]);
+      for (const id of outerRelationIds) {
+        const relation = ontology.relations.find(relation => relation.id === id)!;
+        const reverse = !joined.has(relation.sourceObjectId);
+        if (relation.fanoutRisk === "HIGH" || relation.cardinality === "MANY_TO_MANY" || (reverse ? relation.cardinality === "MANY_TO_ONE" : relation.cardinality === "ONE_TO_MANY")) throw new Error(`关系 ${relation.name} 会导致明细扩行，确认后设置 allowFanout=true`);
+        joined.add(relation.sourceObjectId); joined.add(relation.targetObjectId);
+      }
+    }
+    const names = new Set<string>();
+    const multipleObjects = new Set(dimensions.map(binding => binding.object.id)).size > 1;
+    const columnBindings = dimensions.map(({object, property}) => {
+      let key = multipleObjects ? `${object.label}·${property.label}` : property.label;
+      if (names.has(key)) key = `${key} [${property.id}]`;
+      while (names.has(key)) key += "_";
+      names.add(key); return { key, objectId: object.id, propertyId: property.id, label: property.label };
+    });
     const selectParts: string[] = [];
     const groupParts: string[] = [];
     for (const binding of dimensions) {
-      const expression = compileDisplayDimensionExpression(
-        binding,
-        displayFallbacks.get(binding.property.id),
-        aliases,
-      );
-      selectParts.push(`${expression} AS ${quoteIdentifier(binding.property.label)}`);
-      groupParts.push(expression);
-      if (binding.property.meaning === "NAME" && binding.object.objectType === "ENTITY") for (const id of binding.object.grainPropertyIds) {
+      const expression = detail ? qualifiedColumn(aliases.get(binding.object.id)!, binding.property) : compileDisplayDimensionExpression(binding, displayFallbacks.get(binding.property.id), aliases);
+      selectParts.push(`${expression} AS ${quoteIdentifier(detail ? columnBindings.find(column => column.propertyId === binding.property.id)!.key : binding.property.label)}`);
+      if (!detail) groupParts.push(expression);
+      if (!detail && binding.property.meaning === "NAME" && binding.object.objectType === "ENTITY") for (const id of binding.object.grainPropertyIds) {
         const identity = binding.object.properties.find(p => p.id === id);
         if (identity) groupParts.push(qualifiedColumn(aliases.get(binding.object.id)!, identity));
       }
@@ -523,15 +549,15 @@ export class QueryIrCompiler {
           Math.max(
             1,
             Math.trunc(
-              intent.limit ?? (intent.resultKind === "detail" ? 50 : 200),
+              intent.limit ?? 200,
             ),
           ),
-          intent.resultKind === "detail" ? 50 : 200,
+          intent.resultKind === "detail" ? 10000 : 200,
         );
     const sort = intent.sort ?? [];
     const orderParts = sort.map((item) => {
       const metric = metricById.get(item.entityId) ?? measureByReference.get(item.entityId);
-      if (metric) return `${quoteIdentifier(metric.label)} ${item.direction}`;
+      if (metric && !detail) return `${quoteIdentifier(metric.label)} ${item.direction}`;
       const calculation = [
         ...(intent.derivedMeasures ?? []),
         ...(intent.timeComparisons ?? []),
@@ -541,9 +567,16 @@ export class QueryIrCompiler {
       if (item.entityId === "__time__" && intent.timeGrain) {
         return `${quoteIdentifier(timeGrainLabel(intent.timeGrain.unit))} ${item.direction}`;
       }
-      const binding = requireProperty(propertyOwners, item.entityId, "排序字段");
+      const binding = requireProperty(propertyOwners, item.entityId, "排序字段", detail);
       return `${qualifiedColumn(aliases.get(binding.object.id)!, binding.property)} ${item.direction}`;
     });
+    if (detail) {
+      const stableIds = [...new Set([...orderedObjects.flatMap(object => object.grainPropertyIds), ...dimensions.map(binding => binding.property.id)])];
+      for (const id of stableIds) if (!sort.some(item => item.entityId === id)) {
+        const binding = requireProperty(propertyOwners, id, "明细稳定排序", true);
+        orderParts.push(`${qualifiedColumn(aliases.get(binding.object.id)!, binding.property)} ASC`);
+      }
+    }
     if (!orderParts.length && intent.timeGrain) {
       orderParts.push(`${quoteIdentifier(timeGrainLabel(intent.timeGrain.unit))} ASC`);
     }
@@ -606,6 +639,7 @@ export class QueryIrCompiler {
       rootObjectId: root.id,
       measureIds: measures.map((metric) => metric.id),
       dimensionPropertyIds: dimensions.map((binding) => binding.property.id),
+      ...(detail ? { selectPropertyIds: dimensions.map(binding => binding.property.id), columnBindings } : {}),
       filters: filters.map(({ binding: _binding, ...filter }) =>
         filter.kind === "BOUND_VALUE"
           ? {
@@ -2172,10 +2206,11 @@ function requireProperty(
   owners: Array<{ object: OntologyObject; property: OntologyProperty }>,
   propertyId: string,
   usage: string,
+  detail = false,
 ): { object: OntologyObject; property: OntologyProperty } {
   const binding = owners.find((candidate) => candidate.property.id === propertyId);
   if (!binding) throw new Error(`${usage}引用了不存在的属性：${propertyId}`);
-  if (binding.property.visibility !== "ANALYTICAL" || binding.property.sensitive) {
+  if ((binding.property.visibility !== "ANALYTICAL" && !(detail && binding.property.visibility === "DETAIL_ONLY")) || binding.property.sensitive) {
     throw new Error(`${usage}不能使用属性：${binding.property.label}`);
   }
   return binding;

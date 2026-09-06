@@ -666,3 +666,24 @@ test("Chinese client permissions and audit filters expose complete call overview
   await expect(page.getByLabel("审计开始时间")).toHaveValue("");
   await expect(page.getByLabel("审计密钥名称")).toHaveValue("");
 });
+
+test("detail examples fill the debugger and execute with named cross-object fields", async ({ page }) => {
+  await page.goto("/?page=system");
+  await page.getByRole("button", { name: "API 说明", exact: true }).click();
+  await page.getByLabel("选择文档接口").selectOption("POST /v1/semantic-query");
+  await expect(page.getByLabel("当前 API 说明")).toContainText("columnBindings");
+  await page.getByText("明细查询示例", { exact: true }).click();
+  await page.getByRole("button", { name: "填入：明细：跨对象全部字段", exact: true }).click();
+  const body = JSON.parse(await page.getByLabel("请求体", { exact: true }).inputValue());
+  expect(body.intent).toMatchObject({ resultKind: "detail", object: "订单", includeObjects: ["店铺"] });
+  body.options = { includeSqlPreview: true, includeQueryIr: true };
+  await page.getByLabel("请求体", { exact: true }).fill(JSON.stringify(body));
+  const response = page.waitForResponse(r => r.url().endsWith("/v1/semantic-query") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "发送请求", exact: true }).click();
+  const result = await (await response).json();
+  expect(result.status).toBe("SUCCEEDED");
+  expect(result.data.resultKind).toBe("detail");
+  expect(result.data.columnBindings.some((field: any) => field.objectId === "o_store")).toBe(true);
+  expect(result.data.sqlPreview.sql).not.toMatch(/GROUP BY|SUM\(|DISTINCT/i);
+  await expect(page.locator(".response-json")).toContainText('"columnBindings"');
+});
