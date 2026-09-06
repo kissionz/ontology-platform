@@ -17,7 +17,7 @@ const operation = (operationId: keyof typeof API_DOCS, parameters: ReturnType<ty
     ...(operationId === "DiffOntologyVersions" ? [queryParameter("baseVersion", "基线版本号；省略时使用目标版本的记录基线或前一版本。", { type: "integer", minimum: 0 })] : []),
     ...(operationId === "ListAuditEvents" ? [queryParameter("limit", "最近审计事件的条数，默认 100。", { type: "integer", default: 100 })] : []),
   ];
-  const headers = operationId === "PatchOntologyDraft" ? [{ in: "header", name: "If-Match", required: false, description: "可替代请求体 revision，值为草稿当前修订号。", schema: { type: "string" } }] : operationId === "GetOntologySnapshot" ? [{ in: "header", name: "If-None-Match", required: false, description: "上次响应的 ETag，相同则返回 304。", schema: { type: "string" } }] : [];
+  const headers = ["PatchOntologyDraft", "DiscardOntologyDraft"].includes(operationId) ? [{ in: "header", name: "If-Match", required: operationId === "DiscardOntologyDraft", description: operationId === "DiscardOntologyDraft" ? "必填，填写草稿当前 revision，防止丢弃他人更新。" : "可替代请求体 revision，值为草稿当前修订号。", schema: { type: "string" } }] : operationId === "GetOntologySnapshot" ? [{ in: "header", name: "If-None-Match", required: false, description: "上次响应的 ETag，相同则返回 304。", schema: { type: "string" } }] : [];
   return { operationId, summary: docs.summary, description: docs.description, security, "x-required-scopes": docs.scopes, "x-envelope-fields": ["GetHealth", "GetOpenApiDocument"].includes(operationId) ? [] : ENVELOPE_FIELDS, "x-response-fields": RESPONSE_FIELDS[operationId], "x-response-examples": ["ExecuteSemanticQuery", "ContinueSemanticQuery"].includes(operationId) ? QUERY_RESPONSE_EXAMPLES : undefined, parameters: [...parameters, ...queries, ...headers], responses: {
     "200": { description: docs.returns, content: { "application/json": { schema: { type: "object" } } } },
     ...(operationId === "GetOntologySnapshot" ? { "304": { description: "快照未改变，响应体为空。" } } : {}),
@@ -60,6 +60,7 @@ export function createOpenApiDocument() {
       "/namespaces/{ns}/versions/{version}/diff": { get: operation("DiffOntologyVersions", [pathParameter("ns"), pathParameter("version")]) },
       "/namespaces/{ns}/drafts": { post: { ...operation("CreateOntologyDraft", [pathParameter("ns")]), requestBody: request("CreateDraftInput") } },
       "/namespaces/{ns}/drafts/{draftId}": {
+        delete: operation("DiscardOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]),
         get: operation("GetOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]),
         patch: { ...operation("PatchOntologyDraft", [pathParameter("ns"), pathParameter("draftId")]), requestBody: request("DraftPatchInput") },
       },

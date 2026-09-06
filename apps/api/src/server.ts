@@ -315,6 +315,17 @@ export function buildApp(options: AppOptions = {}) {
       );
     return ok(request, ns, data.snapshot.version, { ...data, physicalTables: store.listPhysicalTables(), goldenReport: store.getGoldenReport(ns, data.draftId) });
   });
+  app.delete("/v1/namespaces/:ns/drafts/:draftId", async (request) => {
+    requireScopes(request, "ontology:draft");
+    const { ns, draftId } = request.params as { ns: string; draftId: string };
+    const revision = Number(String(request.headers["if-match"] ?? "").replaceAll('"', ''));
+    if (!Number.isInteger(revision) || revision < 1) throw new PlatformException({ code: "INVALID_REQUEST", message: "If-Match 必须是草稿当前修订号", stage: "draft", retryable: false }, 400);
+    const draft = store.getDraft(ns, draftId);
+    if (!draft) throw new PlatformException({ code: "INVALID_REQUEST", message: "草稿不存在", stage: "draft", retryable: false }, 404);
+    if (draft.revision !== revision) throw new PlatformException({ code: "INVALID_REQUEST", message: "草稿已被更新，请刷新后再放弃", stage: "draft", retryable: false }, 409);
+    store.deleteDraft(ns, draftId);
+    return ok(request, ns, undefined, { draftId, discarded: true });
+  });
   app.patch("/v1/namespaces/:ns/drafts/:draftId", async (request) => {
     requireScopes(request, "ontology:draft");
     const { ns, draftId } = request.params as { ns: string; draftId: string };

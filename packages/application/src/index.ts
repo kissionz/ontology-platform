@@ -385,6 +385,9 @@ export class OntologyPlatform {
           (item) => item.id !== operation.id,
         );
     }
+    const removedMetrics = new Set(operations.filter(op => op.op === "REMOVE_METRIC").map(op => op.id));
+    const dependentMetrics = next.metrics.filter(metric => [metric.leftMetricId, metric.rightMetricId].some(id => id && removedMetrics.has(id) && !next.metrics.some(item => item.id === id)));
+    if (dependentMetrics.length) throw new PlatformException({ code: "ONTOLOGY_VALIDATION_FAILED", message: `指标仍被 ${dependentMetrics.map(metric => metric.label).join("、")} 引用，请先调整依赖`, stage: "draft", retryable: false }, 422);
     const changedObjects = new Set(operations.filter(op => op.op === "UPSERT_OBJECT").map(op => op.value.id));
     next.relations = next.relations.map(relation => changedObjects.has(relation.sourceObjectId) || changedObjects.has(relation.targetObjectId) ? { ...relation, joinExpression: relationJoinExpression(next, relation) || relation.joinExpression } : relation);
     const kernel = runKernel(next);

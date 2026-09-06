@@ -143,3 +143,34 @@ describe("C01-C06 HTTP/MCP contract", () => {
     expect(http.every((event) => event.payload.traceId && typeof event.payload.durationMs === "number")).toBe(true);
   });
 });
+
+it("discards only the requested draft at its current revision and preserves published data", async () => {
+  const app = setup();
+  const created = await app.inject({ method: "POST", url: "/v1/namespaces/retail/drafts", headers: auth, payload: {} });
+  const draft = created.json().data;
+  const url = `/v1/namespaces/retail/drafts/${draft.draftId}`;
+  expect((await app.inject({ method: "DELETE", url })).statusCode).toBe(401);
+  expect((await app.inject({ method: "DELETE", url, headers: auth })).statusCode).toBe(400);
+  expect((await app.inject({ method: "DELETE", url, headers: { ...auth, "if-match": String(draft.revision + 1) } })).statusCode).toBe(409);
+  expect(app.platformStore.getDraft("retail", draft.draftId)).toBeTruthy();
+  const removed = await app.inject({ method: "DELETE", url, headers: { ...auth, "if-match": String(draft.revision) } });
+  expect(removed.statusCode).toBe(200);
+  expect(removed.json().data).toEqual({ draftId: draft.draftId, discarded: true });
+  expect((await app.inject({ method: "GET", url, headers: auth })).statusCode).toBe(404);
+  expect(app.platformStore.getSnapshot("retail", 1)).toEqual(validSnapshot());
+  expect(app.platformStore.listPhysicalTables()).toHaveLength(physicalTables().length);
+});
+
+it("rejects deletion of a referenced metric and permits removing dependents in the same patch", async () => {
+  const app = setup();
+  const created = await app.inject({ method: "POST", url: "/v1/namespaces/retail/drafts", headers: auth, payload: {} });
+  const draft = created.json().data;
+  const url = `/v1/namespaces/retail/drafts/${draft.draftId}`;
+  const blocked = await app.inject({ method: "PATCH", url, headers: auth, payload: { revision: draft.revision, operations: [{ op: "REMOVE_METRIC", id: "m_sales" }] } });
+  expect(blocked.statusCode).toBe(422);
+  expect(app.platformStore.getDraft("retail", draft.draftId)?.revision).toBe(draft.revision);
+  const removed = await app.inject({ method: "PATCH", url, headers: auth, payload: { revision: draft.revision, operations: [{ op: "REMOVE_METRIC", id: "m_sales" }, { op: "REMOVE_METRIC", id: "m_margin" }] } });
+  expect(removed.statusCode).toBe(200);
+  expect(removed.json().data.snapshot.metrics.some((m: any) => m.id === "m_sales")).toBe(false);
+  expect(app.platformStore.getSnapshot("retail", 1)?.metrics.some(m => m.id === "m_sales")).toBe(true);
+});

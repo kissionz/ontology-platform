@@ -1154,6 +1154,162 @@
       }
     },
     "/namespaces/{ns}/drafts/{draftId}": {
+      "delete": {
+        "operationId": "DiscardOntologyDraft",
+        "summary": "放弃本体草稿",
+        "description": "永久丢弃指定草稿。If-Match 必须填写当前 revision；不改变已发布版本、数据源或值索引。",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-required-scopes": "ontology:draft",
+        "x-envelope-fields": [
+          {
+            "path": "requestId",
+            "type": "string",
+            "description": "本次请求标识。"
+          },
+          {
+            "path": "namespace",
+            "type": "string",
+            "description": "本体命名空间；系统操作为 system。"
+          },
+          {
+            "path": "ontologyVersion",
+            "type": "number（可选）",
+            "description": "本次实际使用的发布版本；系统操作可能省略。"
+          },
+          {
+            "path": "status",
+            "type": "string",
+            "description": "业务状态；HTTP 200 不代表查询已完成。"
+          },
+          {
+            "path": "data",
+            "type": "object / array",
+            "description": "本接口业务数据，结构见下方。"
+          },
+          {
+            "path": "auditId",
+            "type": "string",
+            "description": "用于关联调用审计。"
+          },
+          {
+            "path": "warnings",
+            "type": "array",
+            "description": "警告列表。"
+          },
+          {
+            "path": "completeness.complete",
+            "type": "boolean",
+            "description": "是否完整；结合 truncated 和 nextCursor 判断。"
+          },
+          {
+            "path": "completeness.truncated",
+            "type": "boolean",
+            "description": "是否有未返回数据。"
+          },
+          {
+            "path": "completeness.nextCursor",
+            "type": "string / null",
+            "description": "下一页游标；查询分页保持版本、条件和参数一致。"
+          },
+          {
+            "path": "error.code",
+            "type": "string（失败时）",
+            "description": "稳定错误码，用于程序分支。"
+          },
+          {
+            "path": "error.message",
+            "type": "string（失败时）",
+            "description": "可读错误说明。"
+          },
+          {
+            "path": "error.stage",
+            "type": "string（失败时）",
+            "description": "失败阶段，例如 binding、planning、session。"
+          },
+          {
+            "path": "error.retryable",
+            "type": "boolean（失败时）",
+            "description": "是否适合重试。"
+          },
+          {
+            "path": "error.action / error.details",
+            "type": "string / object（可选）",
+            "description": "修复建议及错误详情；失败时 data 可能不存在。"
+          }
+        ],
+        "x-response-fields": [
+          {
+            "path": "draftId",
+            "type": "string",
+            "description": "已放弃的草稿标识"
+          },
+          {
+            "path": "discarded",
+            "type": "boolean",
+            "description": "成功时为 true"
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ns",
+            "required": true,
+            "description": "本体命名空间，例如 retail。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draftId",
+            "required": true,
+            "description": "创建或读取草稿返回的 draftId。",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "description": "必填，填写草稿当前 revision，防止丢弃他人更新。",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "data 包含 draftId 与 discarded=true；草稿不存在返回 404，修订号冲突返回 409。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数不符合契约，检查 error.message 和 error.details。"
+          },
+          "401": {
+            "description": "缺少或使用了无效 Bearer API Key。"
+          },
+          "403": {
+            "description": "密钥缺少所需权限，检查 error.details.requiredScopes。"
+          },
+          "429": {
+            "description": "请求超过客户端限额，稍后重试。"
+          },
+          "default": {
+            "description": "检查响应 status 以及 error 的 code、message、stage、retryable、action；用 auditId 关联调用审计。"
+          }
+        }
+      },
       "get": {
         "operationId": "GetOntologyDraft",
         "summary": "读取本体草稿",

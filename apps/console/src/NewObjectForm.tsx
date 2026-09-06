@@ -13,7 +13,7 @@ export function NewObjectForm({ tables, busy, onCreate, onRefresh, onCancel, ini
 }) {
   const initial = tables.find(table => table.id === initialTableId);
   const [tableId, setTableId] = useState(initialTableId);
-  const [name, setName] = useState(initial?.name ?? "");
+  const [name] = useState(() => `object_${crypto.randomUUID().replaceAll("-", "")}`);
   const [label, setLabel] = useState(initial?.description || initial?.name || "");
   const [identity, setIdentity] = useState("");
   const [objectType, setObjectType] = useState<OntologyObject["objectType"]>("ENTITY");
@@ -44,9 +44,8 @@ export function NewObjectForm({ tables, busy, onCreate, onRefresh, onCancel, ini
     <p>选择来源表与对象类型，确认业务名称及每行代表的业务含义。</p>
     {!tables.length ? <p>请先在<a href="?page=data">数据源</a>中保存连接并扫描表字段，再刷新列表。</p> : null}
     <div className="definition-grid">
-      <label className="definition-field editable-field"><span>来源表</span><select aria-label="新对象来源表" required value={tableId} disabled={busy} onChange={event => { setTableId(event.target.value); setIdentity(""); setGrain([]); setReferences([]); const selected = tables.find(item => item.id === event.target.value); setName(selected?.name ?? ""); setLabel(selected?.description || selected?.name || ""); }}><option value="">请选择已扫描的表</option>{tables.map(item => <option key={item.id} value={item.id}>{item.database}.{item.name}</option>)}</select></label>
+      <label className="definition-field editable-field"><span>来源表</span><select aria-label="新对象来源表" required value={tableId} disabled={busy} onChange={event => { setTableId(event.target.value); setIdentity(""); setGrain([]); setReferences([]); const selected = tables.find(item => item.id === event.target.value); setLabel(selected?.description || selected?.name || ""); }}><option value="">请选择已扫描的表</option>{tables.map(item => <option key={item.id} value={item.id}>{item.database}.{item.name}</option>)}</select></label>
       <label className="definition-field editable-field"><span>对象类型</span><select aria-label="新对象类型" value={objectType} disabled={busy} onChange={event => setObjectType(event.target.value as OntologyObject["objectType"])}>{OBJECT_TYPES.map(type => <option value={type} key={type}>{term(type)}</option>)}</select></label>
-      <label className="definition-field editable-field"><span>机器标识</span><input aria-label="新对象机器标识" required value={name} disabled={busy} onChange={event => setName(event.target.value)} /></label>
       <label className="definition-field editable-field"><span>业务名称</span><input aria-label="新对象业务名称" required value={label} disabled={busy} onChange={event => setLabel(event.target.value)} /></label>
       <label className="definition-field editable-field"><span>唯一标识字段{objectType === "ENTITY" ? "（必选，需确认值唯一）" : "（可选）"}</span><select aria-label="新对象唯一标识字段" required={objectType === "ENTITY"} value={identity} disabled={busy} onChange={event => setIdentity(event.target.value)}><option value="">{objectType === "ENTITY" ? "请选择唯一标识" : "不设置独立标识"}</option>{table?.columns.filter(column => !column.sensitive).map(column => <option key={column.name} value={column.name}>{column.name}</option>)}</select></label>
     </div>

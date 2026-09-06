@@ -9,6 +9,7 @@ export const API_DOCS = {
   ListOntologyVersions: doc("列出发布版本", "查看命名空间的发布历史，用于选择查询版本或创建回滚草稿。", "ontology:read", "data 为版本列表，包含发布时间、变更说明及定义数量。"),
   DiffOntologyVersions: doc("比较本体版本", "比较目标版本与基线，查看对象、关系、指标、公理及推论的增删改。", "ontology:read", "data 包含 baseVersion 及各类定义的 added、changed、removed。"),
   CreateOntologyDraft: doc("创建本体草稿", "基于发布版本创建可编辑草稿；空命名空间可从 latest 创建首个草稿。sourceVersion 用于将历史版本复制为回滚草稿。", "ontology:draft", "data 包含 draftId、revision、snapshot、physicalTables 和已有回归报告。"),
+  DiscardOntologyDraft: doc("放弃本体草稿", "永久丢弃指定草稿。If-Match 必须填写当前 revision；不改变已发布版本、数据源或值索引。", "ontology:draft", "data 包含 draftId 与 discarded=true；草稿不存在返回 404，修订号冲突返回 409。"),
   GetOntologyDraft: doc("读取本体草稿", "读取草稿及其当前修订号，后续修改需要提交该 revision。", "ontology:draft", "data 包含草稿快照、revision、已扫描表和回归报告；草稿不存在时返回 404。"),
   PatchOntologyDraft: doc("修改本体草稿", "以一组原子操作新增、更新或移除对象、关系、指标和层级，同时生成公理校验结果。保存成功不等于可发布。", "ontology:draft", "data 返回新 revision、snapshot 和 validation；并发修订冲突返回 409。"),
   ValidateOntologyDraft: doc("校验草稿", "执行公理校验和可选的查询编译回归，预览推论；回归只编译查询，不执行正式业务查询。", "ontology:draft", "data 包含 valid、issues、公理与推论及回归结果；valid 为 false 时应修复后再发布。"),

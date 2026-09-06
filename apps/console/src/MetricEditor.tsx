@@ -2,12 +2,12 @@ import type { Metric, OntologyObject, PhysicalTable } from "../../../packages/co
 import { effectiveMetrics, propertyMetric } from "../../../packages/domain/src/property-metrics.js";
 import { term } from "./axiom-copy.js";
 
-export function newMetric(object: OntologyObject): Metric {
-  const property = object.properties.find(p => propertyMetric(object, p));
+export function newMetric(object: OntologyObject, propertyId?: string): Metric {
+  const property = object.properties.find(p => (!propertyId || p.id === propertyId) && propertyMetric(object, p));
   const defaults = property && propertyMetric(object, property);
   const id = `metric_${crypto.randomUUID()}`;
-  return defaults ? { ...defaults, description: "", id, name: `metric_${object.name}_${property!.name}`, label: `${property!.label}指标`, status: "DRAFT" } : {
-    id, name: `metric_${object.name}_count`, label: `${object.label}数量`, description: "对象记录数", metricType: "BASE", objectId: object.id,
+  return defaults ? { ...defaults, description: "", id, name: id.replaceAll("-", ""), label: `${property!.label}指标`, status: "DRAFT" } : {
+    id, name: id.replaceAll("-", ""), label: `${object.label}数量`, description: "对象记录数", metricType: "BASE", objectId: object.id,
     definitionMode: "VISUAL", expression: "COUNT(*)", aggregation: "COUNT", format: "number", synonyms: [], status: "DRAFT",
   };
 }
@@ -29,7 +29,7 @@ export function MetricEditor({ json, objects, metrics, tables, editing, busy, on
 }) {
   let metric: Metric | undefined;
   try { const parsed = JSON.parse(json); if (parsed.id) metric = parsed; } catch { /* 保留临时 JSON 编辑内容。 */ }
-  if (!metric) return <p className="model-empty-copy">选择一个指标，或点击“新建指标”从对象属性构建。</p>;
+  if (!metric) return <p className="model-empty-copy">选择已有指标，或从右侧度量字段构建业务指标。</p>;
   const value = metric;
   const object = objects.find(o => o.id === value.objectId);
   const fields = object?.properties.filter(p => !p.sensitive && p.visibility === "ANALYTICAL") ?? [];
@@ -56,7 +56,6 @@ export function MetricEditor({ json, objects, metrics, tables, editing, busy, on
     <p className="model-help">选择对象属性即可构建基础指标。度量字段也可直接使用属性编码查询，默认聚合与单位随属性定义生效。</p>
     <div className="model-form-grid">
       <label className="model-field"><span>定义名称</span><input aria-label="定义名称" readOnly={!editing} value={value.label} onChange={e => change({ label: e.target.value })} /></label>
-      <label className="model-field"><span>定义编码</span><input aria-label="定义编码" readOnly={!editing} value={value.name} onChange={e => change({ name: e.target.value })} /></label>
       {select("指标所属对象", value.objectId, objects.map(o => [o.id, o.label]), id => {
         const nextObject = objects.find(o => o.id === id);
         if (nextObject) { const defaults = newMetric(nextObject); change({ objectId: id, metricType: "BASE", definitionMode: "VISUAL", sourcePropertyId: defaults.sourcePropertyId, aggregation: defaults.aggregation, format: defaults.format, unit: defaults.unit, timePropertyId: nextObject.defaultTimePropertyId, leftMetricId: undefined, rightMetricId: undefined, calculationOperator: undefined, scale: undefined, filterExpression: undefined }); }
@@ -80,6 +79,7 @@ export function MetricEditor({ json, objects, metrics, tables, editing, busy, on
       <label className="model-field wide"><span>{mode === "SQL" ? "计算表达式" : "生成表达式"}</span><textarea aria-label="指标计算表达式" readOnly={!editing || mode !== "SQL"} value={value.expression} onChange={e => change({ expression: e.target.value })} /></label>
       <label className="model-field wide"><span>业务说明</span><textarea aria-label="定义业务说明" readOnly={!editing} value={value.description} onChange={e => change({ description: e.target.value })} /></label>
     </div>
+    <details className="model-advanced"><summary>高级信息</summary><label className="model-field"><span>定义编码</span><input aria-label="定义编码" readOnly value={value.name} /></label></details>
     <details className="model-advanced"><summary>高级定义 JSON</summary><p className="model-help">完整指标定义，可配置固定过滤条件、时间属性、同义词与缩放倍数。</p><textarea className="definition-editor" aria-label="指标或层级定义" readOnly={!editing} value={json} onChange={e => onChange(e.target.value)} /></details>
     {editing && <button className="primary-button" disabled={busy} onClick={onSave}>保存定义</button>}
   </div>;

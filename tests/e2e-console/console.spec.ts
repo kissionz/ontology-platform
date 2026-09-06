@@ -101,6 +101,11 @@ test("an empty installation can configure its source and publish its first ontol
   await page.getByRole("button", { name: "本体", exact: true }).click();
   await page.getByRole("button", { name: "创建空白草稿", exact: true }).click();
   await expect(page.getByRole("heading", { name: "从物理表添加对象" })).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "放弃草稿", exact: true }).click();
+  await expect(page.getByRole("button", { name: "创建空白草稿", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "创建空白草稿", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "从物理表添加对象" })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: "从物理表添加对象" })).toBeVisible();
   await page.getByLabel("新对象来源表").selectOption("selectdb:bu");
@@ -109,6 +114,10 @@ test("an empty installation can configure its source and publish its first ontol
   await page.screenshot({ path: `${tmpdir()}/ontology-platform-first-object-1280.png`, fullPage: true });
   await page.getByRole("button", { name: "创建对象", exact: true }).click();
   await expect(page.getByText("对象已创建，请检查属性语义后校验草稿", { exact: true })).toBeVisible();
+  await page.getByText("高级语义设置", { exact: true }).click();
+  expect(await page.getByLabel("对象编码", { exact: true }).inputValue()).toMatch(/^object_[a-f0-9]{32}$/);
+  await expect(page.getByLabel("对象编码", { exact: true })).toHaveAttribute("readonly", "");
+
   await page.getByRole("button", { name: "校验草稿", exact: true }).click();
   await expect(page.getByText(/revision \d+ · 校验通过/)).toBeVisible();
   await page.getByRole("button", { name: "发布版本", exact: true }).click();
@@ -146,9 +155,7 @@ test("draft catalogs, publication and parameterized API debugging are interactiv
   await page.getByLabel("指标或层级定义").fill(JSON.stringify(metric, null, 2));
   await page.getByRole("button", { name: "保存定义", exact: true }).click();
   await expect(page.getByText("定义已保存，公理校验通过")).toBeVisible();
-  await page.getByRole("button", { name: "层级", exact: true }).click();
-  await page.getByText("高级定义 JSON", { exact: true }).click();
-  await expect(page.getByLabel("指标或层级定义")).toContainText('"FIXED_LEVELS"');
+  await expect(page.getByRole("button", { name: "层级", exact: true })).toHaveCount(0);
   await page.getByText("发布检查与回归用例", { exact: true }).click();
   await page.getByText("Golden Cases · 编译回归用例", { exact: true }).click();
   await page.getByLabel("Golden Cases 定义").fill(JSON.stringify([{ id: "sales", label: "销售指标回归", queryShape: { rootObjectId: "o_order", measureIds: ["m_sales"], dimensionPropertyIds: [], filters: [], sort: [], limit: 20 }, expected: { measureIds: ["m_sales"] } }]));
@@ -186,7 +193,7 @@ test("API reference covers every endpoint and provides MCP and SDK guides", asyn
   await page.goto("/?page=system");
   await page.getByRole("button", { name: "API 说明", exact: true }).click();
   const selector = page.getByLabel("选择文档接口");
-  await expect(selector.locator("option")).toHaveCount(29);
+  await expect(selector.locator("option")).toHaveCount(30);
   const values = await selector.locator("option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
   for (const value of values) {
     await selector.selectOption(value);
@@ -453,8 +460,8 @@ test("metric editor builds field metrics, property compositions and SQL template
   await page.goto("/?page=ontology");
   await page.getByRole("button", { name: /在草稿中编辑/ }).click();
   await page.getByRole("button", { name: "指标", exact: true }).click();
-  await page.getByRole("button", { name: "新建指标", exact: true }).click();
-  await expect(page.getByText("指标已创建，可选择对象属性调整口径")).toBeVisible();
+  await page.getByRole("button", { name: "从订单·销售金额构建指标", exact: true }).click();
+  await expect(page.getByText("请确认指标名称和计算口径，再保存定义")).toBeVisible();
   await page.getByLabel("指标所属对象", { exact: true }).selectOption("o_order");
   await page.getByLabel("定义名称", { exact: true }).fill("浏览器成本指标");
   await page.getByLabel("计算字段", { exact: true }).selectOption("p_cost");
@@ -580,3 +587,38 @@ for (const slower of ["published", "draft"] as const) {
     await expect(page.getByRole("button", { name: "配置属性 销售金额", exact: true })).toBeVisible();
   });
 }
+
+test("metric creation uses automatic stable codes, deletion protects dependencies, and drafts can be discarded", async ({ page }) => {
+  await page.goto("/?page=ontology");
+  await page.getByRole("button", { name: "在草稿中编辑", exact: true }).click();
+  await page.getByRole("button", { name: "指标", exact: true }).click();
+  await expect(page.getByRole("button", { name: "新建指标", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "删除指标 销售额", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("引用");
+  await page.getByRole("button", { name: "从订单·销售金额构建指标", exact: true }).click();
+  await page.getByText("高级信息", { exact: true }).click();
+  const code = await page.getByLabel("定义编码", { exact: true }).inputValue();
+  expect(code).toMatch(/^metric_[a-f0-9]{32}$/);
+  await expect(page.getByLabel("定义编码", { exact: true })).toHaveAttribute("readonly", "");
+  await page.getByLabel("定义名称", { exact: true }).fill("临时销售指标");
+  await page.getByRole("button", { name: "保存定义", exact: true }).click();
+  await expect(page.getByText("定义已保存，公理校验通过", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("定义编码", { exact: true })).toHaveValue(code);
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "删除指标 临时销售指标", exact: true }).click();
+  await expect(page.getByText("指标已从草稿删除，发布后生效", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "删除指标 临时销售指标", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "组合指标 · 使用计算模板", exact: true }).click();
+  await expect(page.getByLabel("左侧指标或度量", { exact: true })).not.toHaveValue("");
+  await expect(page.getByLabel("右侧指标或度量", { exact: true })).not.toHaveValue("");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("button", { name: "放弃草稿", exact: true }).click();
+  await expect(page.getByRole("button", { name: "放弃草稿", exact: true })).toBeVisible();
+  const discarded = page.waitForResponse(response => response.request().method() === "DELETE" && response.url().includes("/drafts/"));
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "放弃草稿", exact: true }).click();
+  expect((await discarded).ok()).toBeTruthy();
+  await expect(page.getByRole("button", { name: "在草稿中编辑", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "放弃草稿", exact: true })).toHaveCount(0);
+});

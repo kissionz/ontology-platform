@@ -1,6 +1,7 @@
 import { businessExpression, sourceTableLabel } from "./inspector-copy.js";
 import { graphLayout, edgeAnchor, type Point } from "./graph-layout.js";
-import { MetricEditor, newMetric } from "./MetricEditor.js";
+import { effectiveMetrics, propertyMetric } from "../../../packages/domain/src/property-metrics.js";
+import { MetricEditor, metricExpression, newMetric } from "./MetricEditor.js";
 import { ContextSummary } from "./ContextSummary.js";
 import { ApiReference } from "./ApiReference.js";
 import { IntegrationGuide } from "./IntegrationGuide.js";
@@ -366,7 +367,7 @@ async function api<T>(path: string, key: string, init: RequestInit = {}) {
     ...init,
     headers: {
       ...(key ? { authorization: `Bearer ${key}` } : {}),
-      "content-type": "application/json",
+      ...(init.body ? { "content-type": "application/json" } : {}),
       ...init.headers,
     },
   });
@@ -822,6 +823,8 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const [catalogTab, setCatalogTab] = useState<"objects" | "metrics" | "dimensionHierarchies">("objects");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [definitionId, setDefinitionId] = useState("");
+  const [pendingMetric, setPendingMetric] = useState<import("../../../packages/contracts/src/index.js").Metric>();
+  const [metricSearch, setMetricSearch] = useState("");
   const [definitionJson, setDefinitionJson] = useState("");
   const [objectForm, setObjectForm] = useState<any>();
   const [batchPatch, setBatchPatch] = useState("[]");
@@ -965,26 +968,52 @@ function Ontology({ apiKey }: { apiKey: string }) {
       setBusy(false);
     }
   };
-  const definition = snapshot?.[catalogTab]?.find((item) => item.id === definitionId);
+  const definition = pendingMetric ?? snapshot?.[catalogTab]?.find((item) => item.id === definitionId);
   useEffect(() => { setDefinitionJson(JSON.stringify(definition ?? {}, null, 2)); }, [definition, catalogTab]);
   const saveDefinition = async () => {
     if (!draft || catalogTab === "objects") return;
+    setMessage("");
     setBusy(true);
     try {
       const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "PATCH", body: JSON.stringify({ revision: draft.revision, operations: [{ op: catalogTab === "metrics" ? "UPSERT_METRIC" : "UPSERT_HIERARCHY", value: JSON.parse(definitionJson) }] }) });
-      setDraft(result); setMessage(result.validation.valid ? "定义已保存，公理校验通过" : "定义已保存，请处理校验项");
+      setDraft(result); setPendingMetric(undefined); setMessage(result.validation.valid ? "定义已保存，公理校验通过" : "定义已保存，请处理校验项");
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
-  const addMetric = async () => {
+  const addMetric = (objectId?: string, propertyId?: string, composition = false) => {
     if (!draft || !canLeaveObject()) return;
-    const target = editorSnapshot.objects.find(o => o.id === selected) ?? editorSnapshot.objects[0];
+    const candidates = composition ? editorSnapshot.objects.filter(object => effectiveMetrics(editorSnapshot).some(metric => metric.objectId === object.id)) : editorSnapshot.objects;
+    const target = candidates.find(o => o.id === (objectId ?? selected)) ?? candidates[0] ?? editorSnapshot.objects[0];
     if (!target) { setMessage("请先创建业务对象"); return; }
+    let metric = newMetric(target, propertyId);
+    if (composition) {
+      const operands = effectiveMetrics(editorSnapshot).filter(metric => metric.objectId === target.id);
+      metric = { ...metric, label: "组合指标", metricType: "DERIVED", sourcePropertyId: undefined, aggregation: "CUSTOM", leftMetricId: operands[0]?.id, rightMetricId: operands[1]?.id ?? operands[0]?.id, calculationOperator: "SUBTRACT" };
+      metric.expression = metricExpression(metric, target);
+    }
+    setPendingMetric(metric); setDefinitionId(metric.id); setDefinitionJson(JSON.stringify(metric, null, 2)); setMessage("请确认指标名称和计算口径，再保存定义");
+  };
+  const removeMetric = async (id: string) => {
+    if (!draft || !canLeaveObject()) return;
+    const dependents = draft.snapshot.metrics.filter((m: any) => m.leftMetricId === id || m.rightMetricId === id);
+    if (dependents.length) { setMessage(`该指标被 ${dependents.map((m: any) => m.label).join("、")} 引用，请先调整这些指标的计算口径`); return; }
+    const label = draft.snapshot.metrics.find((m: any) => m.id === id)?.label;
+    if (!window.confirm(`删除指标“${label}”？发布后生效。`)) return;
     setBusy(true);
     try {
-      const metric = newMetric(target);
-      const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "PATCH", body: JSON.stringify({ revision: draft.revision, operations: [{ op: "UPSERT_METRIC", value: metric }] }) });
-      setDraft(result); setDefinitionId(metric.id); setMessage("指标已创建，可选择对象属性调整口径");
+      const result = await api<any>(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "PATCH", body: JSON.stringify({ revision: draft.revision, operations: [{ op: "REMOVE_METRIC", id }] }) });
+      setDraft(result); setPendingMetric(undefined); if (definitionId === id) setDefinitionId(result.snapshot.metrics[0]?.id ?? ""); setMessage("指标已从草稿删除，发布后生效");
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); }
+  };
+  const discardDraft = async () => {
+    if (!draft || !window.confirm("放弃当前草稿？草稿中已保存及未保存的修改都将丢弃，已发布版本和数据源配置保留。")) return;
+    setBusy(true);
+    try {
+      await api(`/v1/namespaces/retail/drafts/${draft.draftId}`, apiKey, { method: "DELETE", headers: { "If-Match": String(draft.revision) } });
+      sessionStorage.removeItem("ontology-active-draft");
+      history.replaceState(null, "", "?page=ontology"); setRoute(new URLSearchParams({ page: "ontology" }));
+      setDraft(undefined); setEditing(false); setPendingMetric(undefined); setAddingObject(false); setPendingDelete(""); setRelationEdits([]); setBatchPatch("[]"); setCatalogTab("objects"); setMessage("草稿已放弃"); snap.reload();
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
   };
@@ -1005,7 +1034,7 @@ function Ontology({ apiKey }: { apiKey: string }) {
   const tables: PhysicalTable[] = sources.data?.tables ?? draft?.physicalTables ?? [];
   const availableTables = tables.filter(table => !snapshot?.objects.some(item => item.sourceTableId === table.id));
   const visibleTables = availableTables.filter(table => `${table.name} ${table.description ?? ""}`.toLocaleLowerCase().includes(tableSearch.toLocaleLowerCase()));
-  const dirty = Boolean(editing && ((object && objectForm && (JSON.stringify(objectForm) !== JSON.stringify(object) || relationEdits.length || batchPatch.trim() !== "[]")) || (catalogTab !== "objects" && definitionJson !== JSON.stringify(definition ?? {}, null, 2))));
+  const dirty = Boolean(editing && (pendingMetric || (object && objectForm && (JSON.stringify(objectForm) !== JSON.stringify(object) || relationEdits.length || batchPatch.trim() !== "[]")) || (catalogTab !== "objects" && definitionJson !== JSON.stringify(definition ?? {}, null, 2))));
   const canLeaveObject = () => {
     if (!dirty) return true;
     if (!window.confirm("当前定义有未保存修改，是否放弃这些修改？")) return false;
@@ -1072,15 +1101,14 @@ function Ontology({ apiKey }: { apiKey: string }) {
         <section className="ontology-columns">
           <aside className="panel model-catalog">
             <PanelHeader title="对象目录" subtitle="业务语义"><Badge tone={editing ? "warning" : "success"}>{editing ? "草稿待发布" : "已发布"}</Badge></PanelHeader>
-            <div className="catalog-tabs">{([["objects", "对象"], ["metrics", "指标"], ["dimensionHierarchies", "层级"]] as const).map(([id, label]) => <button key={id} className={catalogTab === id ? "active" : ""} onClick={() => { if (!canLeaveObject()) return; setCatalogTab(id); setAddingObject(false); setDefinitionId(snapshot?.[id]?.[0]?.id ?? ""); }}>{label}</button>)}</div>
+            <div className="catalog-tabs">{([["objects", "对象"], ["metrics", "指标"]] as const).map(([id, label]) => <button key={id} className={catalogTab === id ? "active" : ""} onClick={() => { if (!canLeaveObject()) return; setCatalogTab(id); setPendingMetric(undefined); setAddingObject(false); setDefinitionId(snapshot?.[id]?.[0]?.id ?? ""); }}>{label}</button>)}</div>
             <input className="catalog-search" aria-label="搜索本体目录" placeholder="搜索名称或标识" value={catalogSearch} onChange={event => setCatalogSearch(event.target.value)} />
             <div className="catalog-list">
               {catalogTab === "objects" && snapshot?.objects.filter(item => `${item.label} ${item.name}`.toLocaleLowerCase().includes(catalogSearch.toLocaleLowerCase())).map(item => <div className={`model-catalog-row ${selected === item.id && !addingObject ? "active" : ""}`} key={item.id}>
-                <button className="catalog-item" onClick={() => { if (!canLeaveObject()) return; setSelected(item.id); setAddingObject(false); }}><span className="catalog-icon"><CirclesThreePlus size={17} /></span><span><strong>{item.label}</strong><small>{item.name} · {item.properties.length} 个属性</small></span><CaretRight size={13} /></button>
+                <button className="catalog-item" onClick={() => { if (!canLeaveObject()) return; setSelected(item.id); setAddingObject(false); }}><span className="catalog-icon"><CirclesThreePlus size={17} /></span><span><strong>{item.label}</strong><small>{term(item.objectType)} · {item.properties.length} 个属性</small></span><CaretRight size={13} /></button>
                 {editing && <button className="icon-button delete-object" aria-label={`删除对象 ${item.label}`} title={`删除对象 ${item.label}`} disabled={busy} onClick={() => { if (canLeaveObject()) setPendingDelete(item.id); }}><Trash size={15} /></button>}
               </div>)}
-              {catalogTab === "metrics" && editing && <button className="secondary-button" disabled={busy} onClick={() => void addMetric()}>新建指标</button>}
-              {catalogTab !== "objects" && snapshot?.[catalogTab]?.filter(item => `${item.label} ${item.id}`.includes(catalogSearch)).map(item => <button className={`catalog-item ${definitionId === item.id ? "active" : ""}`} key={item.id} onClick={() => setDefinitionId(item.id)}><span><strong>{item.label}</strong><small>{item.id}</small></span></button>)}
+              {catalogTab !== "objects" && snapshot?.[catalogTab]?.filter(item => `${item.label} ${item.id}`.includes(catalogSearch)).map(item => <div className={`model-catalog-row ${definitionId === item.id ? "active" : ""}`} key={item.id}><button className="catalog-item" onClick={() => { if (!canLeaveObject()) return; setPendingMetric(undefined); setDefinitionId(item.id); }}><span><strong>{item.label}</strong><small>{snapshot?.objects.find(object => object.id === (item as any).objectId)?.label ?? "业务定义"}</small></span></button>{editing && catalogTab === "metrics" && <button className="icon-button delete-object" aria-label={`删除指标 ${item.label}`} title={`删除指标 ${item.label}`} disabled={busy} onClick={() => void removeMetric(item.id)}><Trash size={15} /></button>}</div>)}
               {catalogTab === "objects" && !snapshot?.objects.length && <p className="model-empty-copy">从右侧选择待建模表，创建第一个业务对象。</p>}
             </div>
           </aside>
@@ -1096,18 +1124,27 @@ function Ontology({ apiKey }: { apiKey: string }) {
             {editing && catalogTab === "objects" && (addingObject || !snapshot?.objects.length) ? <NewObjectForm key={newTableId} initialTableId={newTableId} tables={availableTables} busy={busy} onCreate={addObject} onRefresh={() => { sources.reload(); void refreshDraft(); }} onCancel={snapshot?.objects.length ? () => setAddingObject(false) : undefined} /> : catalogTab === "objects" && object && objectForm ? <ObjectDefinitionEditor key={`${object.id}:${editing}`} value={editing ? objectForm : object} snapshot={editorSnapshot} tables={tables} editing={editing} busy={busy} dirty={dirty} onChange={setObjectForm} onSave={() => void save()} onReference={changeReference} onRelationChange={relation => setRelationEdits(current => [...current.filter(op => ("value" in op ? op.value.id : op.id) !== relation.id), { op: "UPSERT_RELATION", value: relation }])} onRelationRemove={id => setRelationEdits(current => [...current.filter(op => ("value" in op ? op.value.id : op.id) !== id), { op: "REMOVE_RELATION", id }])} advancedRelations={<details className="model-advanced"><summary>高级关联定义</summary><p className="model-help">用于复杂关系、指标与层级的批量变更，随对象一起保存。</p><textarea className="definition-editor" aria-label="关联定义批量变更" value={batchPatch} onChange={event => setBatchPatch(event.target.value)} /></details>} /> : catalogTab === "metrics" ? <MetricEditor json={definitionJson} editing={editing} busy={busy} objects={editorSnapshot.objects} metrics={editorSnapshot.metrics} tables={tables} onChange={setDefinitionJson} onSave={() => void saveDefinition()} /> : catalogTab !== "objects" ? <CatalogDefinitionEditor key={catalogTab} kind={catalogTab} json={definitionJson} editing={editing} busy={busy} objects={snapshot?.objects ?? []} onChange={setDefinitionJson} onSave={() => void saveDefinition()} /> : <p className="model-empty-copy">选择对象查看业务定义。</p>}
           </section>
           <aside className="panel model-pending">
+            {catalogTab === "metrics" ? <>
+            <PanelHeader title="可用度量字段" subtitle="构建指标" />
+            <p className="model-empty-copy">选择字段配置业务指标，或使用模板组合计算。</p>
+            <input className="catalog-search" aria-label="筛选度量字段" placeholder="搜索对象或度量名称" value={metricSearch} onChange={event => setMetricSearch(event.target.value)} />
+            <div className="pending-table-list metric-source-list">{editorSnapshot.objects?.map(object => { const fields = object.properties.filter(property => propertyMetric(object, property) && `${object.label} ${property.label}`.includes(metricSearch)); return fields.length ? <section key={object.id}><h3>{object.label}</h3>{fields.map(property => <button className="metric-source-item" key={property.id} disabled={!editing || busy} aria-label={`从${object.label}·${property.label}构建指标`} onClick={() => addMetric(object.id, property.id)}><span>{property.label}</span><small>{term(property.numericSpec?.defaultAggregation ?? "NONE")}{property.numericSpec?.unit ? ` · ${property.numericSpec.unit}` : ""}</small><Plus size={14} /></button>)}</section> : null; })}{!editorSnapshot.objects?.some(object => object.properties.some(property => propertyMetric(object, property))) && <p className="model-empty-copy">请先在对象属性中配置可聚合的度量字段。</p>}</div>
+            </> : <>
             <PanelHeader title="待建模表" subtitle="增量建模"><Badge>{availableTables.length}</Badge></PanelHeader>
             <p className="model-empty-copy">选择物理表，配置对象类型和业务语义。</p>
             <input className="catalog-search" aria-label="筛选待建模表" placeholder="筛选表名称或注释" value={tableSearch} onChange={event => setTableSearch(event.target.value)} />
             <div className="pending-table-list">{visibleTables.map(table => <label key={table.id} className={pendingTable === table.id ? "active" : ""}><input type="radio" name="pending-table" checked={pendingTable === table.id} onChange={() => setPendingTable(table.id)} /><span><strong title={table.name}>{table.name}</strong>{table.description && <small>{table.description}</small>}</span></label>)}{!visibleTables.length && <p className="model-empty-copy">{availableTables.length ? "没有匹配的数据表" : "暂无待建模表"}</p>}</div>
             {sources.error && !tables.length && <p className="model-empty-copy">扫描表暂不可用，请在数据源页面检查连接。</p>}
+            </>}
             <div className="model-pending-actions">
+              {catalogTab === "metrics" ? <button className="secondary-button" disabled={busy || !editing || !snapshot?.objects.length} onClick={() => addMetric(undefined, undefined, true)}>组合指标 · 使用计算模板</button> : <>
               <button className="secondary-button" disabled={busy || !pendingTable} onClick={() => void beginAdd()}><Plus size={15} />从所选表添加对象</button>
-              <a className="text-button" href="?page=data">管理数据源与扫描表</a>
+              <a className="text-button" href="?page=data">管理数据源与扫描表</a></>}
               {!editing ? <button className="primary-button" disabled={busy} onClick={createDraft}>在草稿中编辑</button> : <>
                 <label className="model-field"><span>发布变更说明</span><input value={changeSummary} onChange={event => setChangeSummary(event.target.value)} /></label>
                 <button className="secondary-button" disabled={busy || dirty} onClick={validate}>校验草稿</button>
                 <button className="primary-button" disabled={busy || dirty || !draft?.validation?.valid || draft.validation.revision !== draft.revision} onClick={publish}>发布版本</button>
+                <button className="danger-button" disabled={busy} onClick={() => void discardDraft()}><Trash size={15} />放弃草稿</button>
                 {dirty && <small className="model-help">请先保存对象修改，再校验和发布。</small>}
                 <details className="model-validation" open={showReport} onToggle={event => setShowReport(event.currentTarget.open)}>
                   <summary>发布检查与回归用例</summary>

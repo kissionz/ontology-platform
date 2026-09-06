@@ -17,6 +17,7 @@ export const RESPONSE_FIELDS: Record<string, ResponseField[]> = {
  GetOntologyGraph: fields([['ontologyVersion','number','版本。'],['nodes[]','object[]','图节点：标识、标签和类型。'],['edges[]','object[]','图连线：源、目标及关系信息。']]),
  ListOntologyVersions: fields([['[].version / [].status','number / string','版本及发布状态，按版本倒序。'],['[].publishedAt / [].publishedBy','string','发布时间与发布人。'],['[].changeSummary','string','变更说明。'],['[].objectCount / [].relationCount / [].metricCount','number','定义数量。'],['[].contentDigest / [].inferenceDigest','string','版本摘要。']]),
  DiffOntologyVersions: fields([['baseVersion','number','实际比较基线。'],['objects / relations / metrics / hierarchies / axioms / inferences','object','每类包含 added、changed、removed，用于展示增删改。']]),
+ DiscardOntologyDraft:[{ path: "draftId", type: "string", description: "已放弃的草稿标识" }, { path: "discarded", type: "boolean", description: "成功时为 true" }],
  CreateOntologyDraft:draft,GetOntologyDraft:draft,PatchOntologyDraft:draft,
  ValidateOntologyDraft: fields([['valid','boolean','是否通过公理校验。'],['issues[]','object[]','校验问题：规则、位置及说明。'],['axiomAssertions[] / inferencePreview[]','object[]','公理和推论预览。'],['goldenCases','object','查询编译回归报告；只编译，不执行业务数据查询。'],['draftId / revision','string / number','被校验的草稿及修订号。'],['digests','object','content 和 inference 摘要。']]),
  ListAxiomAssertions:fields([['[].id / [].axiomCode','string','公理实例 ID 和规则编码。'],['[].subjectId / [].subjectType','string','约束对象及类型。'],['[].parameters','object','规则参数。'],['[].enforcement / [].severity','string','生效阶段与严重性。'],['[].sourceDefinitionIds[]','string[]','生成此公理的定义 ID。']]),

@@ -57,3 +57,26 @@ it("rejects unusable numeric defaults, hidden operands and cross-object composit
   snapshot.metrics[2]!.leftMetricId = "p_sales"; snapshot.metrics[2]!.objectId = "o_store";
   expect(runKernel(snapshot).issues.some(i => i.code === "METRIC_SINGLE_FACT")).toBe(true);
 });
+
+it("uses physical source bindings when object and metric codes are automatically generated", async () => {
+  const { newMetric } = await import("../../apps/console/src/MetricEditor.js");
+  const store = new SqlitePlatformStore(":memory:"); const data = new DatabaseSync(":memory:");
+  try {
+    data.exec("ATTACH DATABASE ':memory:' AS retail; CREATE TABLE retail.orders(sales REAL); INSERT INTO retail.orders VALUES (100),(300);");
+    const snapshot = validSnapshot();
+    const object = snapshot.objects.find(o => o.id === "o_order")!;
+    object.name = `object_${crypto.randomUUID().replaceAll("-", "")}`;
+    const metric = newMetric(object, "p_sales"); metric.label = "自动指标";
+    expect(metric.name).toMatch(/^metric_[a-f0-9]{32}$/);
+    expect(newMetric(object, "p_sales").name).not.toBe(metric.name);
+    snapshot.metrics = [metric]; snapshot.relations = []; snapshot.dimensionHierarchies = [];
+    store.savePublished(finalizeSnapshot(snapshot)); physicalTables().forEach(t => store.putPhysicalTable("selectdb", t));
+    const platform = new OntologyPlatform(store, { execute: async (sql, parameters) => {
+      const rows = data.prepare(sql).all(...parameters as string[]) as Record<string, unknown>[];
+      return { rows, columns: Object.keys(rows[0] ?? {}), rowCount: rows.length, truncated: false };
+    } });
+    const result = await platform.executeSemanticQuery({ namespace: "retail", queryMode: "FIXED_SHAPE", queryShape: { rootObjectId: object.id, measureIds: [metric.id], dimensionPropertyIds: [], filters: [], sort: [] } });
+    expect(result.status).toBe("SUCCEEDED");
+    expect(result.data).toMatchObject({ rows: [{ 自动指标: 400 }] });
+  } finally { store.close(); data.close(); }
+});
